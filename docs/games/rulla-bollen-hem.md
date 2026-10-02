@@ -57,8 +57,9 @@ Banorna trappar svårighet (rak → vinkel → hörn/studs → vind → hinder) 
 - **[Medium] Senarelägg/mjuka hjälpen.** Låt fler fria försök innan auto-skott, och låt
   hjälp-skottet bara sikta (inte garantera) tidigare — glide-home som absolut sista utväg.
   Behåll no-fail men låt barnets egna skott betyda mer.
-- **[Quick] Tap-fallback mindre perfekt.** Sänk `tapPower`/sprid `defaultAim` lite så ett tap
-  ger en lekfull knuff snarare än ett facit-skott — drag belönas tydligare.
+- ✅ ~~**[Quick] Tap-fallback mindre perfekt.** Sänk `tapPower`/sprid `defaultAim` lite så ett tap
+  ger en lekfull knuff snarare än ett facit-skott — drag belönas tydligare.~~ Redan gjord
+  (`tapPower: 0.62`, 2026-07-01) — uppdagat 2026-10-02.
 
 ### Variation & överraskning
 - **[Quick] Rikare banor.** Fler/varierade hinder (svängande grind, rörlig studsdyna, en
@@ -97,6 +98,17 @@ Banorna trappar svårighet (rak → vinkel → hörn/studs → vind → hinder) 
 
 ## 5. Status / loggar
 
+- 2026-10-02 🎨 **L2: banan ligger i en trädgård** (`tradgard.js`, ny fil). Planen var en platt grön
+  yta på en platt grön yta. Nu: en rest vedkant runt banan (skugga, undersida, ljus kant,
+  träådring, skruvar), en tät häck i två djupled (bakre mörk rad + främre ljus rad uppe, två
+  kolumner på sidorna, blommor i häcken, fylld ut i bleed så en bred telefon inte får kala kanter),
+  ett litet hus med skorsten och rök bakom målet (där bollen ska "hem"), ett äppelträd som
+  vajar, en blomsterrabatt längst ned (tre rader som vajar i var sin takt) och en fjäril som
+  fladdrar över häcken. Allt är ren dekor bakom planen (`eventMode 'none'`, tap går igenom till
+  `_bg`), platta fyllningar — NOLL texturbakningar — och tweens samlas i en lista som dödas i
+  `destroy()`. Inget högt bakom skalets knappar (bara häck x < 200). Regler, kroppar, träffytor,
+  kontroller och planens egen ritning är orörda. Grind (F1) och dyna (R2) ingår inte. Osedd i
+  webbläsare av byggaren (nattregel: inga sonder) — orkestratorn kollar skärmdumpen.
 - 2026-09-23 ✅ **Dubbelfirandet + snabbvinstsvepet** (v1.251.0): spelets egna
   `sfx('celebrate')` och `bigCelebration` i `_reachGoal` strukna — `complete()` gör båda;
   vinstraden (`WIN_CUES`, 2,2–2,5 s) sägs före `complete()` och står kvar. Banans ledtråd låg

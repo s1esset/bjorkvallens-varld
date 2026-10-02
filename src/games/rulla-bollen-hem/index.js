@@ -39,6 +39,7 @@ import { FONT, COLORS } from '../../lib/theme.js'
 import { randomFrom } from '../../lib/swedish.js'
 import { BLEED_X, BLEED_Y } from '../../lib/view.js'
 import { verticalFill, bage } from '../../lib/form.js'
+import { buildGarden } from './tradgard.js'
 
 // Layout i designkoordinater (1280×720).
 const FIELD = { x: 60, y: 120, w: 1160, h: 560, r: 32 }
@@ -304,6 +305,11 @@ export default {
     this._onBgTap = (e) => this._bgTap(ctx, e)
     this._bg.on('pointertap', this._onBgTap)
     this._root.addChild(this._bg)
+
+    // L2: banan ligger i en trädgård — häck i två djupled, vedkant, hus bakom målet, träd, rabatt.
+    // Ren dekor bakom planen (släpper tap igenom till _bg); egna tweens dödas i destroy.
+    this._garden = buildGarden()
+    this._root.addChild(this._garden.root)
 
     // Spelplan med rundade hörn (studsväggar) — dekorativ, släpper tap igenom.
     // Gräsmattan är TONAD, inte en enda grön yta. De två breda banden som låg här förut
@@ -963,6 +969,8 @@ export default {
     g.clear()
     const shown = Math.min(12, level + 3)
     const x0 = 640 - ((shown - 1) * 44) / 2
+    // Mörkgrön pill bakom raden — de bleka pluppar läses annars inte mot häckens blommor.
+    g.roundRect(x0 - 28, 64 - 24, (shown - 1) * 44 + 56, 48, 24).fill({ color: 0x24502a, alpha: 0.82 })
     for (let i = 0; i < shown; i++) {
       const done = i < level
       const x = x0 + i * 44
@@ -1070,6 +1078,7 @@ export default {
     this._goalTween?.kill()
     this._hintTimer?.kill()
     this._windSway?.kill()
+    this._garden?.destroy()
 
     this._clearObstacles()
 

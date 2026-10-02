@@ -13,8 +13,9 @@ klistermärke, och en ny, lite större triangel (3 → 6 → 10 käglor) byggs.
 
 Två kontroller styr utfallet: dragvektorn (riktning + kraft, med tap-fallback som siktar
 på huvudkäglan) och en **Kantstöd**-knapp (🛟) som tänder studsräcken längs kanterna så
-klotet aldrig hamnar i rännstenen. Står käglor kvar efter ett kast kommer en glad
-"vindpust" + knuff som garanterat välter de sista (no-fail). Maskoten **Bobo** sitter nere
+klotet aldrig hamnar i rännstenen. Står käglor kvar efter ett kast (och ett andra) kommer
+en glad SYNLIG **vindby**: en ljus luftström med svepande bågar och streck blåser tvärs över
+däcket, käglorna lutar sig och glider iväg åt sidan och faller (no-fail, men nu ser man varför). Maskoten **Bobo** sitter nere
 till vänster, hejar vid kast och hoppar vid strike. En liten kägelmätare uppe till vänster
 visar hur många som står kvar.
 
@@ -50,7 +51,7 @@ Stark kärna, men en kräsen förälder ser flera tunna drag:
 - **Strike = exakt samma firande som alla 68 spel.** `bigCelebration` + `burst` + generisk
   `PRAISE`. Inget bowling-specifikt: ingen "STRIKE!"-skylt som studsar, ingen Bobo-dans
   utöver ett litet hopp, inget kägelrassel-crescendo.
-- **Auto-hjälpen spelar nivån åt mig.** Står käglor kvar slår en osynlig vindpust +
+- **Auto-hjälpen spelar nivån åt mig.** *(Mjukad av spare-andrakastet 2026-07-01; vindpusten blev en synlig vindby 2026-10-02.)* Står käglor kvar slår en osynlig vindpust +
   slumpknuff omkull dem (`nudge … * 9`) och efter 1 s tippas resten med tvång
   (`_knockPin`). Generöst — men det betyder att *vilket kast som helst* blir strike, så
   mitt sikte spelar i praktiken ingen roll, vilket urholkar den agens spelet säljer.
@@ -117,6 +118,21 @@ auto-hjälpen gör siktet kosmetiskt**.
 
 ## 5. Status / loggar
 
+- 2026-10-02 · **Auto-hjälpens slumpknuff blir en SYNLIG vindby (FYSIKPLAN F4, kluster B4)** — samma hjälp
+  (no-fail-backstopet efter andra kastet, käglorna MÅSTE välta), nu med synlig orsak. `_autoHelp` gjorde förut
+  `setWind(0,0006·dir, −0,0004)` + en `nudge` på 9 px/steg i SLUMPvinkel på varje kvarstående kägla: de föll av en
+  osynlig orsak. Nu `vindby.js` (`Vindfalt` ur `lib/vind.js`, form `band`, filter bara `'pin'`) — luft tvärs över
+  däcket från den sida käglorna INTE ska åt, en by på 1,4 s (sinus-kuvert via `pust`), 16 px/steg i mitten
+  (kägla `frictionAir` 0,02 → 0,32 px/steg²). `vindbild.js` ritar luftremsa + `Vindfalt.rita`-bågar + 11 streck
+  med krok, alla på `vind.faktor` (samma tal som fysiken); käglorna LUTAR i luften (`skew.x`); ett pust vid
+  källkanten + `sfx('whoosh')`. Ingen ny replik (befintliga "Nästan! Pust — där föll de!"). Backstop: en rest som
+  ändå står kvar när byn lagt sig bärs iväg åt VINDENS håll (`barKvar`) och tippas (`_knockPin`) — aldrig en
+  slumpvinkel. `setWind` används inte längre. **MÄTT** (`node scripts/_bowlingvindprobe.mjs`, 12 formationer × 3
+  sidolägen × 4 urval × kantstöd på/av = 288 fall, 900 käglor): **vinden ENSAM välter 900 av 900** (HEAD:s knuff
+  900 av 900), första vält steg 29 (0,48 s — orsaken syns före följden), sista steg 32, toppfart **7,9 px/steg**
+  (HEAD 15,4: tunnlingsgräns mot 24 px-väggen ≈ 40), käglor utanför banan efter 4 s **0 (HEAD 898)**; byn rör inte
+  klotet; taktinvariant 30/60/90 Hz (826,4/826,6/826,6 px). Pricklinjen orörd: `_skuggprobe` bowling **0,0 px**
+  (mål ≤ 9). Rök-prov bild+fält: `node scripts/_bowlingvindbild.mjs`.
 - 2026-10-02 · **Pricklinjen går genom en skuggvärld (FYSIKPLAN G3a)** — bara förhandsbanan, regler, kroppar och
   kontroller är orörda. `AimLauncher` fick `skuggvarld: { varld: this._phys, kula: this._ballBody }`: en liten
   matter-motor som DELAR spelets statiska kroppar (lane-väggarna + kantstödets räcken, med deras `studs`/

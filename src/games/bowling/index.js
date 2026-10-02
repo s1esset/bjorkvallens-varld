@@ -6,8 +6,9 @@
 //   (b) en BUMPER-knapp (Kantstöd): på = lysande studsräcken längs kanterna så
 //       klotet aldrig hamnar i rännstenen; av = öppen bana men mjuk auto-hjälp.
 // INGET misslyckande: står käglor kvar efter kastet SERVERAS klotet igen för ett glatt
-// andra kast (spare) — barnets sikte avgör. Står de kvar även då räddar en glad "vindpust"
-// + knuff de sista (backstop). Bobo hejar vid kast och jublar vid strike.
+// andra kast (spare) — barnets sikte avgör. Står de kvar även då räddar en glad VINDBY de sista
+// (backstop): en synlig luftström tvärs över däcket (lib/vind.js, `vindby.js` + `vindbild.js`) blåser
+// käglorna åt sidan, så barnet SER varför de faller. Bobo hejar vid kast och jublar vid strike.
 //
 // Kalibrering (uppmätt mot matter vid fast 1/60-steg): top-down => gravityY = 0, så
 // previewGravity = 0.2778 × 0 = 0 (rak pricklinje). Klotets frictionAir = 0.012 dämpar
@@ -22,6 +23,8 @@
 import { Container, Graphics, Text, Circle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { PhysicsWorld, MATERIALS, nudge, Body } from '../../lib/physics.js'
+import { nyVindby, startaBy, stoppaBy, byPagar, barKvar, BY_STEG } from './vindby.js'
+import { Vindbild } from './vindbild.js'
 import { AimLauncher } from '../../lib/launcher.js'
 import { lerpColor } from '../../lib/scene.js'
 import { nastaVariant, slumpIBand } from '../../lib/variation.js'
@@ -138,6 +141,10 @@ export default {
 
     // Fysik: top-down => INGEN gravitation, inga standardväggar (vi bygger egna).
     this._phys = new PhysicsWorld({ gravityY: 0, gravityX: 0, walls: [] })
+    // Auto-hjälpens vindby (Vindfalt): luft i ett band som bara tar i käglorna. Tyst tills `_autoHelp` blåser.
+    this._vind = nyVindby(this._phys)
+    this._vindDir = 1
+    this._lutar = false // käglorna lutar sig i byn (skew) — nollas när den lagt sig
 
     this._buildScene(ctx)
     this._buildLaneWalls()
@@ -292,6 +299,9 @@ export default {
     this._pinLayer = new Container()
     this._pinLayer.eventMode = 'none'
     this._root.addChild(this._pinLayer)
+
+    // Vindbyns bild — ovanpå käglorna (luften blåser över dem), under klotet.
+    this._vindbild = new Vindbild(this._root)
 
     // Klot (skapas men läggs överst i init efter launchern).
     this._ball = makeBall()
@@ -606,7 +616,7 @@ export default {
     this._idle = 0
     this._throws = 0
     this._helpTimer?.kill()
-    this._phys.setWind(0, 0)
+    stoppaBy(this._vind) // en by som blåste när rundan byts får inte ta i de nya käglorna
     this._setTheme(ctx, level)
 
     // Rensa gamla käglor (kroppar + vyer).
@@ -931,9 +941,12 @@ export default {
     this._launcher?.setEnabled(true)
   },
 
-  // Auto-hjälp (no-fail-backstop efter andra kastet): käglor står kvar -> en glad vindpust
-  // mot de kvarvarande + en knuff som garanterat välter dem. Knock-detektionen fångar
-  // fallet -> strike firas ändå. Ser ut som en rolig pust, känns aldrig som fusk.
+  // Auto-hjälp (no-fail-backstop efter andra kastet): käglor står kvar -> en glad VINDBY blåser tvärs över
+  // däcket och för dem åt sidan (lib/vind.js, `vindby.js`). Förut fick varje kägla en osynlig slumpknuff;
+  // nu syns luftströmmen (remsa, bågar, streck, käglor som lutar), käglorna glider iväg med vinden och
+  // knock-detektionen fångar fallet -> strike firas ändå. Samma garanti som förut: vinden ensam välter
+  // alla kvarstående (uppmätt 900 av 900, `_bowlingvindprobe`), och en rest som ändå står kvar när byn
+  // lagt sig bärs iväg åt VINDENS håll — aldrig en slumpvinkel.
   _autoHelp(ctx) {
     if (!this._alive || this._phase === 'strike') return
     this._phase = 'helping'
@@ -942,23 +955,27 @@ export default {
       this._strike(ctx)
       return
     }
-    const avgX = remaining.reduce((s, p) => s + p.body.position.x, 0) / remaining.length
-    const dir = avgX < 640 ? -1 : 1
-    this._phys.setWind(0.0006 * dir, -0.0004)
-    ctx.services.audio.sfx('soft')
+    this._vindDir = startaBy(
+      this._vind,
+      remaining.map((p) => ({ x: p.body.position.x, y: p.body.position.y })),
+    )
+    ctx.services.audio.sfx('whoosh')
     ctx.services.voice.say('Nästan! Pust — där föll de!')
-    for (const p of remaining) {
-      const ang = Math.random() * Math.PI * 2
-      nudge(p.body, Math.cos(ang) * 9, Math.sin(ang) * 9 - 3) // garanterar förskjutning > KNOCK_DIST
-      if (p.view && !p.view.destroyed) sparkle(ctx.fxLayer, p.view.x, p.view.y, { count: 5 })
-    }
-    // Nollställ vinden strax; eventuella eftersläntrare tippas direkt (garanterad strike).
+    // Ett pust vid källan, så barnet ser VAR luften kommer ifrån.
+    const kx = this._vindDir < 0 ? 960 : 320
+    puff(ctx.fxLayer, kx, this._vind.form.y, { count: 6, color: 0xffffff })
+    // Eftersläntrare: när byn lagt sig bärs en kägla som ändå står kvar iväg åt vindens håll och tippas.
     this._helpTimer?.kill()
-    this._helpTimer = gsap.delayedCall(1.0, () => {
+    this._helpTimer = gsap.delayedCall(BY_STEG / 60 + 0.4, () => {
       if (!this._alive) return
-      this._phys.setWind(0, 0)
       if (this._phase === 'helping') {
-        for (let i = 0; i < this._pins.length; i++) if (!this._pins[i].down) this._knockPin(ctx, i)
+        for (let i = 0; i < this._pins.length; i++) {
+          const p = this._pins[i]
+          if (p.down) continue
+          barKvar(p.body, this._vindDir)
+          if (p.view && !p.view.destroyed) sparkle(ctx.fxLayer, p.view.x, p.view.y, { count: 5 })
+          this._knockPin(ctx, i)
+        }
       }
     })
   },
@@ -971,7 +988,6 @@ export default {
     this._phase = 'strike'
     this._launcher.setEnabled(false)
     this._helpTimer?.kill()
-    this._phys.setWind(0, 0)
 
     ctx.services.audio.sfx('correct')
     // Klockspel: en C-durtreklang som ringer ut ovanpå kombo-stegen (samma C-tonart som
@@ -1097,6 +1113,24 @@ export default {
     } else if (this._shakeAmp !== 0) {
       this._shakeAmp = 0
       this._root.position.set(0, 0)
+    }
+
+    // Vindbyn: bilden läser samma faktor som fysiken. Käglorna lutar sig i luften (skew på vyn — länken
+    // skriver bara position + rotation), så vinden syns PÅ dem, inte bara bredvid dem.
+    this._vindbild?.uppdatera(dt, this._vind)
+    const blaser = byPagar(this._vind)
+    if (blaser || this._lutar) {
+      let stilla = true
+      for (const p of this._pins) {
+        const v = p.view
+        if (!v || v.destroyed) continue
+        const lv = blaser && !p.gone ? this._vind.luftVid(p.body.position.x, p.body.position.y) : null
+        const mal = lv ? Math.sign(lv.vx) * Math.min(1, lv.s) * 0.3 : 0
+        v.skew.x += (mal - v.skew.x) * Math.min(1, dt * 14)
+        if (!lv && Math.abs(v.skew.x) < 0.005) v.skew.x = 0
+        else stilla = false
+      }
+      this._lutar = !stilla // kvar tills varje kägla rätat upp sig
     }
 
     // Käglorna lever: ögonen följer klotet och spärras upp när det närmar sig.
@@ -1247,7 +1281,10 @@ export default {
     this._bobo = null
     if (this._bumperBtn && !this._bumperBtn.destroyed) gsap.killTweensOf(this._bumperBtn.scale)
 
-    this._phys?.setWind?.(0, 0)
+    this._vind?.destroy()
+    this._vind = null
+    this._vindbild?.destroy()
+    this._vindbild = null
     this._phys?.destroy()
     gsap.killTweensOf(this._root)
     ctx?.services?.voice?.cancel()

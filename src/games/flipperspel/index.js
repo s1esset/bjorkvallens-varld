@@ -3,14 +3,17 @@
 // mot TVÅ paddlar längst ner. Barnet trycker VÄNSTER skärmhalva -> vänster paddel slår
 // uppåt, HÖGER halva -> höger paddel.
 //
-// PADDLARNA ÄR KINEMATISKA (statiska matter-kroppar vars vinkel+position räknas om från
-// sin pivå varje bildruta). Den tidigare revolute-constraint-lösningen DREV IVÄG: kroppen
+// PADDLARNA ÄR KINEMATISKA (R2: `phys.kinematisk` — statiska matter-kroppar som i fysiksteget
+// går mot en pose räknad från sin pivå, så förflyttningen och vridningen ÄR farten och en kula
+// som ligger an får rörelsemängd). Den tidigare revolute-constraint-lösningen DREV IVÄG: kroppen
 // roterades kring sin masscentrum av vinkel-klampningen, constrainten drog tillbaka den
 // och paddlarna hamnade 30–90 px från sina pivåer (höger paddel hamnade utanför utloppet,
 // så mittspringan blev ~130 px och kulan rann rakt igenom). Nu kan de per konstruktion
-// aldrig glida ur läge. Kicken görs explicit: när en paddel svingar upp och kulan är inom
-// räckhåll får den en impuls längs paddelns normal, starkare ute vid spetsen (som en
-// riktig flipper) — det fungerar även när kulan LIGGER STILL på paddeln.
+// aldrig glida ur läge (posen räknas från pivån varje bildruta, inte ur förra posen). Före R2
+// skrevs posen med setPosition/setAngle utan fart: en kula som paddeln svepte in i skyfflades
+// utan rörelsemängd eller tunnlade. Kicken ligger kvar som GOLV: när en paddel svingar upp och
+// kulan är inom räckhåll får den en impuls längs paddelns normal, starkare ute vid spetsen (som
+// en riktig flipper) — det fungerar även när kulan LIGGER STILL på paddeln.
 //
 // MÅL: tänd ALLA bumpers (+ ev. mål-dyna på högre nivåer) -> firande + nästa runda.
 // NO-FAIL: en kula som rinner ut genom drän-hålet i mitten räknas ALDRIG som miss — inga
@@ -63,6 +66,11 @@ const SPEED_NORMAL = 27 // px/steg — under vägg-tjockleken (40), så inget tu
 const SPEED_CALM = 18
 const KICK_MIN = 15 // paddelkick nära pivån
 const KICK_MAX = 25 // paddelkick ute vid spetsen
+// R2: paddelkroppens högsta vridning per fysiksteg (rad). Slaget är 1,05 rad: 0,25 ger ~4–5 steg
+// uppåt (som den gamla mjuka kurvan) och spetsen går högst 37 px/steg — mindre än kulans diameter
+// (56) + paddelns tjocklek (30), så ingenting tunnlar. Kulans egen fartspärr (SPEED_*) tar resten.
+const PAD_MAXV = 0.25
+const PAD_MAXFART = 24 // px/steg på paddelmitten: > kordan för PAD_MAXV (18,7) så läge och vinkel hinner ikapp samtidigt
 // Kulan tappar fart mot väggar/dynor och i luften — annars studsar den för evigt i
 // övre halvan och når aldrig paddlarna (uppmätt: 30 s utan att komma under y=537).
 // Nu är PADDELN kulans främsta energikälla, precis som i en riktig flipper.
@@ -529,7 +537,11 @@ export default {
     hub.eventMode = 'none'
     this._root.addChild(hub)
 
-    this._paddles.push({ side: def.side, body, view, pivotX: def.px, pivotY: def.py, rest: def.rest, up: def.up, ks: def.ks, ang: def.rest, kicked: false })
+    // R2: kroppen flyttas av ett kinematiskt handtag (`kin`). `mal` är den mjukt kurvade MÅL-vinkeln
+    // (bildrutetakt), `ang` är kroppens FAKTISKA vinkel efter senaste fysiksteget — den som ritas,
+    // och den kicken/sonder läser.
+    const kin = this._phys.kinematisk(body, { maxFart: PAD_MAXFART, maxVinkel: PAD_MAXV })
+    this._paddles.push({ side: def.side, body, kin, view, pivotX: def.px, pivotY: def.py, rest: def.rest, up: def.up, ks: def.ks, ang: def.rest, mal: def.rest, kicked: false })
   },
 
   _buildTiltButton(ctx) {
@@ -922,21 +934,24 @@ export default {
     this._pressMs.left = Math.max(0, this._pressMs.left - dms)
     this._pressMs.right = Math.max(0, this._pressMs.right - dms)
 
-    // Paddel-kinematik: mjuk vinkel mot mål, sedan kropp = pivå + vinkel (ingen drift).
+    // Paddel-kinematik (R2): mjuk MÅL-vinkel (`mal`), och kroppens nästa pose = pivå + en vinkel som
+    // är högst PAD_MAXV från kroppens egen. Posen räknas ur pivån varje bildruta (ingen drift) och
+    // lämnas som mål till det kinematiska handtaget, som går dit i fysiksteget med förflyttningen
+    // som fart — kulan som ligger an får rörelsemängd i stället för att skyfflas.
     for (const p of this._paddles) {
       const pressed = this._pressMs[p.side] > 0
       if (!pressed) p.kicked = false
       const target = pressed ? p.up : p.rest
       const k = 1 - Math.pow(1 - (pressed ? 0.45 : 0.2), steps)
-      p.ang += (target - p.ang) * k
-      const cx = p.pivotX + (PAD_LEN / 2) * Math.cos(p.ang)
-      const cy = p.pivotY + (PAD_LEN / 2) * Math.sin(p.ang)
-      Body.setPosition(p.body, { x: cx, y: cy })
-      Body.setAngle(p.body, p.ang)
+      p.mal += (target - p.mal) * k
+      const a = p.body.angle + clamp(p.mal - p.body.angle, -PAD_MAXV, PAD_MAXV)
+      p.kin.till(p.pivotX + (PAD_LEN / 2) * Math.cos(a), p.pivotY + (PAD_LEN / 2) * Math.sin(a), a)
       if (pressed && !p.kicked && !this._resolving) this._tryKick(ctx, p)
     }
 
     this._phys.update(dms)
+    // Den faktiska (ritade) vinkeln — kicken och sonder läser den, aldrig målvinkeln.
+    for (const p of this._paddles) p.ang = p.body.angle
 
     // Snurran rullar vidare och saktar in (rent visuellt — ingen fysik hänger på den).
     const sp2 = this._spinner
@@ -1329,6 +1344,8 @@ export default {
     }
 
     for (const p of this._paddles) {
+      p.kin?.destroy()
+      p.kin = null
       if (p.view && !p.view.destroyed) gsap.killTweensOf(p.view.scale)
     }
     for (const b of this._bumpers) {

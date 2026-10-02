@@ -28,9 +28,12 @@
 Ett mörkt arkad-flipperbord mot en stjärnnatt. En glansig vit kula faller nedåt mot **två
 stora orange paddlar** längst ner. Jag tappar **vänster skärmhalva** → vänster paddel slår
 upp, **höger halva** → höger paddel. *(§1 skrevs 2026-06-30; sedan 2026-08-06 har bordet även
-snurra, studsfenor, tunnel och tre ritade dynetyper — se §5.)* Paddlarna är armar som drivs med
-vinkelhastighet, så de svingar snabbt upp och fjädrar tillbaka — och eftersom de har fart
-*kickar* de kulan på riktigt. Kulan studsar mot **bumpers** (runda ⭐-dynor i färgade
+snurra, studsfenor, tunnel och tre ritade dynetyper — se §5.)* Paddlarna är **kinematiska kroppar** (`phys.kinematisk`, R2):
+posen räknas från pivån varje bildruta och kroppen går dit i fysiksteget med förflyttningen
+som fart (högst 0,25 rad/steg), så de svingar snabbt upp och fjädrar tillbaka — och eftersom de
+har fart *kickar* de kulan på riktigt (rörelsemängd, plus den skriptade kicken som golv).
+*(Före 2026-10-02 stod här "drivs med vinkelhastighet" — det var inaktuellt sedan constraint-
+paddlarna ersattes av statiska kroppar med omskriven pose; FYSIKPLAN §5.6:s notis gäller denna rad.)* Kulan studsar mot **bumpers** (runda ⭐-dynor i färgade
 glödringar) som **tänds** och spelar en ton ur en liten stigande "pling-skala". Tänd ALLA
 bumpers → firande + nästa runda.
 
@@ -39,7 +42,7 @@ igen uppifrån med ett `pop` + ibland en 😄. Två kontroller ändrar utfallet:
 (vänster/höger i rätt stund) och en **lutnings-knapp** (☁️ Lugnt / ⚡ Snabbt) som växlar
 gravitationen via `setGravity`. Händer inget på ~12 s tänds en otänd bumper "av magi".
 
-**Funkar bra:** paddel-receptet (pin-constraint + fjäder-driven vinkelhastighet) ger äkta
+**Funkar bra:** paddel-receptet (kinematisk pose från pivån + explicit kick) ger äkta
 flipper-kick, no-fail-omserven är sömlös, bumper-tonerna + glöden är riktigt tillfredställande,
 night-scenen får dynorna att lysa fint, hastighetsklampen (`MAX_SPEED 26`) hindrar
 tunnel-buggar, och de gigantiska tryck-zonerna gör paddlarna omöjliga att missa för små fingrar.
@@ -138,6 +141,18 @@ passiva en gång tända**.
 
 ## 5. Status / loggar
 
+- 2026-10-02 ✅ **Paddlarna är kinematiska (FYSIKPLAN R2)**: de statiska paddelkropparna fick sin pose
+  skriven med `setPosition`/`setAngle` utan fart varje bildruta, så en kula som paddeln svepte in i
+  skyfflades utan rörelsemängd (och kunde tunnla). Nu: `mal` = den mjuka målvinkeln (samma kurva som
+  förr, 0,45 upp / 0,2 ned), nästa pose räknas ur pivån med en vinkel högst `PAD_MAXV` (0,25 rad)
+  från kroppens egen, och `phys.kinematisk(body, { maxFart: 24, maxVinkel: 0.25 }).till(x, y, vinkel)`
+  flyttar kroppen i fysiksteget (förflyttningen ÄR farten). `p.ang` är nu kroppens FAKTISKA vinkel
+  efter fysiksteget (den ritade; kicken läser den), `p.mal` målet. Kicken (`_tryKick`) ligger kvar
+  som golv; dynorna rörs inte (V10b). Fartspärren (27/18) håller kulan i banan som förr.
+  Mätt i Node (`scripts/_dag-flipperslag-node.mjs`, spelets geometri + kul-material + kick + spärr,
+  180 slag/arm): igenom 0 → 0, ur bild 0 → 0, uppåt median −23,9 → −26,7 px/steg. Utan kicken
+  (`NOKICK=1`, 90 slag): HEAD igenom 10/90, uppåt-slag 0/90; ny igenom 0/90, uppåt 80/90 — det är
+  paddelns egen rörelsemängd som nu bär.
 - 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): `_celebrate` spelade eget vinstljud +
   PRAISE i samma tick som `complete()` — strukna (värdet firar). Bobos fångst 0,9 s senare
   spelade ett ANDRA vinstljud som värdets 1,5 s-golv nu sväljer; det är ersatt med en egen kort

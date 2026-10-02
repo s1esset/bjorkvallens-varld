@@ -11,14 +11,12 @@ import { bounceIn, pop, wiggle, sparkle, puff, liv, kvittera, shake } from '../.
 import { shuffle, randomFrom } from '../../lib/swedish.js'
 import { COLORS } from '../../lib/theme.js'
 import { verticalFill, sphereFill, topLightFill } from '../../lib/form.js'
-import { BLEED_X, BLEED_Y } from '../../lib/view.js'
+import { pase } from '../../lib/variation.js'
+import { byggRum } from './rum.js'
 
-// BORDET. `_plattprobe --medbakgrund` mätte 391 766 px — 43 % av skärmen — i EN ton,
-// och tonen var `COLORS.bg`: spelet ritade ingen bakgrund alls, så pusslet låg i skalets
-// egen letterbox-creme utan bord, utan ljus och utan skillnad mellan brickan och det
-// den ligger på. Tonerna nedan spänner om COLORS.bg — samma varma rum, bara med ljus i.
-const C_BORD_TOP = 0xf9edd3
-const C_BORD_BOT = 0xead6ae
+// RUMMET (rum.js): pusslet ligger på ett trabord med plankor och fönsterljus, på ett
+// golv — förut en krämplatta i en enda ton (391 766 px, `_plattprobe`). Kulissen bär
+// ingen träffyta utom golvet, som tar kvitteringen på tryck vid sidan om.
 
 // Pusselramen (designkoordinater). Mittpunkt (370, 360).
 const BOARD = { x: 120, y: 110, w: 500, h: 500 }
@@ -296,22 +294,20 @@ export default {
     this._root = new Container()
     ctx.stage.addChild(this._root)
 
-    // Bordet som pusslet ligger på (se noten vid C_BORD_TOP). Full bleed åt alla håll
-    // så en bred telefon aldrig ser skalets cremekant utanför 0..1280.
-    const bord = new Graphics()
-      .rect(-BLEED_X, -BLEED_Y, ctx.width + 2 * BLEED_X, ctx.height + 2 * BLEED_Y)
-      .fill(verticalFill(C_BORD_TOP, C_BORD_BOT))
-    // Bordet är skärmens största yta. Utan handlare vore varje tryck vid sidan om
-    // brickan och bitarna obesvarat (P0 ÅTERKOPPLING). Kvitterar ALLTID — en vakt på en
-    // upptagen-flagga här vore precis den döda träffyta `_tystprobe` letar efter.
-    bord.eventMode = 'static'
+    // Rummet pusslet ligger i: golv (full bleed åt alla håll, så en bred telefon aldrig
+    // ser skalets kant) + trabord. Golvet är skärmens största träffyta — utan handlare
+    // vore varje tryck vid sidan om bitarna obesvarat (P0 ÅTERKOPPLING). Kvitterar ALLTID
+    // — en vakt på en upptagen-flagga här vore precis den döda träffyta `_tystprobe`
+    // letar efter. Bordet ovanpå är eventMode 'none', så trycket når golvet genom det.
+    const rum = byggRum(ctx.width, ctx.height)
+    const bord = rum.golv
     this._onBordTap = (e) => {
       if (!this._alive) return
       const p = ctx.fxLayer.toLocal(e.global)
       kvittera(ctx.fxLayer, p.x, p.y, ctx.services.audio, { color: COLORS.orange, maxR: 70 })
     }
     bord.on('pointertap', this._onBordTap)
-    this._root.addChild(bord)
+    this._root.addChild(bord, rum.bord)
 
     // Varm rampaltta (statisk — ligger kvar mellan rundor). Skuggan under lyfter
     // brickan från bordet; utan den låg den som en dekal på ytan.
@@ -335,6 +331,11 @@ export default {
     this._timers = []
     this._placed = 0
     this._done = false
+
+    // Motiven kommer ur en påse: alla nio visas innan något motiv återkommer, aldrig
+    // samma två i rad. Färsk påse per start (modulen är en singleton). Antalet bitar
+    // följer fortfarande rundan — bara VAD som pusslas är slumpat.
+    this._motivPase = pase(THEMES)
 
     this._level = Math.max(0, ctx.progress.get().highestLevel | 0)
     this._round = Math.max(0, ctx.progress.get().custom?.round | 0)
@@ -381,9 +382,9 @@ export default {
     this._done = false
     this._idle = 0
 
-    // En bit mer för varje runda (klamrad), cykla motiv genom hela THEMES-listan.
+    // En bit mer för varje runda (klamrad); motivet dras ur påsen (U2).
     const n = Math.min(MIN_PIECES + this._round, MAX_PIECES)
-    const theme = THEMES[this._round % THEMES.length]
+    const theme = this._motivPase.nasta()
     this._theme = theme
 
     // Förhandsvisning av hela bilden inuti ramen (ledtråd, fångar inga pekningar).

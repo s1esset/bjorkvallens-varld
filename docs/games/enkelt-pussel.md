@@ -101,6 +101,14 @@ blomman, katten ta form. Tema-cykeln ger variation över rundor.
 
 ## 5. Status / loggar
 
+- 2026-10-02 ✅ **Variation + bild (FYSIKPLAN U2/L2):** motiven kommer ur en påse (`pase(THEMES)` i
+  `init`) i stället för `THEMES[round % 9]` — alla nio visas i blandad ordning innan något
+  återkommer, aldrig samma två i rad; bitantalet följer fortfarande rundan (svårigheten rörs
+  inte). Krämplattan är borta: pusslet ligger på ett trabord med plankor, fönsterljus och en penna
+  + två klossar vid kanten, på ett golv med brädor (`rum.js`, ritat en gång, noll nya
+  texturbakningar). Golvet bär fortfarande kvitteringen på tryck vid sidan om; bordet ovanpå är
+  `eventMode 'none'`. Bitar och snäppytor är orörda.
+
 - 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): klar-repliken (`DONE_PRAISE`)
   sades direkt EFTER `complete()` och kapade skalets beröm i första stavelsen — nu sägs den
   före, i samma tick, och berömmet utgår. Snäpptonen klättrar i E-dur-pentatonik per bit och

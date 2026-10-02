@@ -65,6 +65,9 @@ if ($Avregistrera) {
 if ($Schemalagg) {
   $start = [datetime]::Parse($Schemalagg)
   $extra = if ($Torrkorning) { ' -Torrkorning' } else { '' }
+  # En körning i en egen katalog (dagkörningen 2026-10-02) måste få med sig katalogen till
+  # uppgiften — annars startar väktaren den VANLIGA nattens plan.
+  if ($Katalog -ne '.claude\state\natt') { $extra += " -Katalog `"$Katalog`"" }
   $act = New-ScheduledTaskAction -Execute $Pwsh -WorkingDirectory $Root `
     -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`"$extra"
   # Startar vid $start. De två väktartriggrarna gör ingenting om drivaren redan kör
@@ -332,6 +335,21 @@ if ($Torrkorning) {
 
 # ── natten ────────────────────────────────────────────────────────────────────────────────
 function Las-Plan { Get-Content $PlanFile -Raw -Encoding utf8 | ConvertFrom-Json }
+
+# Mellanpublicering (opt-in: plan.json "mellanDeploy": true): en körning som spänner över ett
+# dygn ska inte hålla allt till slutet — varje klar byggfas går ut direkt så att ägaren kan
+# prova under tiden. Bara ett RENT träd publiceras; deploy.mjs har dessutom sin egen grind.
+function Publicera-Mellan([string]$fasId) {
+  if ($IngenDeploy -or -not (Las-Plan).mellanDeploy) { return }
+  Set-Location $Root
+  if ((& git status --porcelain) -join '') { Logg "  mellanpublicering efter $fasId hoppad — trädet är inte rent"; return }
+  if ((& git log origin/master..HEAD --oneline 2>$null | Measure-Object).Count -eq 0) { return }
+  Logg "▶ mellanpublicering efter $fasId (npm run deploy)"
+  & cmd.exe /c "npm run deploy > `"$LogDir\deploy-$fasId.log`" 2>&1"
+  $kod = $LASTEXITCODE
+  Get-Content "$LogDir\deploy-$fasId.log" -Tail 4 | ForEach-Object { Logg "  $_" }
+  Logg "■ mellanpublicering efter $fasId`: kod $kod"
+}
 $plan = Las-Plan
 $SistaByggstart = [datetime]$plan.tider.sistaByggstart
 $LeveransSenast = [datetime]$plan.tider.leveransSenast
@@ -369,6 +387,13 @@ try {
     }
     # ── kvotvakterna: veckan räcker till ägarens dag, och ingen session startar i ett fullt fönster
     if (-not $arLeverans -and (Kvot-Sju) -ge $VeckoTak) {
+      # Återställs veckan innan körningen ändå skulle sluta: sov dit i stället för att stryka
+      # resten av planen (en körning som spänner över veckogränsen, 2026-10-02).
+      $vnar = if ($script:Kvot) { ([datetime]$script:Kvot.sjuAterstalls).AddMinutes(5) } else { $null }
+      if ($vnar -and $vnar -lt $SistaByggstart) {
+        Vanta-Till $vnar "$(Kvot-Text) — veckotaket $('{0:P0}' -f $VeckoTak) nått; $($fas.id) startar FÄRSK när veckan återställts"
+        continue
+      }
       Logg "⏭ $($fas.id) hoppas över — $(Kvot-Text), nattens veckotak är $('{0:P0}' -f $VeckoTak) (ägaren behöver kvot under dagen)"
       $overhoppad[$fas.id] = $true
       & node (Join-Path $Root 'scripts\natt.mjs') fas $fas.id delvis --notis 'veckotaket nått' | Out-Null
@@ -417,7 +442,7 @@ try {
     $status = ($plan.faser | Where-Object id -eq $fas.id).status
     Logg "■ $namn slut: kod $($r.Kod) · $($r.Minuter) min · fasstatus '$status'"
     if ($arLeverans) { $leveransKord = $true }
-    if ($status -eq 'klar') { continue }
+    if ($status -eq 'klar') { if (-not $arLeverans) { Publicera-Mellan $fas.id }; continue }
 
     $g = Las-Grans $r.Bas
     if ($g) {
@@ -475,7 +500,7 @@ try {
   $del = @(
     '', '---', '', "## Drivarens kvitto ($(Get-Date -Format 'yyyy-MM-dd HH:mm'))", '',
     "- Version i bygget: **v$version**",
-    "- Publicering: $(if ($null -eq $deployKod) { 'ingen körd' } elseif ($deployKod -eq 0) { '✅ klar — ladda om appen på plattan' } else { "⛔ misslyckades (kod $deployKod) — se .claude/state/natt/loggar/deploy.log" })",
+    "- Publicering: $(if ($null -eq $deployKod) { 'ingen körd' } elseif ($deployKod -eq 0) { '✅ klar — ladda om appen på plattan' } else { "⛔ misslyckades (kod $deployKod) — se $Rel/loggar/deploy.log" })",
     "- Ocommittat arbete: $(if ($stash) { "låg kvar och ligger i ``git stash list`` som **$stash**" } else { 'inget' })",
     "- Leveransfasen (modellen): $(if ($leveransKord) { 'kördes' } else { 'hanns INTE — rapporten ovan kan saknas; läget står nedan' })",
     "- Kvoten när natten slutade: $(Kvot-Text) (5h-fönstret återställs $(if ($script:Kvot) { ([datetime]$script:Kvot.femAterstalls).ToString('HH:mm') } else { '?' }))",

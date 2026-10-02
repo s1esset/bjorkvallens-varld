@@ -31,7 +31,7 @@ import { bage } from '../../lib/form.js'
 import { Karl, drivPunkt } from './karl.js'
 import { byggSkal, iSkal, paseHylla } from './fysik.js'
 import { GOLV, BANK, SPIS, REGLAGE, PASE, GRYTA, LOCK, BORD, SKAL, POPCORN, KORN, FULL_SKAL } from './matt.js'
-import { ritaRum, ritaPlatta, ritaReglage, ritaGryta, ritaLock, ritaPase, ritaSkal, ritaKorn, popcornForm, ritaPopcorn, ritaPopcornMjuk } from './konst.js'
+import { ritaRum, ritaPlatta, ritaReglage, ritaGryta, ritaLock, ritaPase, ritaSkal, ritaKorn, popcornForm, ritaPopcorn, ritaPopcornMjukMesh } from './konst.js'
 import { dragGaster, skapaGast } from './gaster.js'
 import { valjEgna, minnsMott } from '../../lib/egnafigurer.js'
 
@@ -47,10 +47,11 @@ const POPP_START = 0.35
 const POPP_STEG = 11
 const POPP_OVER = 1.15
 const POPP_LANDA = 30
-// Taket på samtidigt poppande mjuka kroppar (B0, `_popcornomrit`: 0,5–0,85 ms per kropp och
-// bildruta vid CPU ×4 — 8 st = +3,9 ms, 16 st = +10,2 ms av 16,7). Kornen över taket väntar —
-// osynligt, kaskaden är ändå slumpad.
-const MAX_SAMTIDIGA_POPP = 8
+// Taket på samtidigt poppande mjuka kroppar. B0 (`_popcornomrit`, Graphics + path()): 0,5–0,85 ms per
+// kropp och bildruta vid CPU ×4 — 8 st = +3,9 ms, 16 st = +10,2 ms av 16,7, därav taket 8. O1 (samma
+// bildruta ritad som mjukMesh, `_popcornomrit --o1`): 8/16/24 st = +1,0/+2,3/+2,5 ms mot Graphics
+// +4,6/+8,4/+11,4 — taket höjt till 24. Kornen över taket väntar — osynligt, kaskaden är ändå slumpad.
+const MAX_SAMTIDIGA_POPP = 24
 // Ett jättepopcorn ungefär var 40:e.
 const JATTE_CHANS = 1 / 40
 // Brynandet (B9): från steg 8 grader popcorn som ligger kvar på plattan mot brunt.
@@ -306,9 +307,13 @@ export default {
     const seed = Math.floor(this._rng() * 1e9)
     const m = new Mjukkropp({ w: r * 2, h: r * 1.84, punkter: 16, grav: 0, iter: 6, form: popcornForm(seed) })
     m.skala(POPP_START)
-    const g = new Graphics()
-    this._innehall.addChild(g)
-    const p = { id, body, view: null, mjuk: m, g, n: 0, k: POPP_START, r, brand: 0, seed, skal: -1, jatte }
+    // Som _poppprobe: kroppen sätter sig på startskalan INNAN den växer. Byggd i full storlek men med
+    // ×0,35-vilolängder vänder ringen ut och in på första steget (uppmätt i spelet: fyllnad 0,03 →
+    // en hoptryckt remsa under hela poppen; med 30 uppvärmningssteg 1,00).
+    for (let s = 0; s < 30; s++) m.steg(1)
+    const mm = ritaPopcornMjukMesh(m)
+    this._innehall.addChild(mm.view)
+    const p = { id, body, view: null, mjuk: m, mm, n: 0, k: POPP_START, r, brand: 0, seed, skal: -1, jatte }
     this._varme.lagg('p' + id, { x, y })
     this._pop.push(p)
     this._gryta.innehall.push(body)
@@ -340,12 +345,17 @@ export default {
     if (n >= POPP_STEG + POPP_LANDA) this._stelna(p)
   },
 
+  // Meshen äger sin geometri (Mesh.destroy river den inte) — mjukMesh.destroy() gör det.
+  _rivMesh(p) {
+    p.mm?.destroy()
+    p.mm = null
+  },
+
   // Poppen är klar: den mjuka kroppen byts mot den färdiga bilden (mjuk BARA under poppen).
   _stelna(p) {
     p.mjuk.destroy?.()
     p.mjuk = null
-    if (p.g && !p.g.destroyed) p.g.destroy()
-    p.g = null
+    this._rivMesh(p)
     const art = ritaPopcorn(p.seed, p.r)
     p.view = art.view
     p.setBrand = art.setBrand
@@ -358,7 +368,7 @@ export default {
     this._varme.ta('p' + p.id)
     this._phys.removeBody(p.body)
     this._utur(this._gryta.innehall, p.body)
-    if (p.g && !p.g.destroyed) p.g.destroy()
+    this._rivMesh(p)
     if (p.view && !p.view.destroyed) {
       gsap.killTweensOf(p.view)
       p.view.destroy({ children: true })
@@ -440,9 +450,10 @@ export default {
       const p = this._pop[i]
       const b = p.body
       if (p.mjuk) {
-        p.g.position.set(b.position.x, b.position.y)
-        p.g.rotation = b.angle
-        ritaPopcornMjuk(p.g, p.mjuk, p.brand)
+        p.mm.view.position.set(b.position.x, b.position.y)
+        p.mm.view.rotation = b.angle
+        p.mm.satt(p.brand)
+        p.mm.uppdatera()
       } else if (p.view) {
         p.view.position.set(b.position.x, b.position.y)
         p.view.rotation = b.angle
@@ -1331,6 +1342,7 @@ export default {
     for (const g of this._gaster || []) g.destroy()
     this._gaster = []
     for (const p of this._pop || []) if (p.view && !p.view.destroyed) gsap.killTweensOf(p.view)
+    for (const p of this._pop || []) this._rivMesh(p) // meshen äger sin MeshGeometry (V16-familjen)
     if (this._sista && !this._sista.destroyed) gsap.killTweensOf(this._sista)
     for (const c of [this._dimma, this._rum?.lampa, this._rum?.tvSken, this._grytVy?.fram, this._grytVy?.fram?.scale, this._paseVy?.fram, this._paseVy?.fram?.scale, this._reglage?.knopp, this._reglage?.minus, this._reglage?.plus]) {
       if (c) gsap.killTweensOf(c)

@@ -18,6 +18,7 @@
 // · Inga egna fält med Pixis namn (`_cx` m.fl.) — egna fält heter `ljus`, `bak`, `fram`.
 import { Container, FillGradient, Graphics } from 'pixi.js'
 import { COLORS, shade, tint } from '../../lib/theme.js'
+import { mjukMesh } from '../../lib/mjukmesh.js'
 import { cylinderFill, sphereFill, topLightFill, verticalFill, verticalFillAlpha } from '../../lib/form.js'
 import { GOLV, BANK, SPIS, REGLAGE, PASE, GRYTA, LOCK, BORD, SOFFA, PLATSER, KORN } from './matt.js'
 
@@ -1079,4 +1080,22 @@ export function ritaPopcornMjuk(g, mjukkropp, brand) {
   mjukkropp.path(g).fill(multiplicera(P.popcorn, tn)).stroke({ width: 2, color: multiplicera(P.popcornK, tn), join: 'round' })
   mjukkropp.path(g, 0.6).fill({ color: 0xffffff, alpha: 0.4 * (1 - Math.max(0, Math.min(1, brand || 0)) * 0.6) })
   return g
+}
+
+// Samma bild som ritaPopcornMjuk, men som MESH (lib/mjukmesh.js): ingen Graphics.clear() + omtriangulering
+// per bildruta (O1: 3,6–4,6× billigare bildrutearbete vid 8–24 poppande). Kroppens punkter ligger i
+// lokalt rum, så `mesh` flyttas/roteras som Graphics:en gjorde. `satt(brand)` byter bara tint/alfa.
+export function ritaPopcornMjukMesh(mjukkropp) {
+  const mm = mjukMesh(mjukkropp, { farg: P.popcorn, tathet: 4, kontur: { farg: P.popcornK, bredd: 2 }, glans: { alpha: 0.4 } })
+  let senast = -1
+  const satt = (brand) => {
+    const b = Math.max(0, Math.min(1, brand || 0))
+    if (b === senast) return
+    senast = b
+    const tn = brandTint(b)
+    mm.setFarg(multiplicera(P.popcorn, tn), multiplicera(P.popcornK, tn))
+    mm.setGlans(0.4 * (1 - b * 0.6))
+  }
+  satt(0)
+  return { view: mm.mesh, uppdatera: () => mm.uppdatera(), satt, destroy: () => mm.destroy() }
 }

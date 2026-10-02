@@ -214,6 +214,17 @@ m.path(g.clear()).fill(col).stroke({ width: 3, color: edge })
   SITTER FAST i kroppen (en fjäder under en planka) ska läsa kroppen — `Fjaderbrada.undersida(x)`
   finns just därför — inte räkna på skalären som driver den.
 
+### Mjuk kropp som mesh (`src/lib/mjukmesh.js`, O1)
+
+- `mjukMesh(kropp, { farg, tathet = 3, kontur: { farg, bredd }, glans: { alpha, skala }, gradient: [topp, botten] })`
+  → `{ mesh (Container), uppdatera(), setFarg(fyll, kontur), setGlans(alpha), destroy() }`. Samma kurva som `path()`
+  (sampling 0,04–0,07 px från den vid `tathet` 4), men hörnen skrivs i en återanvänd Float32Array i stället för
+  `Graphics.clear()` + triangulering. Lägg `mesh` där Graphics låg (kroppens punkter är i lokalt rum).
+- Mätt (`node scripts/_popcornomrit.mjs --o1|--spel-ab --url :5174`): bildrutearbete +över golv 2,7–4,6× lägre än
+  Graphics+`path()` vid 8/16/24 samtidiga. Anropa `uppdatera()` varje bildruta efter kroppens `steg`; `destroy()` är OBLIGATORISK
+  (Pixis `Mesh.destroy` river varken geometrin eller `geometry.destroy()` buffertarna — `_meshlackprobe`).
+- Första kund: `popcornkalaset` (`konst.js:ritaPopcornMjukMesh`). Sätt kroppen på startskalan med ~30 `steg(1)` INNAN den växer.
+
 ## Fast takt (`src/lib/takt.js`, T3)
 
 - **`steg(dtF)` med variabelt `dtF` är fel för `Mjukkropp` och `Rep`:** `damp`/styvhet räknas per STEG

@@ -102,7 +102,8 @@ Aldrig ett tjat, aldrig ett automatiskt drag.
 **Kupan är inte en lockbete.** Det största, ljusaste, mest animerade föremålet på skärmen får
 inte vara det enda som saknar verkan — en 2-årings hand går dit först. Ett tryck på glaset
 skakar hela förhandsvisningen: blobben byter **synligt och komiskt** siluett (öron spretar ut
-med ett boing, en svans piskar fram), föremålen guppar, `sfx('pop')`. Det är samtidigt
+med ett boing, en svans piskar fram), föremålen guppar, `sfx('pop')`. Och kupan är en **snöglob**: kornen i kupan
+kastas upp, en skur nya korn av världens slag far upp från marken, virvlar och sjunker tillbaka (2026-10-02). Det är samtidigt
 **omrullningen av fröet** — barnets "en till, men annorlunda" — och det gör kupan till spelets
 mest tillfredsställande yta i stället för dess största döda.
 
@@ -1381,6 +1382,7 @@ inom 7 s → **hemma efter 4,2 s**. H 9/9 gröna efteråt.
 **Grind:** check 0/0 · test 0 fel (bilden granskad: verkstan hel, inget ur läge) · `_knyttlyftprobe`
 G 5/5 · H 9/9 · `_knyttprobe` 44/44.`
 
+- 2026-10-02 · **Snöglobseffekten (FYSIKPLAN P5).** Glastrycket (`rullaOm`) kastar upp kornen: de som redan faller i kupan och en skur på 22 nya (världens slag: löv · droppar i regnvärlden · snö · gnistor · sand · sporer; snö innan någon värld har fått föremål) får fart uppåt 190–330 px/s, luftmotstånd k 1,4–2,0 /s (`dv/dt = −k·(v − vind) + g`, samma lag som `Emitter`s `luft`/`vind`), en lätt virvlande vind (55–90 px/s, lugnar sig 0,55/s) och sjunker mot en gränsfart g/k på 28–54 px/s tills de når marken. Konstant fall (`k = 0`) är oförändrat för allt annat väder, och regnstrimmor kastas inte. Ny kornform `drapp`. Inget i ceremonin, ägget eller spaken rörs (spaken på x 1160 ligger utanför harnessens räckvidd). Taket på 64 korn gäller som förut. Ej körd i webbläsare under natten — orkestrerarens skärmdump/sond avgör.
 
 ## 6. Teknisk ritning
 

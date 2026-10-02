@@ -746,7 +746,7 @@ export function byggKupa(opts = {}) {
   let fro = 1                             // rundans frö — styr rekvisitans ordning (setFro)
   const props = []                       // { nod, inner, def, slot, fas, wx, wy }
   const gnistor = []                     // { nod, fas, r, fart }
-  const korn = []                        // { x, y, vx, vy, typ, liv }
+  const korn = []                        // { x, y, vx, vy, typ, liv, k, g, virvel, fas } — k > 0 = kastat (luft)
   const skalarer = { vatt: 0, varm: 0, grono: 0, sten: 0, natt: 0 }
   const palett = { bas: 0xffb85c, ljus: 0xffd08a, mork: 0xd08c30, buk: 0xffe0b4, monster: 0xc06a1e, kind: 0xff9ec4 }
   let ton0 = null                        // nuvarande interiörton (lerpas vid världsbyte)
@@ -1057,7 +1057,24 @@ export function byggKupa(opts = {}) {
       vx: typ === 'sno' ? (Math.random() - 0.5) * 14 : typ === 'sand' ? 26 + Math.random() * 22 : (Math.random() - 0.5) * 5,
       vy: typ === 'regn' ? 150 + Math.random() * 60 : typ === 'sand' ? 14 + Math.random() * 10 : typ === 'spor' ? 18 + Math.random() * 14 : 34 + Math.random() * 26,
       liv: 4,
+      k: 0, g: 0, virvel: 0, fas: 0, // k = luftmotstand (1/s); 0 = den gamla konstanta fallen
     })
+  }
+
+  // Glastrycket kastar upp ett korn: fart uppåt, sedan luftmotstånd (dv/dt = −k·(v − vind) + g,
+  // samma lag som Emitters `luft`/`vind`) som bromsar uppgången och landar i en gränsfart g/k —
+  // kornet SJUNKER tillbaka i stället för att falla med en handsatt fart. Vinden är en lätt
+  // virvel som lugnar sig. Regnstrimmor lämnas ifred (en strimma som far uppåt läser som fel).
+  function kastaKorn(c) {
+    if (c.typ === 'regn') return
+    const k = 1.4 + Math.random() * 0.6
+    c.k = k
+    c.g = k * (28 + Math.random() * 26) // gränsfart 28–54 px/s neråt
+    c.vy = -(190 + Math.random() * 140)
+    c.vx = (Math.random() - 0.5) * 160
+    c.virvel = 55 + Math.random() * 35
+    c.fas = Math.random() * Math.PI * 2
+    c.liv = Math.max(c.liv, 9) // hinner sjunka hela vägen ner (de tas bort vid marken)
   }
   // Kornen tonar ut sista 0,4 s av sin livstid. Utan det slocknar de med FULL opacitet:
   // löv/snö/gnista faller 34–60 px/s och hinner aldrig till marken (de behöver 248–278 px
@@ -1069,7 +1086,8 @@ export function byggKupa(opts = {}) {
     for (const k of korn) {
       const a = Math.min(1, k.liv * 2.5)
       if (k.typ === 'regn') kornG.roundRect(k.x - 1.4, k.y - 7, 2.8, 14, 1.4).fill({ color: 0xbfe6ff, alpha: 0.85 * a })
-      else if (k.typ === 'sno') kornG.circle(k.x, k.y, 3).fill({ color: 0xffffff, alpha: 0.95 * a })
+      else if (k.typ === 'sno') kornG.circle(k.x, k.y, 4.5).fill({ color: 0xffffff, alpha: 0.95 * a }).stroke({ width: 1.2, color: 0x8fb4cc, alpha: 0.7 * a })
+      else if (k.typ === 'drapp') kornG.circle(k.x, k.y, 4).fill({ color: 0x6fb8e8, alpha: 0.9 * a })
       else if (k.typ === 'lov') kornG.ellipse(k.x, k.y, 5, 3).fill({ color: 0x7ec46a, alpha: 0.95 * a })
       else if (k.typ === 'sand') kornG.ellipse(k.x, k.y, 4, 2.2).fill({ color: 0xe9c57c, alpha: 0.9 * a })
       else if (k.typ === 'spor') {
@@ -1391,6 +1409,16 @@ export function byggKupa(opts = {}) {
     sparkle(inre, 0, MARK_Y - 56, { count: 6 })
     sfx('pop')
     ton({ freq: 660, dur: 0.14, type: 'sine', vol: 0.18, slideTo: 990 })
+    // Snöglobseffekten: det som redan faller i kupan kastas upp, och en skur nya korn av
+    // världens slag far upp från marken, virvlar och sjunker ner igen (tick() äger banan).
+    for (const c of korn) kastaKorn(c)
+    const varldTyp = ['lov', 'regn', 'sno', 'gnista', 'sand', 'spor'][val.v] || 'lov'
+    const typ = antal[val.v] > 0 ? (varldTyp === 'regn' ? 'drapp' : varldTyp) : 'sno'
+    for (let i = 0; i < 22; i++) {
+      const n = korn.length
+      nyttKorn((Math.random() - 0.5) * 230, MARK_Y - 4 - Math.random() * 26, typ)
+      if (korn.length > n) kastaKorn(korn[korn.length - 1])
+    }
   }
 
   // Kläckningen tömmer kupan — världen åkte IN i ägget och kommer UT som miljön.
@@ -1442,6 +1470,13 @@ export function byggKupa(opts = {}) {
     // korn faller
     for (let i = korn.length - 1; i >= 0; i--) {
       const k = korn[i]
+      if (k.k > 0) {
+        // Kastat korn: luftmotstånd mot en virvlande luft + tyngd (gränsfart = g/k).
+        const w = k.virvel * Math.sin(tid * 3 + k.y * 0.035 + k.fas)
+        k.vx -= k.k * (k.vx - w) * dt
+        k.vy += (-k.k * k.vy + k.g) * dt
+        k.virvel *= 1 - Math.min(0.9, 0.55 * dt) // virvlen lugnar sig
+      }
       k.x += k.vx * dt
       k.y += k.vy * dt
       k.liv -= dt

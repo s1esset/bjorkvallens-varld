@@ -10,6 +10,16 @@
 
 export const NYHETER = [
   {
+    version: '1.418',
+    fran: '1.417',
+    datum: '2026-10-02',
+    titel: 'Två nya spel: Bläckfisken Otto och Vattenballongerna',
+    punkter: [
+      'Nytt i fliken Fysik: Bläckfisken Otto. Barnet sätter fingret i havet, och Ottos närmaste arm sträcker sig dit. Sugkoppen fastnar i det den nuddar. Tre havsvänner behöver hjälp: krabban vill ha sitt skal, fisken sitter fast i en burk, sjöhästen har tappat sin unge och sköldpaddan sin boll. Havsbotten och vännerna är nya varje gång, och när alla är glada öppnas skattkistan och pärlor snurrar runt Otto.',
+      'Nytt i fliken Fysik: Vattenballongerna. Det är en het dag och djuren är för varma. Barnet trycker på kranen så fylls en dallrande vattenballong, drar bakåt och siktar längs en prickad bana. Flaggan visar hur vinden blåser. Ballongen spricker i ett riktigt plask och djuret blir svalt och glatt. En miss blir en pöl som en and badar i. När alla fyra djuren är svala blir det plaskfest med regnbåge.',
+    ],
+  },
+  {
     version: '1.416',
     fran: '1.410',
     datum: '2026-10-02',

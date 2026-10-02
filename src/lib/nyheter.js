@@ -10,6 +10,21 @@
 
 export const NYHETER = [
   {
+    version: '1.359',
+    fran: '1.289',
+    datum: '2026-10-02',
+    titel: 'Nattens stora lyft: nya platser, mer variation och fysik som känns rätt',
+    punkter: [
+      'Nya platser att leka på: Räkna Äpplena har ett riktigt äppelträd, Regnbågsmålaren Elvira en by vid sjön, Enkelt Pussel ligger på ett träbord, Bobos Bowling har en riktig bowlinghall, Kittla Figuren ett barnrum, Tårta i Ansiktet ett cirkustält med publik som jublar, Kugghjulen en verkstad där katten vaknar, Grävmaskinen en byggarbetsplats med tornkran, Spindel-Zacke Svingar hus med fönster och djur som hejar, Spindelnätet en månbelyst trädgård, Studsa Ner en spelautomat med blinkande lampor, Elementlekplatsen ett labb, Fyrverkeri en stad där fönstren tänds, och Rulla Bollen Hem en trädgård med häck, hus och fjäril.',
+      'Skog, träd och gräs i förgrunden ger djup i Vilket Djur Låter Så?, Vändkort, Vippbrädan, Klä på Nallen, Ballonglyft, Stor och Liten (sakerna ligger på en picknickfilt), Spindelhjälten och Bygg Tornet (byggplats med kran). Plask i Vattnet har fått sandbotten och tång.',
+      'Mer omväxling varje gång man spelar: målen, korgarna och formerna hamnar på nya ställen i Studsbollar, Studsmatta, Enhörningen Elvira, Vippbrädan och Bajs och Kiss; käglorna står i nya formationer i Bowling; motiven kommer i ny ordning i Enkelt Pussel och Spåra Linjen; Räkna Äpplena ber om olika antal; tornet, glassen, maten, djuret och reglerna skiftar i Knuffa Tornet, Glasstornet, Lägerelden, Tvätta Djuret och Glittergrottan. Svårigheten följer nivån som förut.',
+      'Små roliga saker: ankan i Pruttbubbelbadet guppar på vågorna, bubblorna i Klämbubblor stöter i varandra, molnet i Blixt och Dunder går att kasta, bajset studsar och låter i Bajs och Kiss, en pysballong far runt och pruttar i Poppa Ballongerna, kistan i Enhörningens Glitterbajs svämmar över, pingvinerna i Snöbollen följer bollen med blicken och nallen tittar på plagget man håller.',
+      'Mer liv: Plantera Frön har fått riktiga blommor som vajar och går att trycka på, Bobo i Saftbaren har fått en kropp, Elvira i Ballonglyft rör sig, barnets egen figur hoppar över lavan i Golvet är Lava, kranen i Borsta Pappas tänder går att sätta på, och kornen i Unika Knytt virvlar upp när man trycker på glaset. Fyrverkeriets gnistor hänger kvar och driver med vinden.',
+      'Ringar och plattor bakom föremålen är borta i Sortera Skräp, Trollkarlens Blandning och Tryck och Förvandla — sakerna ligger på gräs, sten och snö i stället.',
+      'Fysiken rör sig lika på långsamma och snabba plattor: mjuka saker som marshmallowen i Lägerelden, glasskulorna, fallskärmens kupol, trådarna i Spindelnätet, slangen i Zackes biltvätt och bubblorna i badet beter sig nu likadant även när plattan hackar.',
+    ],
+  },
+  {
     version: '1.288',
     datum: '2026-10-01',
     titel: 'Nätskott på stan: resan hem i kvällen',

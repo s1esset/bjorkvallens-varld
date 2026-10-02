@@ -14,6 +14,37 @@ Format:
 
 ---
 
+## 2026-10-02 (natt) — Nattkörning över FYSIKPLAN: omgång 0 nästan hel, omgång 1 utom tre T2-spel · v1.359.0
+
+**Byggt** (obevakat, 9 faser à en headless Opus-session med Sonnet-byggare, en commit per spel/lib, v1.288 → v1.359):
+- **Biblioteken:** `lib/variation.js` (U1: `nastaVariant` · `pase` · `slumpIBand` · `rundprofil`),
+  Emitter med luft och vind (P5), `createScene` med opt-in `silhuett`/`forgrund` (L1), `lib/takt.js`
+  (T3, fast steg för mjukkroppar/rep), ackumulator-snäpp i PhysicsWorld/FluidWorld (T4: 60 Hz-stegen
+  32/34/34 % → 0/98/2 %), `Flytvolym` per fysiksteg (T1), DEV-fällvakter `statisk-fart`/`snurr` (R1).
+- **Sonder:** `_fysikbank.mjs` (M1), `_taktprobe.mjs` (M2), `_variationprobe.mjs` + `_variationtest`.
+- **Spelen:** variation i alla 18 U2-spel + bygg-tornet; 27 av 30 enkla vinster (§5.4) — bl.a. ankan
+  rider på vågen, pysballongen, plantera-frons ritade blomma, Bobo med kropp, barnets figur i
+  golvet-ar-lava; 20 bildlyft (L2) med egna platser i stället för tvåtonsgradienter; T3 i nio spel
+  och T2 i fyra. Hela listan per spel: `.claude/state/natt/fysikplan-klart.md`, och FYSIKPLAN §2/§3/§5.4.
+- **Grind:** varje spel `natt.mjs prova` (check + test + gamelogg) + skärmdump granskad; slutfasen
+  `check` 0 fel · `build` OK · `test:all` (se morgonrapporten).
+
+**Mätt:** kvotmätaren (rate_limit_event → `kvot.json`) höll. Per fas av 5h-fönstret: lib-faser med 3
+byggare 5–7 procentenheter, spelfaser med 4 byggare + kritiker 13–15. Veckan gick 60 → 67 % över
+hela natten (~73 USD API-ekvivalent, 2/3 Sonnet). F2 stod 48 min (11 spel), övriga 14–28 min.
+
+**Skuret / kvar:** §5.4 bygg-tornet, bygg-en-kompis och hamburgerbygget (alla P2 → omgång 1b);
+T2 för studsbollar, enhorning-glitterbajs, glasstornet. Omgång 2–4 orörda.
+
+**Läxor:** ⓵ `run_in_background: false` för byggare i headless-läge (bakgrundsagenter dör 600 s
+efter turen). ⓶ En spelfas med fyra parallella byggare kostar ~2× en lib-fas i kvot — budgetera per
+byggare, inte per fas. ⓷ Leveransfasen ska skrivas klart medan `test:all` kör; bara `src/lib/nyheter.js`
+måste vänta (den laddar om sviten).
+
+**Öppet:** nästa natts början står i FYSIKPLAN §3 (T2-resten → R1-baslinje i `test:all` → omgång 1b).
+
+---
+
 ## 2026-10-01 (kväll) — Spår F omgång 2 (16 spel), Nätskott i kvällen, fysikplanen · v1.288.0
 
 **Byggt:**

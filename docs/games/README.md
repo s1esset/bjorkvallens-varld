@@ -68,8 +68,8 @@ Grupperat efter biblioteksflik (se [[library-tabs-sort]]).
 |---|------|----|-------|:--:|:--:|
 | 1 | Klämbubblor | `klambubblor` | tap | ✅ | ✅ |
 | 5 | Tryck och Förvandla | `tryck-och-forvandla` | tap | ✅ | ✅ |
-| 6 | Kittla Figuren | `kittla-figuren` | tap | ✅ | ✅ |
-| 14 | Tårta i Ansiktet | `tarta-i-ansiktet` | mixed | ✅ | ✅ |
+| 6 | Kittla Figuren | `kittla-figuren` | tap | 🔧 | ✅ |
+| 14 | Tårta i Ansiktet | `tarta-i-ansiktet` | mixed | 🔧 | ✅ |
 | 32 | Fyrverkeri | `fyrverkeri` | drag | ✅ | ✅ |
 | 37 | Såpbubblor | `sapbubblor` | tap | ✅ | ✅ |
 | 41 | Bajs och Kiss | `bajs-och-kiss` | drag | ✅ | ✅ |
@@ -167,7 +167,7 @@ i stället för att avfyra skottet åt barnet (`_offerAssist` + Skjut!-knapp, no
 | 44 | Valpens Bajs | `valpens-bajs` | mixed | 🔧 | ✅ |
 | 46 | Tvätta Djuret | `tvatta-djuret` | drag | ✅ | ✅ |
 | 48 | Gungan | `gungan` | tap | ✅ | ✅ |
-| 50 | Spindelnätet | `spindelnatet` | tap | 🔧 | ✅ |
+| 50 | Spindelnätet | `spindelnatet` | tap | ✅ | ✅ |
 | 52 | Fallskärmen | `fallskarmen` | drag | 🔧 | ✅ |
 | 53 | Enhörningen Flyger | `enhorningen-flyger` | drag | 🔧 | ✅ |
 | 54 | Spindel-Zacke Svingar | `spindel-zacke-svingar` | tap | ✅ | ✅ |
@@ -215,7 +215,7 @@ stor del via det nya delade `src/lib/artikoner.js`.*
 | # | Spel | id | input | kvalitet | polerad |
 |---|------|----|-------|:--:|:--:|
 | 7 | Färgregn | `fargregn` | tap | 🔧 | ✅ |
-| 9 | Räkna Äpplena | `rakna-applen` | tap | 🔧 | ✅ |
+| 9 | Räkna Äpplena | `rakna-applen` | tap | ✅ | ✅ |
 | 11 | Peka på Kroppen | `peka-pa-kroppen` | tap | 🔧 | ✅ |
 | 12 | Vilket Djur Låter Så? | `vilket-djur-later` | tap | 🔧 | ✅ |
 | 20 | Klä efter Vädret | `kla-efter-vadret` | mixed | 🔧 | ✅ |

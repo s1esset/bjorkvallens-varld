@@ -20,13 +20,14 @@ import { Container, Graphics, Text, Circle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { PhysicsWorld, MATERIALS, nudge, Body } from '../../lib/physics.js'
 import { AimLauncher } from '../../lib/launcher.js'
-import { createScene, lerpColor } from '../../lib/scene.js'
+import { lerpColor } from '../../lib/scene.js'
+import { nastaVariant, slumpIBand } from '../../lib/variation.js'
 import { makeBoll, makeStjarna } from '../../lib/foremal.js'
 import { burst, puff, sparkle, pop } from '../../lib/feedback.js'
 import { Button } from '../../lib/Button.js'
 import { makeKaraktar } from '../../lib/karaktarer.js'
-import { COLORS, FONT } from '../../lib/theme.js'
-import { verticalFill } from '../../lib/form.js'
+import { COLORS, FONT, shade } from '../../lib/theme.js'
+import { verticalFill, verticalFillAlpha } from '../../lib/form.js'
 import { randomFrom } from '../../lib/swedish.js'
 import { valjEgna, byggEgenFigur, presentera } from '../../lib/egnafigurer.js'
 
@@ -52,12 +53,40 @@ const DECK_Y = 372 // kägeldäckets nedre kant (området käglorna står på)
 
 // Banteman per nivå: bakgrunden OCH banans accentfärg byts, så nivå 4 inte ser
 // identisk ut med nivå 1. Cyklas i _themeFor(); scenen korsfadas i _setTheme().
+// Varje tema är ETT RUM: banans trä (lane/mark/seam), väggen bakom käglorna (wall), mattan runt
+// banan (carpet/carpetPat) och vimplarna längs väggen (flags). Mattorna är medvetet svala och
+// mörkare än banan — Bobo, bänken och pokalhyllan är bruna och ska stå ut mot dem.
 const THEMES = [
-  { scene: 'warm', accent: COLORS.yellow, lane: COLORS.cream, mark: 0xe0b877 },
-  { scene: 'candy', accent: 0xff9ec4, lane: 0xfff4fa, mark: 0xf0a8c8 },
-  { scene: 'water', accent: 0x4aa3df, lane: 0xf2fbff, mark: 0x8fc9e8 },
-  { scene: 'night', accent: 0x8b7dd8, lane: 0xf4f1ff, mark: 0xb3a6e8 },
+  { accent: COLORS.yellow, lane: 0xf3d8a0, mark: 0xe0b877, seam: 0x9a6a30, wall: 0xf6e2b8, carpet: 0x3f7a52, carpetPat: 0x5f9c70, flags: [COLORS.orange, COLORS.yellow, COLORS.teal, COLORS.pink] },
+  { accent: 0xff9ec4, lane: 0xfbe0ea, mark: 0xf0a8c8, seam: 0xb0607a, wall: 0xffdcec, carpet: 0x7d55b5, carpetPat: 0xa07bd6, flags: [COLORS.pink, COLORS.yellow, COLORS.blue, COLORS.green] },
+  { accent: 0x4aa3df, lane: 0xe4f3fa, mark: 0x8fc9e8, seam: 0x4f86a8, wall: 0xcdeaf6, carpet: 0x2d6a92, carpetPat: 0x4d8fb8, flags: [COLORS.blue, COLORS.yellow, COLORS.pink, COLORS.teal] },
+  { accent: 0x8b7dd8, lane: 0xe6e1f8, mark: 0xb3a6e8, seam: 0x6a5fa8, wall: 0x4a4478, carpet: 0x2a2a5c, carpetPat: 0x4a4a8c, flags: [COLORS.purple, COLORS.yellow, COLORS.pink, COLORS.teal] },
 ]
+
+// Kägelformationer per antal. [dx från banans mitt, y]. Alla är kompakta (högst ~190 px breda
+// och aldrig mer än fyra rader) så ETT rakt kast mot främre raden kan välta hela klungan —
+// formationen byter utseende och vinkel, inte svårighet. Raderna ligger 60 px isär och
+// käglorna 64 px i sidled, precis som den gamla triangeln; y aldrig under 150 (banans topp).
+const FORMATIONER = {
+  3: [
+    { id: 'tri3', pts: [[0, 300], [-44, 236], [44, 236]] },
+    { id: 'vand3', pts: [[-32, 300], [32, 300], [0, 240]] },
+    { id: 'rad3', pts: [[-64, 270], [0, 270], [64, 270]] },
+    { id: 'diag3', pts: [[-24, 300], [8, 240], [40, 180]] },
+  ],
+  6: [
+    { id: 'tri6', pts: [[0, 310], [-32, 250], [32, 250], [-64, 190], [0, 190], [64, 190]] },
+    { id: 'vand6', pts: [[-64, 310], [0, 310], [64, 310], [-32, 250], [32, 250], [0, 190]] },
+    { id: 'mur6', pts: [[-64, 300], [0, 300], [64, 300], [-64, 240], [0, 240], [64, 240]] },
+    { id: 'dubbel6', pts: [[-32, 300], [32, 300], [-32, 240], [32, 240], [-32, 180], [32, 180]] },
+  ],
+  10: [
+    { id: 'tri10', pts: [[0, 330], [-32, 270], [32, 270], [-64, 210], [0, 210], [64, 210], [-96, 150], [-32, 150], [32, 150], [96, 150]] },
+    { id: 'vand10', pts: [[-96, 330], [-32, 330], [32, 330], [96, 330], [-64, 270], [0, 270], [64, 270], [-32, 210], [32, 210], [0, 150]] },
+    { id: 'kupa10', pts: [[-64, 310], [0, 310], [64, 310], [-96, 250], [-32, 250], [32, 250], [96, 250], [-64, 190], [0, 190], [64, 190]] },
+    { id: 'romb10', pts: [[-32, 330], [32, 330], [-64, 270], [0, 270], [64, 270], [-64, 210], [0, 210], [64, 210], [-32, 150], [32, 150]] },
+  ],
+}
 
 const MAX_TROPHIES = 8 // pokalhyllans bredd (fler strikes fyller på från början igen)
 
@@ -86,6 +115,8 @@ export default {
     this._meterDots = []
     this._standingCount = 0
     this._pinCenter = { x: 640, y: 300 }
+    this._form = null // förra rundans formation (nastaVariant undviker att upprepa den)
+    this._formX = 640
     this._idle = 0
     this._rollT = 0
     this._restT = 0
@@ -186,12 +217,11 @@ export default {
     this._crowd.position.set(1128, 300)
     this._root.addChild(this._crowd)
 
-    // Rännstenar (dekor) — mörka kanaler utanför banan.
-    const gutters = new Graphics()
-    gutters.roundRect(300, LANE.y, 44, LANE.h, 18).fill({ color: COLORS.brown, alpha: 0.3 })
-    gutters.roundRect(936, LANE.y, 44, LANE.h, 18).fill({ color: COLORS.brown, alpha: 0.3 })
-    gutters.eventMode = 'none'
-    this._root.addChild(gutters)
+    // Rännstenar — urholkade kanaler på var sida om banan (ritas i _setTheme: de är mörka
+    // och djupa, med en ljus läpp där kanten fångar ljuset).
+    this._gutters = new Graphics()
+    this._gutters.eventMode = 'none'
+    this._root.addChild(this._gutters)
 
     // Banan: ljus, glansig rektangel med mitt-glansstrimma. Färgen byts per bantema.
     this._lane = new Graphics()
@@ -352,8 +382,8 @@ export default {
     this._themeI = i
     const t = THEMES[i]
 
-    // Ny bakgrund in, gammal ut (och bort).
-    const next = createScene(t.scene, { width: ctx.width, height: ctx.height, ground: false })
+    // Nytt rum in (vägg, matta, vimplar), gammalt ut (och bort).
+    const next = this._buildRoom(t)
     const prev = this._sceneNode
     this._sceneNode = next
     this._sceneLayer.addChild(next)
@@ -371,6 +401,16 @@ export default {
       })
     }
 
+    // Rännstenar: urholkade kanaler. Mörk botten, en skuggad sida mot ytterkanten och en ljus
+    // läpp där kanten fångar ljuset — de läser som fördjupningar, inte som bruna streck.
+    const gt = this._gutters.clear()
+    for (const [x0, sida] of [[300, 1], [936, -1]]) {
+      gt.roundRect(x0, LANE.y, 44, LANE.h, 18).fill(0x2c2330)
+      gt.roundRect(x0 + 5, LANE.y + 4, 34, LANE.h - 8, 14).fill(verticalFill(0x5b4a5c, 0x3a2e3d))
+      gt.roundRect(sida === 1 ? x0 + 5 : x0 + 27, LANE.y + 8, 12, LANE.h - 16, 6).fill({ color: 0x000000, alpha: 0.28 })
+      gt.roundRect(sida === 1 ? x0 + 29 : x0 + 10, LANE.y + 12, 5, LANE.h - 24, 2.5).fill({ color: 0xffffff, alpha: 0.16 })
+    }
+
     // Banan.
     this._lane
       .clear()
@@ -383,7 +423,27 @@ export default {
       // cachas per färgpar — ett nivåbyte bakar noll nya texturer.
       .fill(verticalFill(lerpColor(t.lane, t.mark, 0.24), t.lane))
       .stroke({ width: 8, color: t.accent })
+    // Brädor: 40 smala trädelar med en fast pseudoslump (samma bild varje gång) — några är
+    // mörkare, och alla skiljs åt av en tunn fog. Banan läser som lackat trä, inte som en platta.
+    const BRADOR = 40
+    const bw = (LANE.w - 16) / BRADOR
+    const by0 = LANE.y + 30
+    const by1 = LANE.y + LANE.h - 30
+    for (let b = 0; b < BRADOR; b++) {
+      const v = ((b * 37 + 11) % 17) / 17
+      if (v < 0.4) this._lane.rect(LANE.x + 8 + b * bw, by0, bw, by1 - by0).fill({ color: t.seam, alpha: 0.04 + v * 0.12 })
+    }
+    for (let b = 1; b < BRADOR; b++) {
+      const x = LANE.x + 8 + b * bw
+      this._lane.moveTo(x, by0).lineTo(x, by1)
+    }
+    this._lane.stroke({ width: 1.5, color: t.seam, alpha: 0.2 })
+    // Lackens glans: en bred strimma i mitten och två smala, och en skugga där banan försvinner
+    // in i kägelgropen längst bort.
     this._lane.roundRect(620, 120, 40, 560, 20).fill({ color: 0xffffff, alpha: 0.35 })
+    this._lane.roundRect(552, 130, 14, 540, 7).fill({ color: 0xffffff, alpha: 0.14 })
+    this._lane.roundRect(714, 130, 14, 540, 7).fill({ color: 0xffffff, alpha: 0.14 })
+    this._lane.roundRect(LANE.x + 4, LANE.y + 4, LANE.w - 8, 56, 24).fill(verticalFillAlpha(0x2a1a10, 0x2a1a10, 0.26, 0))
 
     // Markeringar: kägeldäck, fellinje, siktpilar, avståndsprickar.
     const m = this._marks.clear()
@@ -402,6 +462,75 @@ export default {
     // Räcken + stämplar följer temat bara i ljushet — kantstödet behåller sin teal
     // signalfärg så av/på aldrig förväxlas med "ny nivå".
     if (this._banner && !this._banner.destroyed) this._banner.children[0].tint = t.accent
+  },
+
+  // ---- Rummet runt banan ---------------------------------------------------
+  //
+  // Käglorna står på något, i ett rum: en matta med rutmönster runt banan, träramen och en
+  // skuggad kant, och bakom käglorna en vägg med fotpanel, en mörk kägelgrop med en vimplad
+  // ridå (kägelmaskinens kåpa) och en vimpelgirland. Allt ritas i EN container per tema (fem
+  // Graphics, inga texturbakningar utöver de cachade toningarna) så korsfadningen mellan teman
+  // är en enda alfa. Mattan sticker ut förbi 1280×720 så den täcker även en bred telefon.
+  _buildRoom(t) {
+    const room = new Container()
+    room.eventMode = 'none'
+    room.interactiveChildren = false
+    const X0 = -260
+    const W = 1800
+
+    // Matta med ett ruter-mönster (hoppar över ytan under banan).
+    const carpet = new Graphics()
+    carpet.rect(X0, -180, W, 1080).fill(verticalFill(lerpColor(t.carpet, 0xffffff, 0.08), shade(t.carpet, 0.3)))
+    for (let row = 0, cy = 100; cy < 860; cy += 60, row++) {
+      for (let cx = X0 + (row % 2) * 40; cx < X0 + W; cx += 80) {
+        if (cx > 262 && cx < 1018) continue
+        carpet.poly([cx, cy - 22, cx + 22, cy, cx, cy + 22, cx - 22, cy]).fill({ color: t.carpetPat, alpha: 0.2 })
+      }
+    }
+    room.addChild(carpet)
+
+    // Väggen bakom: tapetränder, fotpanel med fyllningar, golvlist, och skuggan på mattan.
+    const wall = new Graphics()
+    wall.rect(X0, -180, W, 276).fill(verticalFill(lerpColor(t.wall, 0xffffff, 0.15), t.wall))
+    for (let x = X0; x < X0 + W; x += 64) wall.rect(x, -180, 32, 276).fill({ color: shade(t.wall, 0.12), alpha: 0.3 })
+    wall.rect(X0, 58, W, 4).fill(shade(t.wall, 0.3))
+    wall.rect(X0, 62, W, 26).fill(shade(t.wall, 0.16))
+    for (let x = X0 + 16; x < X0 + W; x += 96) wall.roundRect(x, 67, 64, 16, 4).fill({ color: shade(t.wall, 0.32), alpha: 0.4 })
+    wall.rect(X0, 88, W, 9).fill(0x6d452c)
+    wall.rect(X0, 97, W, 26).fill(verticalFillAlpha(0x000000, 0x000000, 0.28, 0))
+    room.addChild(wall)
+
+    // Banans träram med mjuk skugga ut mot mattan.
+    const ram = new Graphics()
+    ram.roundRect(276, 104, 728, 614, 38).fill({ color: 0x000000, alpha: 0.18 })
+    ram.roundRect(288, 96, 704, 602, 32).fill(0x6d452c)
+    ram.roundRect(292, 100, 696, 594, 30).stroke({ width: 3, color: 0xffffff, alpha: 0.16 })
+    room.addChild(ram)
+
+    // Kägelgropen: mörk öppning i väggen, och kägelmaskinens ridå av halvrunda flikar.
+    const grop = new Graphics()
+    grop.roundRect(316, 50, 648, 64, 14).fill(0x241c2a)
+    grop.rect(316, 44, 648, 22).fill(shade(t.accent, 0.35))
+    for (let k = 0; k < 12; k++) {
+      grop.circle(343 + k * 54, 66, 27).fill(t.flags[k % t.flags.length])
+      grop.circle(343 + k * 54 - 7, 60, 6).fill({ color: 0xffffff, alpha: 0.28 })
+    }
+    room.addChild(grop)
+
+    // Vimpelgirlanden högst upp på väggen. Låg och smal — inget högt bakom skalets knappar.
+    const girl = new Graphics()
+    const stry = (x) => 8 + 9 * Math.sin((x / 1280) * Math.PI * 6)
+    for (let x = X0; x <= X0 + W; x += 20) {
+      if (x === X0) girl.moveTo(x, stry(x))
+      else girl.lineTo(x, stry(x))
+    }
+    girl.stroke({ width: 2, color: 0x4a3526, alpha: 0.5 })
+    for (let i = 0, x = X0 + 20; x < X0 + W; x += 58, i++) {
+      const y = stry(x)
+      girl.poly([x - 15, y, x + 15, y, x, y + 28]).fill(t.flags[i % t.flags.length])
+    }
+    room.addChild(girl)
+    return room
   },
 
   // ---- Pokalhylla ----------------------------------------------------------
@@ -445,39 +574,18 @@ export default {
 
   // ---- Nivå ----------------------------------------------------------------
 
-  // Triangel, apex (huvudkägla) närmast barnet (störst y). Rader 60px isär, käglor 64px.
+  // Formation ur FORMATIONER (U2). Antalet käglor är nivåns mått (3 → 6 → 10) och står kvar;
+  // vilken formation som står där lottas (aldrig samma som förra nivån), och hela klungan
+  // flyttas i sidled inom ett litet band — så siktet måste justeras varje omgång. Främre raden
+  // (störst y) är det barnet siktar på. Från nivå 6 darrar dessutom varje kägla ±6 px.
   _pinLayout(level) {
-    let pts
-    if (level <= 1) {
-      pts = [
-        { x: 640, y: 300 },
-        { x: 596, y: 236 },
-        { x: 684, y: 236 },
-      ]
-    } else if (level <= 3) {
-      pts = [
-        { x: 640, y: 310 },
-        { x: 608, y: 250 },
-        { x: 672, y: 250 },
-        { x: 576, y: 190 },
-        { x: 640, y: 190 },
-        { x: 704, y: 190 },
-      ]
-    } else {
-      pts = [
-        { x: 640, y: 330 },
-        { x: 608, y: 270 },
-        { x: 672, y: 270 },
-        { x: 576, y: 210 },
-        { x: 640, y: 210 },
-        { x: 704, y: 210 },
-        { x: 544, y: 150 },
-        { x: 608, y: 150 },
-        { x: 672, y: 150 },
-        { x: 736, y: 150 },
-      ]
-      if (level >= 6) pts = pts.map((p) => ({ x: p.x + (Math.random() * 12 - 6), y: p.y + (Math.random() * 12 - 6) }))
-    }
+    const n = level <= 1 ? 3 : level <= 3 ? 6 : 10
+    const form = nastaVariant(FORMATIONER[n], this._form?.id)
+    const mitt = 640 + slumpIBand(0, n === 3 ? 40 : 60, { steg: 20 })
+    this._form = form
+    this._formX = mitt
+    let pts = form.pts.map(([dx, y]) => ({ x: mitt + dx, y }))
+    if (level >= 6) pts = pts.map((p) => ({ x: p.x + (Math.random() * 12 - 6), y: p.y + (Math.random() * 12 - 6) }))
     return pts
   },
 
@@ -507,9 +615,7 @@ export default {
 
     // Bygg ny triangel.
     const layout = this._pinLayout(level)
-    let front = layout[0]
     for (const pos of layout) {
-      if (pos.y > front.y) front = pos
       const view = makePin()
       view.position.set(pos.x, pos.y)
       this._pinLayer.addChild(view)
@@ -520,7 +626,15 @@ export default {
       gsap.to(view.scale, { x: 1, y: 1, duration: 0.3, ease: 'back.out(2)' })
     }
     this._standingCount = this._pins.length
-    this._pinCenter = { x: front.x, y: front.y } // sikta på huvudkäglan vid tap-fallback
+    // Siktmålet = mitten av FRÄMRE raden (en ensam huvudkägla i en triangel, parets mitt i en
+    // omvänd klunga) — ett rakt kast dit når hela formationen. Raderna ligger 60 px isär.
+    const frontY = Math.max(...layout.map((p) => p.y))
+    const framre = layout.filter((p) => p.y > frontY - 20)
+    const front = {
+      x: framre.reduce((s, p) => s + p.x, 0) / framre.length,
+      y: framre.reduce((s, p) => s + p.y, 0) / framre.length,
+    }
+    this._pinCenter = { x: front.x, y: front.y } // sikta på främre raden vid tap-fallback
     if (this._aimGlow && !this._aimGlow.destroyed) {
       this._aimGlow.position.set(front.x, front.y)
       this._aimGlow.visible = true

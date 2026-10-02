@@ -79,6 +79,10 @@ auto-hjälpen gör siktet kosmetiskt**.
   den välts. Rotera per nivå så triangeln inte bara *växer* utan *varierar*.
 
 ### Variation & överraskning
+- ✅ ~~**[Quick] Formationer i stället för alltid en triangel (U2).**~~ Klar 2026-10-02: 4 formationer
+  per kägelantal + sidoförskjutning (se §5).
+- ✅ ~~**[Medium] En riktig bana i ett rum (L2).**~~ Klar 2026-10-02: trä med brädor, urholkade
+  rännor, vägg + kägelgrop + matta (se §5).
 - ✅ ~~**[Quick] Fyll banan med riktmärken.**~~ Redan byggd (banmarkeringar :200/:387 med pilbåge,
   målzon-glow `_aimGlow` :207) — uppdagat 2026-09-23.
 - ✅ ~~**[Medium] Käglor med ansikten + förväntan.**~~ Redan byggd (pupiller mot klotet, uppspärrade
@@ -112,6 +116,22 @@ auto-hjälpen gör siktet kosmetiskt**.
   ett slingklipp — MOSS nere.)*
 
 ## 5. Status / loggar
+
+- 2026-10-02 · **Formationer (U2) och ett rum runt banan (L2)** (FYSIKPLAN omgång 0, nattkörning B4).
+  ⓵ `_pinLayout` ger inte längre alltid en triangel: `FORMATIONER` har 4 mönster per kägelantal
+  (3: triangel · omvänd · rad · diagonal; 6: triangel · omvänd · mur 3×2 · dubbelkolonn; 10: triangel ·
+  omvänd · 3-4-3 · romb 2-3-3-2), lottade med `nastaVariant` (aldrig samma som förra nivån), och hela
+  klungan flyttas i sidled med `slumpIBand` (±40 på 3 käglor, ±60 annars, steg 20). Antalet (3 → 6 →
+  10), radavstånden (60) och sidoavståndet (64) är oförändrade, och alla formationer är högst ~190 px
+  breda och ≤ 4 rader, så ETT rakt kast mot främre raden når alla — svårigheten flyttar sig inte,
+  bara vinkeln. Siktmålet (tap-fallback + målzonen) är nu MITTEN av främre raden i stället för en
+  enskild huvudkägla, så omvända formationer får sitt mål mellan paret. Jitteret ±6 från nivå 6 ligger
+  kvar ovanpå. ⓶ `createScene`-bakgrunden (krämplatta + himmel) är ersatt av `_buildRoom`: matta med
+  rutmönster, väggen bakom med tapetränder, fotpanel och golvlist, en mörk kägelgrop med maskinens
+  vimplade ridå, vimpelgirland, träram med skugga; banan har 40 brädor med fogar och fast pseudoslump,
+  tre lackstrimmor och skugga in mot gropen; rännorna är urholkade (mörk botten, skuggad sida, ljus
+  läpp). Fyra rum (ett per bantema) korsfadas som förut. Skuggvärlden (G3a) är inte med.
+  Mätning: `g._form.id` + `g._formX` + `g._pins.map(p=>p.sx|0).join()`.
 
 - 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): `_strike` spelade eget
   `celebrate` + `bigCelebration` i samma tick som `complete()` — strukna; strike-repliken sägs

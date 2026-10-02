@@ -11,15 +11,16 @@
 // OBS: använder INTE DragController — egen spårnings-lyssnare på himlen (likt spara-linjen).
 import { Container, Graphics, Circle } from 'pixi.js'
 import { gsap } from 'gsap'
-import { bounceIn, pop, breathe, sparkle, burst, floatText , kvittera} from '../../lib/feedback.js'
-import { createScene } from '../../lib/scene.js'
+import { bounceIn, pop, breathe, sparkle, burst, floatText, liv, kvittera } from '../../lib/feedback.js'
+import { createScene, lerpColor, slump } from '../../lib/scene.js'
 import { randomFrom } from '../../lib/swedish.js'
 import { COLORS } from '../../lib/theme.js'
+import { bage, verticalFill } from '../../lib/form.js'
+import { nastaVariant, slumpIBand } from '../../lib/variation.js'
 
 // Regnbåge-rymd: centrum precis ovanför marken.
 const CX = 640
 const CY = 600
-const RMAX = 410
 const TAU0 = Math.PI // vänster fäste (φ=π) → höger fäste (φ=2π)
 
 // Färgordning: röd → orange → gul → grön → blå → lila.
@@ -28,6 +29,18 @@ const COLOR_LIST = [COLORS.red, COLORS.orange, COLORS.yellow, COLORS.green, COLO
 const RAINBOW_NOTES = [523, 587, 659, 784, 880, 988] // C D E G A B
 const CAN_X = [350, 466, 582, 698, 814, 930]
 const CAN_Y = 668
+
+// Från nivå 3 lottas rundans form bland de här (aldrig samma som förra). Nivå 1 (en båge) och
+// nivå 2 (dubbel) är en fast liten inlärningstrappa. `moln` = antal moln att måla bort (bonus).
+const VARIANTER = [
+  { id: 'dubbel', moln: 2 }, //     dubbel regnbåge, utifrån och in (som förut)
+  { id: 'inifran', moln: 2 }, //    dubbel regnbåge, den lilla innersta först
+  { id: 'bred', moln: 3 }, //       EN bred regnbåge, fler moln
+  { id: 'tvillingar', moln: 2 }, // två små regnbågar bredvid varandra
+]
+const MOLNPLATSER = [{ x: 320, y: 220 }, { x: 980, y: 210 }, { x: 650, y: 95 }] // tredje (bara bred) ligger OVANFÖR yttre bandets topp (y 164)
+// Byn i mitten är grå medan himlen är grå, och får sina färger när regnbågen är klar.
+const BY_GRA = 0x9aa4ae
 
 const IDLE_DELAY = 6000 // ms utan interaktion → röst-recue + mjuk auto-hjälp
 
@@ -62,20 +75,26 @@ export default {
     this._regnbagar = ctx.progress.get().custom?.regnbagar || 0
     this._histShown = null // första bygget poppar inte in något
     this._histTween = null
+    this._variant = null // rundans form (från nivå 3) — förra undviks vid nästa lottning
+    this._byTween = null
+    this._boat = null
+    this._fro = 1 + Math.floor(Math.random() * 40) // samma trädlinje i grå och ljus himmel
 
     this._root = new Container()
     ctx.stage.addChild(this._root)
 
     // Bakgrund: gråmulen himmel (FÖRSTA barn).
+    // Tyngre uppe, ljusare vid horisonten (djup), en trädlinje i fjärran och strån längst fram (L1).
     this._graySky = createScene(
-      { top: 0xb8c2cc, bottom: 0xd8dde2, ground: 0x86d27a, groundDark: 0x5bbf6a, clouds: 3 },
-      { ground: true, groundH: 96 }
+      { top: 0x9ba7b4, bottom: 0xd8dde2, ground: 0x86d27a, groundDark: 0x5bbf6a, clouds: 4, gras: true },
+      { ground: true, groundH: 96, silhuett: 'skog', forgrund: true, fro: this._fro }
     )
     this._graySky.eventMode = 'none'
     this._root.addChild(this._graySky)
 
     // Ljus firande-himmel, dold tills klart.
-    this._brightSky = createScene('meadow', { ground: true })
+    // Scenens egen sol parkeras utanför bild: det är DEN HÄR rundans sol (nedan) som går upp.
+    this._brightSky = createScene('meadow', { ground: true, silhuett: 'skog', forgrund: true, fro: this._fro, sunX: -900 })
     this._brightSky.eventMode = 'none'
     this._brightSky.alpha = 0
     this._root.addChild(this._brightSky)
@@ -88,6 +107,12 @@ export default {
     this._sun.alpha = 0
     this._sun.eventMode = 'none'
     this._root.addChild(this._sun)
+
+    // Byn och sjön i mitten (L2): något att måla regnbågen över. Byggs om varje runda.
+    this._byLager = new Container()
+    this._byLager.eventMode = 'none'
+    this._byLager.interactiveChildren = false
+    this._root.addChild(this._byLager)
 
     // Tidigare regnbågar dröjer kvar i himlen (bakom dekor och den nya bågen).
     this._history = new Container()
@@ -167,7 +192,7 @@ export default {
         if (done.length) {
           const a = randomFrom(done)
           const ang = Math.PI + Math.random() * Math.PI
-          sparkle(ctx.fxLayer, CX + a.R * Math.cos(ang), CY + a.R * Math.sin(ang), { count: 2 })
+          sparkle(ctx.fxLayer, a.cx + a.R * Math.cos(ang), a.cy + a.R * Math.sin(ang), { count: 2 })
         }
       }
       // Tomgången räknas från TYSTNAD: medan en replik talar står klockan still (V21 —
@@ -186,16 +211,44 @@ export default {
 
   // ---- Bygg en runda (oändlig lek) ----------------------------------------
 
-  _arcDefs(level) {
-    const defs = []
-    const outerR = [410, 366, 322, 278, 234, 190]
-    for (let i = 0; i < 6; i++) defs.push({ R: outerR[i], colorIndex: i, width: 40 })
-    if (level >= 2) {
-      // Dubbel regnbåge: ljusare, tunnare, omvänd färgordning.
-      const innerR = [170, 148, 126, 104, 82, 60]
-      for (let i = 0; i < 6; i++) defs.push({ R: innerR[i], colorIndex: 5 - i, width: 22 })
+  // Varje båge bär sitt eget centrum (cx, cy) — tvillingarna har två. Ordningen i listan är
+  // målningsordningen (`_afterSnap` tar första ofyllda).
+  _arcDefs(level, variant) {
+    const id = variant?.id
+    if (id === 'bred') {
+      // EN bred regnbåge: samma sex färger, tjockare band, fler moln att måla bort.
+      return Array.from({ length: 6 }, (_, i) => ({ R: 410 - i * 54, colorIndex: i, width: 52, cx: CX, cy: CY }))
     }
-    return defs
+    if (id === 'tvillingar') {
+      // Två små regnbågar sida vid sida (vänstra målas först).
+      const defs = []
+      for (const cx of [400, 880]) for (let i = 0; i < 6; i++) defs.push({ R: 215 - i * 25, colorIndex: i, width: 24, cx, cy: CY })
+      return defs
+    }
+    const outer = []
+    const outerR = [410, 366, 322, 278, 234, 190]
+    for (let i = 0; i < 6; i++) outer.push({ R: outerR[i], colorIndex: i, width: 40, cx: CX, cy: CY })
+    if (level < 2) return outer
+    // Dubbel regnbåge: ljusare, tunnare, omvänd färgordning.
+    const inner = []
+    const innerR = [170, 148, 126, 104, 82, 60]
+    for (let i = 0; i < 6; i++) inner.push({ R: innerR[i], colorIndex: 5 - i, width: 22, cx: CX, cy: CY })
+    return id === 'inifran' ? [...inner, ...outer] : [...outer, ...inner]
+  },
+
+  // Byn och sjön i mitten, ett nytt arrangemang varje runda. Grå tills regnbågen är klar.
+  _bygg() {
+    this._byTween?.kill()
+    this._byTween = null
+    this._boat?._fxLiv?.kill()
+    this._boat = null
+    this._byLager.removeChildren().forEach((c) => c.destroy({ children: true }))
+    const by = makeBy(slump(1 + Math.floor(Math.random() * 1e6)))
+    by.c.tint = BY_GRA
+    this._byLager.addChild(by.c)
+    this._by = by.c
+    this._boat = by.boat
+    liv(by.boat, { bob: 2.5, sway: 0.04, duration: 3 + Math.random() })
   },
 
   _buildRound() {
@@ -220,17 +273,28 @@ export default {
     for (const c of this._clouds) if (c?.g && !c.g.destroyed) gsap.killTweensOf(c.g)
     this._clouds.length = 0
     this._rainbow.removeChildren().forEach((c) => c.destroy({ children: true }))
+    // Elviras hopp (0,7 + 6×0,34 s) räcker längre än nästa rundas 1,8 s — döda det och
+    // blommornas studs innan noderna rivs, annars skriver gsap på en död position.
+    this._elviraHop?.kill()
+    this._elviraHop = null
+    for (const c of this._decor.children) {
+      gsap.killTweensOf(c)
+      gsap.killTweensOf(c.scale)
+    }
     this._decor.removeChildren().forEach((c) => c.destroy({ children: true }))
 
+    this._bygg()
     this._buildHistory()
 
     this._K = this._level >= 3 ? 28 : 24
-    const defs = this._arcDefs(this._level)
+    // Från nivå 3 lottas rundans form (U2) — aldrig samma som förra rundans.
+    this._variant = this._level >= 3 ? nastaVariant(VARIANTER, this._variant) : null
+    const defs = this._arcDefs(this._level, this._variant)
 
     // Grå mall (under banden).
     const tmpl = new Graphics()
     for (const d of defs) {
-      tmpl.arc(CX, CY, d.R, Math.PI, Math.PI * 2).stroke({ width: d.width, color: 0xaab2ba, alpha: 0.28, cap: 'round' })
+      bage(tmpl, d.cx, d.cy, d.R, Math.PI, Math.PI * 2).stroke({ width: d.width, color: 0xaab2ba, alpha: 0.28, cap: 'round' })
     }
     this._rainbow.addChild(tmpl)
 
@@ -238,15 +302,18 @@ export default {
     this._arcs = defs.map((d) => {
       const bandG = new Graphics()
       this._rainbow.addChild(bandG)
-      return { R: d.R, color: COLOR_LIST[d.colorIndex], colorIndex: d.colorIndex, width: d.width, bandG, covered: new Set(), done: false, _fMin: 0.5, _fMax: 0.5 }
+      return { R: d.R, cx: d.cx, cy: d.cy, color: COLOR_LIST[d.colorIndex], colorIndex: d.colorIndex, width: d.width, bandG, covered: new Set(), done: false, _fMin: 0.5, _fMax: 0.5 }
     })
     // Test-vänliga speglingar.
     this._covered = this._arcs.map((a) => a.covered)
     this._bandDone = this._arcs.map(() => false)
 
-    // Moln att måla bort (nivå 3+, bonus — krävs ej för klart).
+    // Moln att måla bort (nivå 3+, bonus — krävs ej för klart). Platserna lottas inom band.
     if (this._level >= 3) {
-      const spots = [{ x: 320, y: 220 }, { x: 980, y: 210 }]
+      const spots = MOLNPLATSER.slice(0, this._variant?.moln ?? 2).map((m) => ({
+        x: slumpIBand(m.x, 70, { golv: 260, tak: 1020 }),
+        y: slumpIBand(m.y, 30),
+      }))
       for (const s of spots) {
         const g = new Graphics()
         g.circle(-34, 6, 24).fill(0xb0b8c0).circle(0, -8, 34).fill(0xb0b8c0).circle(34, 6, 26).fill(0xb0b8c0)
@@ -266,7 +333,9 @@ export default {
       bounceIn(can, { delay: can._colorIndex * 0.05 })
     }
     gsap.killTweensOf(this._unicorn)
-    this._unicorn.position.set(CX, CY - RMAX - 10)
+    // Enhörningen börjar vid toppen av den första bågen som ska målas.
+    const forsta = this._arcs[0]
+    this._unicorn.position.set(forsta.cx, forsta.cy - forsta.R - 10)
     this._unicorn.visible = true
     bounceIn(this._unicorn)
 
@@ -292,7 +361,7 @@ export default {
       const g = new Graphics()
       const w = s.r / 7
       COLOR_LIST.forEach((col, k) => {
-        g.arc(0, 0, s.r - k * w, Math.PI, Math.PI * 2).stroke({ width: w, color: col, alpha: 0.38 })
+        bage(g, 0, 0, s.r - k * w, Math.PI, Math.PI * 2).stroke({ width: w, color: col, alpha: 0.38 })
       })
       g.eventMode = 'none'
       c.addChild(g)
@@ -372,7 +441,7 @@ export default {
     // Var det egentligen ett tap (knappt någon rörelse)? → måla en rejäl klick.
     if (this._moved < 14) {
       const p = { x: this._downX, y: this._downY }
-      const f = this._fracAt(p)
+      const f = this._fracAt(p, this._arcs[this._active])
       const cell = Math.min(this._K - 1, Math.floor(f * this._K))
       const cells = []
       for (let c = cell - 3; c <= cell + 3; c++) cells.push(c)
@@ -389,9 +458,9 @@ export default {
   // Svep-fraktion = VINKEL runt regnbågens centrum (vänster fäste → 0, topp → 0.5,
   // höger fäste → 1). Vinkel-baserat (inte x-baserat) gör fyllningen radie-oberoende:
   // ett svep längs VILKEN båge som helst — även de innersta, smala — täcker 0→1 helt.
-  _fracAt(p) {
-    const dx = p.x - CX
-    const dy = p.y - CY
+  _fracAt(p, arc) {
+    const dx = p.x - (arc?.cx ?? CX)
+    const dy = p.y - (arc?.cy ?? CY)
     let theta = Math.atan2(dy, dx) // -π..π; ovanför centrum (dy<0) → -π..0
     if (theta > 0) theta = dx >= 0 ? 0 : -Math.PI // under centrumlinjen → snäpp till närmsta fäste
     return Math.max(0, Math.min(1, (theta + Math.PI) / Math.PI))
@@ -400,7 +469,7 @@ export default {
   _paintAt(ctx, p) {
     if (this._resolving || !this._alive) return
     this._idle = 0
-    const f = this._fracAt(p)
+    const f = this._fracAt(p, this._arcs[this._active])
     const cell = Math.min(this._K - 1, Math.floor(f * this._K))
     this._applyCells(ctx, this._active, [cell - 1, cell, cell + 1], p)
     this._tryPaintClouds(ctx, p)
@@ -433,12 +502,11 @@ export default {
   // Rita en båges fyllda segment (fMin→fMax av halvcirkeln). Exit-säkert.
   _strokeBand(arc, fMin, fMax) {
     if (arc.bandG.destroyed) return
-    arc.bandG
-      .clear()
-      .arc(CX, CY, arc.R, TAU0 + fMin * Math.PI, TAU0 + fMax * Math.PI)
+    const g = arc.bandG.clear()
+    bage(g, arc.cx, arc.cy, arc.R, TAU0 + fMin * Math.PI, TAU0 + fMax * Math.PI)
       .stroke({ width: arc.width, color: arc.color, cap: 'round' })
-      // Skimrande glans-rand längs bandets utsida (våt-magisk look).
-      .arc(CX, CY, arc.R + arc.width * 0.24, TAU0 + fMin * Math.PI, TAU0 + fMax * Math.PI)
+    // Skimrande glans-rand längs bandets utsida (våt-magisk look).
+    bage(g, arc.cx, arc.cy, arc.R + arc.width * 0.24, TAU0 + fMin * Math.PI, TAU0 + fMax * Math.PI)
       .stroke({ width: arc.width * 0.26, color: 0xffffff, alpha: 0.4, cap: 'round' })
   },
 
@@ -489,8 +557,8 @@ export default {
 
     ctx.services.audio.sfx('reveal')
     ctx.services.audio.tone({ freq: RAINBOW_NOTES[arc.colorIndex] || 660, dur: 0.34, type: 'sine', vol: 0.2 }) // bågen sjunger sin ton
-    sparkle(ctx.fxLayer, CX, CY - arc.R, { count: 8 })
-    burst(ctx.fxLayer, CX, CY - arc.R, { count: 10, colors: [arc.color] })
+    sparkle(ctx.fxLayer, arc.cx, arc.cy - arc.R, { count: 8 })
+    burst(ctx.fxLayer, arc.cx, arc.cy - arc.R, { count: 10, colors: [arc.color] })
     const can = this._cans[arc.colorIndex]
     if (can && !can.destroyed) pop(can)
     this._releaseSurprise(arc)
@@ -505,7 +573,7 @@ export default {
     const s = makeSurprise(kind, arc.color)
     const side = Math.random() < 0.5 ? -1 : 1
     const a = (0.22 + Math.random() * 0.36) * Math.PI
-    s.position.set(CX + side * Math.cos(a) * arc.R, CY - Math.sin(a) * arc.R)
+    s.position.set(arc.cx + side * Math.cos(a) * arc.R, arc.cy - Math.sin(a) * arc.R)
     s.eventMode = 'none'
     this._decor.addChild(s)
     const st = { x: s.x, y: s.y, a: 1, r: 0 }
@@ -570,6 +638,21 @@ export default {
     // Grå himmel ljusnar till solig äng.
     gsap.to(this._brightSky, { alpha: 1, duration: 1.0 })
 
+    // Byn och sjön får sina färger medan himlen ljusnar.
+    this._byTween?.kill()
+    const by = this._by
+    if (by && !by.destroyed) {
+      const st = { t: 0 }
+      this._byTween = gsap.to(st, {
+        t: 1,
+        duration: 1.0,
+        onUpdate: () => {
+          if (by.destroyed) { this._byTween?.kill(); return }
+          by.tint = lerpColor(BY_GRA, 0xffffff, st.t)
+        },
+      })
+    }
+
     // Solen går upp.
     this._sun.alpha = 1
     this._sun.position.set(CX, 760)
@@ -628,8 +711,8 @@ export default {
     const f = (start + 1.5) / this._K
     // Placera enhörningen PÅ den aktiva bågens egen radie (vinkel π→2π).
     const ang = Math.PI + f * Math.PI
-    const px = CX + arc.R * Math.cos(ang)
-    const py = CY + arc.R * Math.sin(ang)
+    const px = arc.cx + arc.R * Math.cos(ang)
+    const py = arc.cy + arc.R * Math.sin(ang)
     if (this._unicorn && !this._unicorn.destroyed) {
       gsap.killTweensOf(this._unicorn)
       gsap.to(this._unicorn, { x: px, y: py, duration: 0.4, ease: 'power2.inOut' })
@@ -662,6 +745,8 @@ export default {
     this._uniBlink?.kill()
     this._elviraHop?.kill()
     this._histTween?.kill()
+    this._byTween?.kill()
+    this._boat?._fxLiv?.kill()
     if (this._uniEye && !this._uniEye.destroyed) gsap.killTweensOf(this._uniEye.scale)
     for (const d of this._decor?.children || []) if (!d.destroyed) gsap.killTweensOf(d)
     if (this._sky && !this._sky.destroyed) {
@@ -684,6 +769,90 @@ export default {
 }
 
 // =================== Programmatisk grafik ===================
+
+// Byn och sjön i mitten (L2): en grön kulle med hus, kyrka och träd bakom en liten sjö med en
+// segelbåt. Ritas i absoluta koordinater runt x 640, y 540–640 — inuti bågen när den är enkel,
+// bakom de innersta banden när den är dubbel (regnbågen målas ÖVER byn). Hus, färger och en
+// kyrkas plats lottas per runda via `rnd` (seedad pseudoslump). Returnerar { c, boat }.
+function makeBy(rnd) {
+  const c = new Container()
+  c.eventMode = 'none'
+  c.interactiveChildren = false
+  const g = new Graphics()
+  const GY = 600 // husens fot
+
+  // Kulle och sjö. Stranden är en mörkare kant runt vattnet så sjön läser som en sjö.
+  g.ellipse(640, GY + 4, 250, 24).fill(0x7fcf75)
+  g.ellipse(640, GY + 8, 232, 16).fill(0x69be66)
+  g.ellipse(640, 624, 282, 20).fill(0x5bab5f)
+  g.ellipse(640, 622, 262, 15).fill(verticalFill(0xb4e2f4, 0x6fb8e0))
+  // Glitter och en mjuk himmelsreflex i vattnet.
+  g.ellipse(600, 619, 120, 5).fill({ color: 0xffffff, alpha: 0.28 })
+  for (let i = 0; i < 6; i++) {
+    const x = 470 + rnd() * 340
+    const y = 618 + rnd() * 9
+    g.moveTo(x, y).lineTo(x + 14 + rnd() * 14, y).stroke({ width: 2.5, color: 0xffffff, alpha: 0.55, cap: 'round' })
+  }
+  c.addChild(g)
+
+  // Hus och träd från vänster till höger, med en kyrka på en lottad plats.
+  const antal = 6
+  const kyrka = 1 + Math.floor(rnd() * (antal - 2))
+  const vagg = [0xf6e3b4, 0xf2b8a0, 0xb7d9f0, 0xf4d58d, 0xd9c2f0, 0xc8e8b8]
+  const tak = [0xc4493a, 0x9a4d36, 0x4a6fa5, 0xb5483f]
+  let x = 478
+  for (let i = 0; i < antal; i++) {
+    const h = new Graphics()
+    const fot = GY + (rnd() - 0.3) * 8
+    if (i === kyrka) {
+      const w = 28
+      const th = 56
+      h.rect(x, fot - th, w, th).fill(0xf5f0e6).stroke({ width: 2, color: 0xb8ad98 })
+      h.poly([x - 3, fot - th, x + w / 2, fot - th - 30, x + w + 3, fot - th]).fill(0x4a6fa5)
+      h.roundRect(x + w / 2 - 5, fot - 18, 10, 18, 5).fill(0x8a5a3b)
+      h.circle(x + w / 2, fot - th + 16, 6).fill(0xffe9a8).stroke({ width: 2, color: 0xb8ad98 })
+      x += w + 22
+    } else {
+      const w = 30 + rnd() * 16
+      const hh = 26 + rnd() * 14
+      const rh = 16 + rnd() * 8
+      const farg = vagg[Math.floor(rnd() * vagg.length)]
+      const tfarg = tak[Math.floor(rnd() * tak.length)]
+      if (rnd() < 0.5) {
+        const sx = x + w * (0.6 + rnd() * 0.2)
+        h.rect(sx, fot - hh - rh * 0.9, 7, rh * 0.9 + 2).fill(0x8a6f5f)
+      }
+      h.rect(x, fot - hh, w, hh).fill(farg).stroke({ width: 2, color: 0x000000, alpha: 0.12 })
+      h.poly([x - 4, fot - hh, x + w / 2, fot - hh - rh, x + w + 4, fot - hh]).fill(tfarg)
+      h.roundRect(x + w * 0.18, fot - 17, 9, 17, 3).fill(0x8a5a3b)
+      h.rect(x + w * 0.58, fot - hh * 0.72, 9, 9).fill(0xffe9a8).stroke({ width: 1.5, color: 0x8a6f5f })
+      x += w + 14 + rnd() * 6
+    }
+    c.addChild(h)
+    // Ett litet träd mellan husen.
+    if (i < antal - 1 && rnd() < 0.55) {
+      const t = new Graphics()
+      const tx = x - 8
+      t.rect(tx - 2, GY - 14, 4, 16).fill(0x7a4d2f)
+      t.circle(tx, GY - 22, 12).fill(0x3f9a4f)
+      t.circle(tx - 3, GY - 26, 7).fill({ color: 0x7fd48a, alpha: 0.8 })
+      c.addChild(t)
+      x += 10
+    }
+  }
+
+  // Segelbåten (egen container så den kan guppa; fötter vid vattenlinjen).
+  const boat = new Container()
+  boat.position.set(560 + rnd() * 230, 622)
+  const b = new Graphics()
+  b.poly([-18, 0, 18, 0, 12, 10, -12, 10]).fill(0x8a5a3b)
+  b.moveTo(0, 0).lineTo(0, -34).stroke({ width: 2.5, color: 0x5e3a22 })
+  b.poly([2, -32, 2, -4, 20, -4]).fill(0xfff6e6).stroke({ width: 1.5, color: 0xd8c9ae })
+  b.poly([-2, -28, -2, -4, -13, -4]).fill(0xff9ec4)
+  boat.addChild(b)
+  c.addChild(boat)
+  return { c, boat }
+}
 
 // Enhörningshuvudet som är penseln: vitt huvud, regnbågsman, gyllene spiralhorn och
 // ett öga som kan blinka (egen Graphics med label 'eye').

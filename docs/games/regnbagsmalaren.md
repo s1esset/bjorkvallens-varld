@@ -76,6 +76,10 @@ ljudet saknar den magi titeln lovar — och den fasta mallen begränsar agensen.
   mindre låst utan att tappa no-fail-strukturen.
 
 ### Variation & överraskning
+- ✅ ~~**[Quick] Identisk från nivå 3 (U2).**~~ Klar 2026-10-02: från nivå 3 lottas rundans form
+  bland fyra (`nastaVariant`, aldrig samma som förra): dubbel utifrån och in · dubbel med den
+  lilla innersta först · EN bred regnbåge med tre moln · två små tvillingregnbågar. Molnens
+  platser lottas inom band. Nivå 1 (en båge) och 2 (dubbel) är fast.
 - ✅ ~~**[Quick] Gömda överraskningar i bågarna.** När en båge snäpper hel kan en fjäril 🦋, en
   fågel eller en liten stjärna ibland flyga ut längs den — en "wow"-krydda som varierar rundan.~~
   Redan byggd 2026-08-05 (`_releaseSurprise` :499, ritade) — uppdagat 2026-09-23.
@@ -112,6 +116,18 @@ ljudet saknar den magi titeln lovar — och den fasta mallen begränsar agensen.
   kräver nya SFX-klipp — MOSS nere. Vinst-stinget varieras redan i `AudioService._celebrate`.)*
 
 ## 5. Status / loggar
+
+- 2026-10-02 🎨 **Omgång 0 (FYSIKPLAN U2 + L1 + L2).** *Variation:* `_variant` lottas från nivå 3 med
+  `nastaVariant(VARIANTER, förra)`; varje båge bär nu eget centrum (`cx`, `cy`) så tvillingarna
+  går att måla (`_fracAt(p, arc)` räknar vinkeln runt aktiv bågs centrum). Enhörningen startar
+  vid toppen av FÖRSTA bågen i målningsordningen. *Bild:* grå himmel med djup (mörkare uppe), L1
+  (trädlinje + strån, samma `fro` i grå och ljus scen) och en by + sjö i mitten (L2) som
+  regnbågen målas över: kulle med sex hus och en kyrka på lottad plats, träd, sjö med glitter och
+  en segelbåt som guppar (`liv`). Byn byggs om varje runda, är grå (`tint`) medan himlen är grå
+  och får färg när den ljusnar. Ljusa scenens egen sol parkerad utanför bild (`sunX`) — bara
+  den uppgående solen finns kvar. Bågarna ritas med `bage()` (inget streck mellan bågarna).
+  Man och svans som rep ligger kvar i kön. Mät: `g._variant?.id`, `g._arcs.length`.
+- 2026-10-02 🐛 **Återspelsläcka (fanns på HEAD):** Elviras hopp i firandet (0,7 + 6×0,34 = 2,7 s) levde kvar när nästa runda (1,8 s) rev `_decor` — gsap skrev på en död position, 22 sidfel per rundbyte, grönt test (harnessen spelar aldrig klart en runda). `_buildRound` dödar nu `_elviraHop` och tweens på `_decor`-barnen före rivningen. Sond: `scripts/_natt-regnbagsmalaren.mjs` (NOFORCE=1 → 22 → 0 fel; tvillingar 12/12 bågar målade i två rundor).
 
 - 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): **Regnbågshimlen** — upp till
   tre svaga, färdiga småregnbågar (`HISTORY_SPOTS`, alfa 0,38) står i himlens kanter efter

@@ -401,6 +401,14 @@ vid `GY` och har därför en exakt förhandsvisning per konstruktion.
 - `spar` = mjuk avtagande linje i en egen Graphics strax BAKOM `vy` (kräver `vy.parent`), riven vid slut/hoppa/ta/död vy. Ingen gsap — inget som kan överleva en rivning. `lage: false` = bara `rotation` (en propeller i takt med kulan: två `spelaIn` på samma värld skriver samma steg).
 - Fällor: reprisen får inte låsa nästa runda (tryck = `hoppa()`); en replik under reprisen får `complete()` att hoppa över berömmet; kroppar som INTE spelats in (fjäderbräda, klockor) går vidare i verkligheten medan reprisen rullar. Kund: `kulbana` (`_startaRepris`). Mät: `node scripts/_inspelningprobe.mjs` (21 rader, kontrollarmar K1–K3) · webbläsare `scripts/_dag-repris.mjs`.
 
+## Hög: det barnet samlar syns (`lib/hog.js`, P3)
+
+- `new Hog({ kanter: { x0, x1, y1, y0?, hornrund? }, tak: 30, sova: true, gravitation, tona, bort })` → `lagg({ cirkel: r | rekt: [w,h] | poly: [n,r], vy, studs, friktion, uppdatera }, x, y, v)` → post `{ body, vy, id }`; `tom(snabbt?)`, `update(deltaMS)` (varje bildruta), `paSlag(fn)`, `destroy()`. `antal` = poster som inte tonar bort (det spelet jämför mot antalet fångade), `synliga`, `topp`, `vilar`, `rymt`.
+- Allt i behållarens EGET rum (en burk = Container på burkens plats, koordinater relativt den). Statiska kanter (fångväggar 60 px tjocka, valfritt lock, rundade hörn) bär `studs`/`friktion` — aldrig `restitution`; behållaren står STILL (rör den sig: `phys.kinematisk()` och `varld`).
+- Taket: fler än `tak` → den ÄLDSTA tonar bort (alfa på vyn, `tona` s), lyfts ur världen och ALLA andra väcks (en sovande hög som mist sin bärare hänger annars kvar — uppmätt 0 px fall utan väckning, 20,6 px med). Sömn = stabilitet: 30 bollar 1,7 px kryp/10 s utan, 0,000 med.
+- `bort(post)` anropas när en post lämnar högen (default `vy.destroy`); ett spel med gsap på sina vyer anger egen `bort` som dödar tweens FÖRE rivningen. Rymde något lyfts det tillbaka (`rymt`, ska vara 0).
+- Kunder: `rakna-applen` (frukt i korg, tak 10 = mest en runda räknar; platser via `_hogSlot` så raderna blir ≤ 5 och nästlade) · `klambubblor` (pärlor i burk, tak 20). Mät: `node scripts/_hogprobe.mjs` (kontrollarmar A–G).
+
 ## Fysiköverlägg (`lib/fysikdebug.js`, F9) — DEV, bara med `?fysik`
 
 - Öppna `http://localhost:5173/?fysik` (eller :5174): kroppskonturer (cyan vaken · blågrå sovande · grå statisk · magenta sensor),

@@ -41,6 +41,10 @@
 // tillsammans som en durtreklang — och en stillastående trumma går att trycka på för att
 // spela sin ton igen, så maskinen också är ett litet instrument.
 //
+// MYNTSKÅLEN (FYSIKPLAN P3): var tredje mynt ur luckan flyger i en båge ner i en skål under den och lägger sig
+// i en riktig HÖG (`lib/hog.js`, tak 16 — det äldsta myntet tonar bort). Skålen töms när snurran får nya
+// färger. `g._nMynt` = mynt som landat i skålen denna runda, `g._hog.antal` = de som syns (≤ taket).
+//
 // EXIT-SÄKERHET: trummornas rörelse, lamporna, mynten och Bobos studs drivs av TICKERN
 // (egna hastigheter), inte av gsap på Pixi-objekt. De gsap-tidslinjer som finns (spaken,
 // utsprånget, blandfiguren) ligger i `this._tls` och dödas i destroy(); partiklar går via
@@ -48,6 +52,8 @@
 import { Container, Graphics, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { createScene } from '../../lib/scene.js'
+import { Hog } from '../../lib/hog.js'
+import { Body, Matter } from '../../lib/physics.js'
 import { drawIcon } from '../../lib/artikoner.js'
 import { makeKaraktar } from '../../lib/karaktarer.js'
 import { pop, squash, wiggle, sparkle, burst, ripple, kvittera, breathe, shake, liv } from '../../lib/feedback.js'
@@ -129,7 +135,14 @@ const TONARTER = [
 const RAINBOW_CHANCE = 0.16 // sällsynt regnbågstrumma
 const SPINS_PER_ROUND = 5
 const IDLE_DELAY = 6 // s tystnad innan mjuk om-cue
-const COIN_CAP = 56 // poolens storlek (byggs en gång, aldrig under spel)
+const COIN_CAP = 56 // flygande mynt (byggs en gång, aldrig under spel)
+// Myntskålen: munnen är en ellips (mitt, halvaxlar) framför luckans nederkant; golvet ligger strax ovanför
+// munnens främre kant (som ritas OVANPÅ högen), innerväggarna på ±136. Poolen får plats för högen också.
+const SKAL = { x: 640, y: 682, rx: 150, ry: 18 }
+const SKAL_GOLV = 694
+const SKAL_INRE = 136
+const HOG_TAK = 16
+const POOL_N = COIN_CAP + HOG_TAK + 6 // ett mynt i skålen är kvar i poolen tills det tonat bort
 
 // Symboluppsättningar — byts mellan rundor. Nycklarna är artikoner.js ritmallar:
 // varje symbol blir ett FRISTÅENDE ritat föremål med egen silhuett, skugga och eget
@@ -159,6 +172,7 @@ const TVA_LIKA = ['Två lika! Så fint!', 'Två kompisar hittade varandra!']
 const BLANDAT = ['En tokig kompis kom fram!', 'Titta vilken rolig blandning!']
 
 const modw = (v, m) => ((v % m) + m) % m
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
 
 // Riv ett helt underträd UTAN att läcka GraphicsContext.
 //
@@ -195,6 +209,9 @@ export default {
     this._coins = []
     this._coinQueue = 0
     this._coinAcc = 0
+    this._coinN = 0 // räknare: var tredje mynt siktar på skålen
+    this._nMynt = 0 // mynt som landat i skålen denna runda
+    this._hog = null
     this._leaps = [] // symboler som hoppat ut ur fönstren
     this._bland = null
     this._bobT = 1 // studs-fas för Bobo (1 = i vila)
@@ -295,12 +312,18 @@ export default {
     this._bobo.view.position.set(0, 88)
     this._boboWrap.addChild(this._bobo.view)
 
-    // 7) Främre lager: utsprungna symboler, blandfiguren och myntregnet.
+    // 7) Myntskålen under luckan (bakdelen), därefter främre lager: utsprungna symboler, blandfiguren och
+    //    myntregnet (inkl. skålens mynt), och sist skålens främre kant så att mynten ligger I skålen.
+    this._buildBowl()
     this._front = new Container()
     this._front.eventMode = 'none'
     this._front.interactiveChildren = false
     this._root.addChild(this._front)
     this._buildCoinPool()
+    this._root.addChild(this._skalFram)
+    this._hog = new Hog({ ...this._hogOpt(), bort: (p) => this._myntBort(p) })
+    // Mynt som landar klirrar mjukt (metall, lågt, högst ett per 70 ms).
+    this._hog.fysik.impactAudio(ctx.services.audio, { standard: 'metall', vol: 0.045, minSpeed: 1.4, maxPerFrame: 1, minGapMs: 70 })
 
     // 8) Ceremonilagret: vinstens egen scen, ovanför allt annat spelet ritar. Står tomt
     //    mellan vinsterna — noden finns bara för att z-ordningen ska vara given.
@@ -325,6 +348,9 @@ export default {
   // ---- Runda: palett, symboluppsättning, fart ------------------------------
 
   _applyRound(ctx) {
+    // Nya färger = en tom skål (mynten tonar bort).
+    this._hog?.tom()
+    this._nMynt = 0
     const pal = PALETTES[this._round % PALETTES.length]
     this._pal = pal
     this._set = SETS[this._round % SETS.length]
@@ -1344,6 +1370,7 @@ export default {
     this._bobo?.react('jubel')
     shake(this._deco, { intensity: 9, duration: 0.6 })
     this._coinRain(ctx, 56)
+    ctx.later(1.3, () => { if (this._alive) this._hogHopp() }) // myntskålen hoppar till i finalen
     ctx.services.audio.sfx('correct')
     ctx.progress.complete() // firande + beröm + stjärna + klistermärke (skalet)
     this._round++
@@ -1393,7 +1420,7 @@ export default {
   // sekunder. En pool allokerar noll under spel.
   _buildCoinPool() {
     this._coinPool = []
-    for (let i = 0; i < COIN_CAP; i++) {
+    for (let i = 0; i < POOL_N; i++) {
       const g = new Graphics()
       const rr = 11 + (i % 5) * 1.5
       if (i % 3 === 0) {
@@ -1407,28 +1434,129 @@ export default {
       g.eventMode = 'none'
       g.visible = false
       this._front.addChild(g)
-      this._coinPool.push({ g, aktiv: false, x: 0, y: 0, vx: 0, vy: 0, spin: 0, rot: 0, life: 0, max: 1 })
+      this._coinPool.push({ g, r: rr, aktiv: false, land: false, x: 0, y: 0, vx: 0, vy: 0, spin: 0, rot: 0, life: 0, max: 1 })
     }
   },
 
   _spawnCoin() {
     const c = this._coinPool.find((p) => !p.aktiv)
     if (!c) return // taket nått — kön tappar överskottet, vilket inte syns
+    // Var tredje mynt siktar på skålen (kortare spridning, längre liv — det ska hinna ner); resten är sprut.
+    const land = this._coinN++ % 3 === 0
     c.aktiv = true
-    c.x = 640 + (Math.random() * 2 - 1) * 80
+    c.land = land
+    c.x = 640 + (Math.random() * 2 - 1) * (land ? 70 : 80)
     c.y = HATCH.y + 30
-    c.vx = (Math.random() * 2 - 1) * 210
-    c.vy = -260 - Math.random() * 240
+    c.vx = (Math.random() * 2 - 1) * (land ? 90 : 210)
+    c.vy = -260 - Math.random() * (land ? 160 : 240)
     c.spin = (Math.random() * 2 - 1) * 9
     c.rot = Math.random() * 6
     c.life = 0
-    c.max = 1.5 + Math.random() * 0.5
+    c.max = land ? 2.6 : 1.5 + Math.random() * 0.5
     if (!c.g.destroyed) {
       c.g.visible = true
       c.g.alpha = 1
+      c.g.rotation = 0
+      c.g.scale.set(1)
       c.g.position.set(c.x, c.y)
     }
     this._coins.push(c)
+  },
+
+  // ---- Myntskålen ----------------------------------------------------------
+
+  // Skålens kanter, tak och tyngd (ren funktion av modulens tal — `_hogprobe` bygger samma Hog). Koordinater
+  // i rotens rum: skålen står still, så högens vyer (de poolade mynten i `_front`) behöver ingen omräkning.
+  _hogOpt() {
+    return {
+      kanter: { x0: SKAL.x - SKAL_INRE, x1: SKAL.x + SKAL_INRE, y1: SKAL_GOLV, hornrund: 22 },
+      tak: HOG_TAK,
+      sova: true,
+      gravitation: 0.6,
+    }
+  },
+
+  // Ritar skålens BAKDEL (kropp + mörk mun + bakre kant); den främre kanten läggs ovanpå mynten i `_buildBowl`.
+  _buildBowl() {
+    const bak = new Container()
+    bak.eventMode = 'none'
+    bak.interactiveChildren = false
+    const { x, y, rx, ry } = SKAL
+    const g = new Graphics()
+    g.ellipse(x, 716, rx + 24, 8).fill({ color: 0x000000, alpha: 0.14 }) // skugga på golvet
+    // Kroppen: en bred, grund skål av borstat stål.
+    g.moveTo(x - rx, y)
+      .quadraticCurveTo(x - rx + 4, 719, x - rx + 80, 719)
+      .lineTo(x + rx - 80, 719)
+      .quadraticCurveTo(x + rx - 4, 719, x + rx, y)
+      .closePath()
+      .fill(verticalFill(0xe4ecf2, 0x93a5b4))
+      .stroke({ width: 4, color: 0x71828f })
+    g.ellipse(x, y, rx, ry).fill(0x3a4450) // munnen (mörk insida)
+    g.ellipse(x, y + 5, rx - 22, ry - 8).fill({ color: 0x2a323b, alpha: 0.7 })
+    g.ellipse(x, y, rx, ry).stroke({ width: 9, color: 0xeef3f7 }) // hela kantringen (bakre halvan syns bakom mynten)
+    bak.addChild(g)
+    this._root.addChild(bak)
+    this._skalBak = bak
+
+    // Främre kanten: nedre halvan av ringen, ritad OVANPÅ mynten.
+    const pts = []
+    for (let i = 0; i <= 32; i++) {
+      const a = (i / 32) * Math.PI
+      pts.push(x + Math.cos(a) * rx, y + Math.sin(a) * ry)
+    }
+    const fram = new Graphics()
+    fram.poly(pts, false).stroke({ width: 9, color: 0xeef3f7, join: 'round', cap: 'round' })
+    fram.eventMode = 'none'
+    this._skalFram = fram
+  },
+
+  // Myntet lämnas över till högen: samma poolade Graphics, ny kropp i skålens rum. Returnerar false om skålen
+  // är riven (då fortsätter myntet som ett vanligt sprutmynt).
+  _laggMynt(c) {
+    if (!this._hog || !c.g || c.g.destroyed) return false
+    const k = this._hog.kanter
+    const r = c.r
+    const x = clamp(c.x, k.x0 + r, k.x1 - r)
+    const y = Math.min(c.y, Math.min(this._hog.topp, k.y1) - r - 4)
+    c.g.scale.set(1)
+    c.g.alpha = 1
+    const post = this._hog.lagg(
+      { cirkel: r, vy: c.g, studs: 0.3, friktion: 0.4, luft: 0.01, label: 'mynt' },
+      x,
+      y,
+      { x: clamp(c.vx / 60, -2, 2), y: clamp(c.vy / 60, 0, 8) }
+    )
+    if (!post) return false
+    post.mynt = c // myntet är kvar i poolen (aktiv) tills högen släpper det i `_myntBort`
+    c.land = false
+    this._nMynt++
+    return true
+  },
+
+  // Högen släpper ett mynt (tonat bort eller skålen tömd): tillbaka till poolen, osynligt. Riv ALDRIG vyn —
+  // den ägs av poolen och rivs med roten.
+  _myntBort(p) {
+    const c = p?.mynt
+    if (!c) return
+    c.aktiv = false
+    c.land = false
+    if (c.g && !c.g.destroyed) {
+      c.g.visible = false
+      c.g.alpha = 1
+      c.g.rotation = 0
+      c.g.scale.set(1)
+    }
+  },
+
+  // Finalen: myntskålen hoppar till (uppåtfart på alla kroppar) och landar igen.
+  _hogHopp() {
+    if (!this._hog) return
+    for (const p of this._hog.poster) {
+      if (p.ute) continue
+      Matter.Sleeping.set(p.body, false)
+      Body.setVelocity(p.body, { x: (Math.random() * 2 - 1) * 1.5, y: -(4 + Math.random() * 3) })
+    }
   },
 
   // ---- Tomt tryck ----------------------------------------------------------
@@ -1454,6 +1582,7 @@ export default {
     for (const r of this._reels) this._stepReel(ctx, r, dt)
     this._stepBulbs()
     this._stepBobo(dt)
+    this._hog?.update(ticker.deltaMS) // mynten i skålen faller och lägger sig
     this._stepCoins(dt)
 
     // Ceremonins stjärna och strålar snurrar i TICKERN — en `repeat: -1`-tween hade
@@ -1607,6 +1736,17 @@ export default {
       c.x += c.vx * dt
       c.y += c.vy * dt
       c.rot += c.spin * dt
+      // Ett skålmynt som sjunkit ner till högens topp lämnas över till högen (kroppen föds där).
+      if (c.land && c.vy > 0 && this._hog) {
+        const topY = Math.min(this._hog.topp, SKAL_GOLV)
+        if (c.y >= topY - c.r - 8) {
+          if (Math.abs(c.x - SKAL.x) <= SKAL_INRE - c.r + 6 && this._laggMynt(c)) {
+            this._coins.splice(i, 1)
+            continue
+          }
+          c.land = false // missade skålen — flyger vidare som ett vanligt mynt
+        }
+      }
       c.g.position.set(c.x, c.y)
       // Vridning kring egen axel: bredden pulserar som ett mynt i luften.
       c.g.scale.x = 0.32 + 0.68 * Math.abs(Math.cos(c.rot))
@@ -1641,6 +1781,8 @@ export default {
     this._leverBreath?.kill()
     this._leverBreath = null
 
+    this._hog?.destroy() // vyerna (poolens mynt) rivs av roten
+    this._hog = null
     this._coins = []
     this._coinPool = []
     this._coinQueue = 0

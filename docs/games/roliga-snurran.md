@@ -133,6 +133,10 @@ utgången inte får vara den tråkigaste.
 * **[Quick]** Riktiga klipp för trum-tick och spak-klonk via `npm run sfx` (idag stämda
   syntestoner). *Blockerad 2026-09-23:* kräver SFX-pipelinen (MOSS nere).
 * **[Medium]** Låt myntregnet studsa mot luckans kant innan det faller ur bild.
+  *(Delvis löst 2026-10-02 på annat sätt: var tredje mynt faller nu ner i en myntskål och blir en hög, se §5 —
+  resten sprutar som förut. Studs mot luckans kant är inte byggt.)*
+* ✅ ~~**[Medium]** Mynten ska bli något barnet samlat i stället för att falla ur bild.~~ Klar 2026-10-02
+  (FYSIKPLAN P3, `lib/hog.js`): myntskålen under luckan, se §5.
 
 **Progression**
 * ✅ ~~**[Quick]** Spara vilken symboluppsättning barnet senast såg~~ Redan byggd (rundan läses ur
@@ -149,6 +153,23 @@ utgången inte får vara den tråkigaste.
   (inte när räknaren tickar i `_finishRound`, så ett tryck under firandet låter i rätt tonart).
 
 ## 5. Status / loggar
+
+- 2026-10-02 ✅ **P3: mynten blir en hög i en skål (`lib/hog.js`).** Myntregnet föll förut ur bild och försvann.
+  Nu siktar var tredje mynt (`_spawnCoin`, `c.land`) på en ritad stålskål under luckan (`_buildBowl`: bakdel + mörk
+  mun före `_front`, främre kantbåge EFTER `_front` så att mynten ligger I skålen): på väg ner, när myntet nått
+  högens topp, lämnas det över till en `Hog` (`_laggMynt`) — SAMMA poolade Graphics, ny kropp; skålen står still
+  så högen lever direkt i rotens koordinater (golv y 694, väggar 640 ± 136, bågformade hörn, tak 16, sömn på).
+  De övriga två av tre sprutar som förut (längre spridning, tonar ut), och ett skålmynt som missar kanten
+  fortsätter som ett vanligt sprutmynt. Poolen växte från 56 till 78 så skålens mynt (som är kvar i poolen tills
+  de tonat bort) inte tar flygplatserna; den byggs fortfarande EN gång vid start (inga allokeringar under spel,
+  se myntpool-noten ovan). Det äldsta myntet tonar bort över taket (16); skålen töms (`tom()`) när snurran får nya
+  färger (`_applyRound`) och hoppar till i finalen (`_hogHopp`, 1,3 s efter att rundan klarats). Mjukt metallklirr
+  när ett mynt landar (`impactAudio` 'metall', vol 0,045). Mätning: `g._nMynt` (mynt som landat i skålen denna
+  runda) mot `g._hog.antal` (synliga, ≤ 16) och `g._hog.rymt` (0); poolen `g._coinPool.filter(c => c.aktiv)`
+  ska aldrig nå 78. Node-prov med spelets egna `_stepCoins/_laggMynt/_myntBort/_hogOpt` mot falska vyer:
+  regn 9/26/56 → 3/9/19 landade → 3/9/16 syns, två rundor på 56 → 38 landade, 16 syns, 0 rymt, 0 kryp på 10 s,
+  högst 44 aktiva poolmynt. Kvar: skålen täcker luckans nedre del när den är full (medvetet — den ligger på
+  skärmens enda lediga yta).
 
 - 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): "Hurra! Snurran fick nya färger!"
   låg på en fast `later(1.4)` och kapade skalets beröm (upp till 2,3 s) — nu väntar den in rösten

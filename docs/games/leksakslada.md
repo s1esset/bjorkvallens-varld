@@ -94,6 +94,8 @@ mycket, lätta går snabbt men flyttar lite.
 ## 4. Förbättringar & förhöjningar (plan)
 
 **Kärnloop**
+- ✅ ~~**[Medium]** Kasta leksaken i korgen (bonus, Ä5)~~ Klar 2026-10-02 (FYSIKPLAN G1+G2): greppet är
+  `Grepp({ punkt: 'mitten' })` ur `lib/grepp.js` med `kast: { max: 18, min: 7 }` — se §5.
 - ✅ ~~**[Quick]** Leksaks-röst vid lyft~~ Klar 2026-09-23 (v1.251.0): varje leksak låter som sig själv
   när den lyfts — stämda toner per nyckel (`LEK_LJUD`, strypt 150 ms) i `_grepp` :616.
 - **[Medium]** Andra beställningstypen: "två likadana" eller "den STÖRSTA" — samma
@@ -140,6 +142,20 @@ mycket, lätta går snabbt men flyttar lite.
   praktiken aldrig, eftersom vinstrepliken är 6,2 s. Ägarbeslut: stryka eller korta den?
   Nytt: leksaksljud vid lyft, en ton per leksak vid leverans och Bobos blick vid autohjälp.
   `check` 0/0.
+
+- 2026-10-02 ✅ **Fjädergrepp + kast (G1/G2, fas D9 B1).** Center-greppet (`STYR_K` + `Body.setVelocity`
+  i `_styr`) och DragControllern är utbytta mot `Grepp` på `_root` (`punkt: 'mitten'`, `k` = `STYR_K` 0,34,
+  krafttak `{ dv: 6, v: spec.fart }` — **leksakens tak `spec.fart` är oförändrat 9–22 px/steg**, `handAcc` 2,5,
+  `vinkelDamp` 0,8). Handtagen (en osynlig ruta per leksak) är borta: Grepp träffar kroppen + 28 px halo.
+  Tap-tap bor i Grepp: leksaken pulserar (markerad), korgen = bågflykt som förut, en tom plats i samma
+  område = handen bär dit (aldrig en teleport; lådans vägg hindrar → kvitto i stället). **Kast (bonus):** fingerfart
+  ≥ 7 px/steg vid släpp blir leksakens fart (tak = leksakens eget `fart`, uppåt högst −13), och en kastad leksak
+  som passerar korgens fångstzon (x 840–1040, y 390–660) levereras med lite extra glitter. Målet nås alltid utan kast.
+  Mätt i Node (samma fysikvärld, samma fingerbana, 28 steg): avstånd kropp→finger efter 10/20/28 steg — kloss HEAD
+  31/37/42 mot Grepp 35/41/47, robot 53/98/133 mot 58/103/139, tåglok 70/135/188 mot 74/139/192 (med `handAcc` 0,8
+  hade avstånden blivit ~3× större — förkastat); maxfart oförändrad per leksak; kast från golvet utanför lådan
+  når korgen i ~86 % av vinkel×fart-rutnätet, från högen över lådkanten 7–18 % (roboten 0 — den får bara 11 px/steg),
+  en cirkelzon runt korgen gav 0–6 %, därför rutan.
 
 ### Mätt 2026-08-14 (`scripts/_leksakprobe.mjs`)
 

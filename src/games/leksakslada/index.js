@@ -6,10 +6,15 @@
 // beställningslapp ("Hittar du tågloket?") och det man beställt ligger nästan alltid
 // UNDER något annat. Man måste dra undan, knuffa, lyfta bort — grävandet ÄR spelet.
 //
-// FYSIK (matter.js). Den lyfta leksaken är en HELT VANLIG dynamisk kropp som varje
-// fast steg får en hastighet mot fingret:
+// FYSIK (matter.js). Den lyfta leksaken är en HELT VANLIG dynamisk kropp som `Grepp`
+// (lib/grepp.js, G1) tar i MITTEN (`punkt: 'mitten'`, r = 0). Varje fast steg får kroppen en
+// fartändring mot handen, med ett KRAFTTAK per leksak:
 //
-//     v = klamp((finger − kropp) · STYR_K, spec.fart)
+//     v = klamp(handens fart + (hand − kropp) · STYR_K, spec.fart)      Δv per steg ≤ GREPP_DV
+//
+// (Förut en hemsnickrad `v = klamp((finger − kropp) · STYR_K, spec.fart)` med `Body.setVelocity`:
+// samma tak per leksak och samma K, men utan fartändringstak och utan en hand som ligger mellan
+// fingret och kroppen. Handen följer fingret med ett accelerationstak — se HAND_ACC_LEK.)
 //
 // Två saker faller ut av det, och båda är designen:
 //   · Den lyfta saken KROCKAR med resten av högen medan den bärs. Det är därför man
@@ -20,25 +25,31 @@
 //     P0-MOTGÅNGEN: rolig, tydlig orsak, alltid åtgärdbar, och taket ligger i
 //     hastigheten så inget kan gå snabbare fel än barnet hinner med.
 //
+// KAST SOM BONUS (G2, ägarbeslut Ä5): släpps fingret med fart ≥ KAST_MIN px/steg blir fingrets fart
+// leksakens fart (Pekspar, tak = leksakens eget `fart`, uppåt högst KAST_UPP) — och en kastad leksak
+// som flyger genom korgens zon räknas som levererad. Målet nås ALLTID utan kast: drag och
+// tap-tap till korgen fungerar som förut, kastet är bara ett roligare sätt.
+//
+// TAP-TAP (P0 småbarn) ligger i Grepp: tryck leksak (den pulserar) → tryck korgen → leksaken flyger
+// dit i en båge (som förut). Tryck på en tom plats i samma område → handen BÄR leksaken dit i
+// begränsad fart, aldrig en teleport.
+//
 // Fällor som respekteras med flit (CLAUDE.md):
 // · INGEN kropp bärs med `Body.setPosition(kropp, p, true)` — det lämnar kvar en fart
-//   för alltid och får lösaren att läsa kontakten som separerande. Styrningen sker med
-//   `Body.setVelocity` i `phys.beforeStep()`, alltså en gång per FAST steg (farten är
-//   px/steg och en bildruta rymmer 1–5 steg).
+//   för alltid och får lösaren att läsa kontakten som separerande. Greppet driver kroppen med
+//   `drivPunkt` i `phys.beforeStep()`, alltså en gång per FAST steg (farten är px/steg och en
+//   bildruta rymmer 1–5 steg).
 // · Lådans kanter är statiska; en statisk kropps `restitution` nollas av
 //   `Body.setStatic`, så studsen sitter på `{ isStatic: true, studs }`.
-// · `addTarget`-noden (korgen) animeras ALDRIG — vickningen ligger i ett BARN, annars
-//   flyttar snäppytan sig mitt i ett släpp.
-// · DragControllern får ett osynligt HANDTAG per leksak, inte leksakens egen vy.
-//   Vyn ägs av fysikkroppen (`phys.link`); handtaget ägs av fingret. Skulle båda skriva
-//   samma nod hade den lyfta leksaken ritats vid fingret medan den knuffade högen från
-//   ett helt annat ställe — och hela tyngdkänslan i tågloket är just att de två skiljer
-//   sig åt.
+// · `addTarget`-noden (korgen) animeras ALDRIG — vickningen ligger i ett BARN. (Korgen är inte
+//   längre ett DragController-mål, men `pointertap`-ytan står kvar still av samma skäl.)
+// · Greppet har ingen vy: leksakens vy ägs av fysikkroppen (`phys.link`) och fingret ägs av
+//   Grepp, som lyssnar på `_root` (gemensam static förälder, K3) — ett släpp når aldrig ett syskon.
 import { Container, Graphics, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { PhysicsWorld, Body, mat } from '../../lib/physics.js'
 import { createScene } from '../../lib/scene.js'
-import { DragController } from '../../lib/DragController.js'
+import { Grepp } from '../../lib/grepp.js'
 import { makeKaraktar } from '../../lib/karaktarer.js'
 import { pop, puff, sparkle, floatText, bigCelebration, liv, shake, kvittera } from '../../lib/feedback.js'
 import { COLORS, FONT } from '../../lib/theme.js'
@@ -83,6 +94,20 @@ const G = 1.0
 const STYR_K = 0.34 // px/steg per px avstånd mellan kropp och finger
 const SLAPP_TAK = 18 // px/steg — släppfartens tak (annars kan något tunnla genom en vägg)
 const FART_TAK = 30 // px/steg — hård spärr på ALLA leksaker (lådans väggar är 44 px tjocka)
+// Greppet (G1). Leksakens tak (`spec.fart`) och K (STYR_K) är HEADs; nytt är bara att fartändringen
+// per steg har ett tak och att en hand ligger mellan fingret och kroppen.
+const GREPP_DV = 6 // px/steg² — krafttak: punktens fartändring per steg (HEAD: obegränsad)
+const HAND_ACC_LEK = 2.5 // px/steg² — handens accelerationstak (popcornkalaset 0,8; en lätt leksak är snabbare)
+const GREPP_HALO = 28 // osynlig träffmarginal runt kroppen (P0: minst 24) — minsta leksaken blir 118 px bred
+const KORG_RADIE = 150 // fingret släpps inom så här långt från korgen = levererad (HEAD: addTarget hitRadius)
+// Kast (G2, bonus). Fingrets fart ≥ KAST_MIN px/steg (≈ 420 px/s) är ett kast, tak per leksak.
+const KAST_MIN = 7
+const KAST_MAX = 18 // = SLAPP_TAK: samma tak som en vanlig släppfart
+const KAST_UPP = -13 // högsta uppåtfart (px/steg): toppen ligger ~300 px över avfyrningen, aldrig ut ur bild
+// Korgens FÅNGSTZON för en kastad leksak: öppningen + luften ovanför den (mätt: en cirkel runt korgens mitt
+// träffades av 0–6 % av kasten från högen, rutan av 7–18 %; från golvet 86 %). Bobo fångar det som kommer.
+const KAST_ZON = { x0: 840, x1: 1040, y0: 390, y1: 660 }
+const KAST_MAX_S = 3.2 // s — en kastad leksak slutar räknas som kastad efter så här länge
 const STUDS_KYLA = 0.9 // s mellan studsbollens studsar (TAK på motgången)
 const MAL_PER_RUNDA = 4
 
@@ -175,9 +200,16 @@ const KROPP_OPTS = (s) =>
   })
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
+
+// Grepp som minns var fingret var när det lyftes: `onSlapp` får ingen fingerplats, och korgen avgörs
+// av FINGRET (en trög leksak ligger långt efter det, precis som med HEAD:s handtag).
+class LekGrepp extends Grepp {
+  tryckUpp(p, mal, o) {
+    this.sistaFinger = { x: p.x, y: p.y }
+    super.tryckUpp(p, mal, o)
+  }
+}
 const storsta = (s) => (s.form === 'cirkel' ? s.r * 2 : Math.max(s.w, s.h))
-// Träffytan: ALDRIG under 112 px bred (P0 kräver 96 + osynlig halo).
-const halvYta = (s) => Math.max(56, storsta(s) / 2 + 14)
 
 export default {
   id: 'leksakslada',
@@ -206,6 +238,9 @@ export default {
     this._sistFel = -99
     this._sagt = {}
     this._halls = null
+    this._gr = null
+    this._senastGrepp = -9999 // ms — pointertap efter ett grepp är inget "tomt tryck"
+    this._kastLjud = 0
 
     this._niva = Math.max(0, ctx.progress.get().highestLevel | 0)
 
@@ -222,8 +257,29 @@ export default {
     this._byggBobo(ctx)
     this._byggLapp(ctx)
 
-    this._drag = new DragController({ space: this._root, services: ctx.services })
-    this._korgRec = this._drag.addTarget(this._korg, () => true, { hitRadius: 150 })
+    // Greppet sitter på _root (gemensam static förälder) och tar leksaker i mitten med ett krafttak
+    // per leksak. Tap-tap och kast är med; kast är en BONUS, målet nås alltid utan.
+    this._gr = new LekGrepp({
+      phys: this._phys,
+      yta: this._root,
+      kroppar: () => this._greppbara(),
+      halo: GREPP_HALO,
+      punkt: 'mitten',
+      k: STYR_K,
+      tak: { dv: GREPP_DV, v: 22 },
+      fartTak: (b) => b.lekFart || 15,
+      handFart: 22,
+      handAcc: HAND_ACC_LEK,
+      vinkelDamp: 0.8,
+      kast: { max: KAST_MAX, min: KAST_MIN },
+      tapTap: true,
+      barFart: 9,
+      onLyft: (b) => this._lyftLek(ctx, b),
+      onSlapp: (b, info) => this._slappLek(ctx, b, info),
+      onMarkera: (b) => this._markera(b),
+      onAvmarkera: (b) => this._avmarkera(b),
+      onMal: (b, p) => this._malLek(ctx, b, p),
+    })
 
     this._nyRunda(ctx, true)
 
@@ -331,11 +387,8 @@ export default {
 
     this._uiLager = new Container()
     this._root.addChild(this._uiLager)
-
-    // Handtagen ligger ÖVERST så den leksak som råkar hamna bakom Bobo eller lådans
-    // framkant ändå går att peka på — annars vore en begravd leksak en död träffyta.
-    this._handtagLager = new Container()
-    this._root.addChild(this._handtagLager)
+    // Leksakerna har ingen egen träffyta längre: Grepp träffar KROPPEN (+ halo) på _root, så en
+    // leksak som råkar hamna bakom Bobo eller lådans framkant går ändå att ta i.
   },
 
   // Lådans kanter som statiska kroppar + rummets golv och väggar.
@@ -557,32 +610,7 @@ export default {
     const body = this._skapaKropp(spec, x, y)
     this._phys.link(body, view)
 
-    const h = halvYta(spec)
-    const handtag = new Container()
-    const yta = new Graphics().rect(-h, -h, h * 2, h * 2).fill({ color: 0x000000, alpha: 0 })
-    yta.eventMode = 'none'
-    handtag.addChild(yta)
-    handtag.hitArea = new Rectangle(-h, -h, h * 2, h * 2)
-    handtag.position.set(x, y)
-    this._handtagLager.addChild(handtag)
-
-    const lek = { spec, body, view, inner, handtag, flyger: false }
-    lek.rec = this._drag.addItem(handtag, spec, {
-      onCorrect: () => this._levererad(ctx, lek),
-      onMiss: () => this._slappt(ctx, lek),
-      onSelect: () => this._blinkaKorg(),
-    })
-    // MIN pekhanterare registreras EFTER DragControllerns `pointerdown` (den lades i
-    // addItem ovan) men FÖRE dess `pointerup` (den läggs först vid greppet) — alltså
-    // vet jag att draget startat när jag sätter styrningen, och jag hinner läsa
-    // `rec.dragging` innan biblioteket löser upp släppet.
-    lek._ned = () => this._grepp(ctx, lek)
-    lek._upp = () => {
-      if (this._halls?.lek === lek && !lek.rec.dragging) this._slappStyr()
-    }
-    handtag.on('pointerdown', lek._ned)
-    handtag.on('pointerup', lek._upp)
-    handtag.on('pointerupoutside', lek._upp)
+    const lek = { spec, body, view, inner, g, flyger: false, kastad: null, pulsTw: null }
 
     // Eget liv i vila (P0 ASSETS) — i den INRE noden, så kroppens läge står orört.
     lek.livTw = liv(inner, { bob: 2.5, sway: 0.016, duration: 2.5 + Math.random() * 1.1, phase: Math.random() })
@@ -597,16 +625,32 @@ export default {
         : this._phys.rectangle(x, y, spec.w, spec.h, KROPP_OPTS(spec))
     Body.setVelocity(body, { x: 0, y: 0 })
     Body.setAngularVelocity(body, 0)
+    body.lekFart = spec.fart // Greppets krafttak per leksak (fartTak) läser det här
     return body
   },
 
   // ---- Grepp och styrning -------------------------------------------------
 
-  _grepp(ctx, lek) {
-    if (!this._alive || lek.flyger || !lek.body) return
-    if (this._drag?.active?.view !== lek.handtag) return
+  // Kropparna Grepp får välja bland, LÄGST först: vid lika träff (fingret inne i flera) vinner den
+  // sista, alltså den som ligger högst i högen — den som ritas överst (`_sortera`).
+  _greppbara() {
+    const l = this._leksaker.filter((k) => k.body && !k.flyger)
+    l.sort((a, b) => b.body.position.y - a.body.position.y)
+    return l.map((k) => k.body)
+  },
+
+  _lekAv(b) {
+    return b ? this._leksaker.find((l) => l.body === b) || null : null
+  },
+
+  // Fingret tog tag (pointerdown): återkoppling < 100 ms. Samma som HEAD:s `_grepp`.
+  _lyftLek(ctx, b) {
+    const lek = this._lekAv(b)
+    if (!this._alive || !lek || lek.flyger) return
+    this._senastGrepp = performance.now()
     this._idle = 0
-    this._halls = { lek, rec: lek.rec }
+    lek.kastad = null
+    this._halls = { lek }
     ctx.services.audio.sfx('tap')
     pop(lek.inner, { scale: 1.1 })
     this._visaLyft(lek)
@@ -632,7 +676,7 @@ export default {
     }
   },
 
-  // Styrningen — EN gång per FAST fysiksteg. Farten är px/steg; en bildruta rymmer
+  // Fartspärren — EN gång per FAST fysiksteg. Farten är px/steg; en bildruta rymmer
   // 1–5 steg, så per bildruta hade tågloket dragit 1–5 gånger fel.
   _styr() {
     // FARTSPÄRR på hela högen, körd per fast steg. Att pressa en tung leksak in i
@@ -647,23 +691,7 @@ export default {
       if (Math.abs(b.angularVelocity) > 0.5) Body.setAngularVelocity(b, Math.sign(b.angularVelocity) * 0.5)
     }
 
-    const h = this._halls
-    if (!h) return
-    const lek = h.lek
-    const b = lek.body
-    if (!b || lek.flyger || !h.rec?.view || h.rec.view.destroyed) return
-    const dx = h.rec.view.x - b.position.x
-    const dy = h.rec.view.y - b.position.y
-    let vx = dx * STYR_K
-    let vy = dy * STYR_K
-    const s = Math.hypot(vx, vy)
-    const tak = lek.spec.fart
-    if (s > tak) {
-      vx = (vx / s) * tak
-      vy = (vy / s) * tak
-    }
-    Body.setVelocity(b, { x: vx, y: vy })
-    Body.setAngularVelocity(b, b.angularVelocity * 0.8)
+    // Den lyfta leksakens styrning ligger i Grepp (`this._gr`), som kör i samma beforeStep.
   },
 
   _slappStyr() {
@@ -671,12 +699,127 @@ export default {
     this._doljLyft()
   },
 
+  // Fingret lyftes (pointerup): levererad, kastad eller bara släppt.
+  _slappLek(ctx, b, info) {
+    if (!this._alive) return
+    this._senastGrepp = performance.now()
+    const lek = this._lekAv(b)
+    if (!lek || lek.flyger) return
+    if (this._halls?.lek === lek) this._slappStyr()
+    if (info.tapTap) {
+      // Handen har burit leksaken dit (eller gav upp): inget mer att göra än ett mjukt ljud.
+      if (info.framme) ctx.services.audio.sfx('soft')
+      return
+    }
+    if (info.tryck) {
+      this._slappt(ctx, lek)
+      return
+    }
+    // Korgen avgörs av FINGRET (en trög leksak ligger efter det) — samma regel som HEAD.
+    const f = this._gr?.sistaFinger
+    if (f && Math.hypot(f.x - KORG.x, f.y - KORG.y) <= KORG_RADIE) {
+      this._levererad(ctx, lek)
+      return
+    }
+    if (info.kast) this._kasta(ctx, lek, info.kast)
+    else this._slappt(ctx, lek)
+  },
+
+  // KAST (bonus). Grepp har redan satt kroppens fart till fingrets; här sätts leksakens EGET tak.
+  _kasta(ctx, lek, k) {
+    const b = lek.body
+    if (!b) return
+    const cap = Math.min(KAST_MAX, lek.spec.fart)
+    let vx = k.vx
+    let vy = Math.max(KAST_UPP, k.vy)
+    const s = Math.hypot(vx, vy)
+    if (s > cap) {
+      vx *= cap / s
+      vy *= cap / s
+    }
+    Body.setVelocity(b, { x: vx, y: vy })
+    lek.kastad = { t: this._t }
+    const nu = performance.now()
+    if (nu - this._kastLjud > 200) {
+      this._kastLjud = nu
+      ctx.services.audio.sfx('whoosh')
+    }
+  },
+
+  // En kastad leksak som flyger/rullar genom korgens zon är i korgen (samma väg som ett drag dit).
+  _kastKoll(ctx, lek, dt) {
+    const k = lek.kastad
+    const b = lek.body
+    if (!k || !b) return
+    const s = Math.hypot(b.velocity.x, b.velocity.y)
+    const aldre = this._t - k.t
+    if (aldre > KAST_MAX_S || (aldre > 0.25 && s < 1.2)) {
+      lek.kastad = null
+      return
+    }
+    if (this._klar) return
+    const p = b.position
+    if (p.x >= KAST_ZON.x0 && p.x <= KAST_ZON.x1 && p.y >= KAST_ZON.y0 && p.y <= KAST_ZON.y1) {
+      lek.kastad = null
+      this._levererad(ctx, lek, true)
+    }
+  },
+
+  // Tap-tap: leksaken pulserar tills den väljs bort eller levereras.
+  _markera(b) {
+    const lek = this._lekAv(b)
+    if (!this._alive || !lek || !lek.g || lek.g.destroyed) return
+    this._blinkaKorg()
+    lek.pulsTw?.kill()
+    lek.pulsTw = gsap.to(lek.g.scale, { x: SKALA * 1.1, y: SKALA * 1.1, duration: 0.5, yoyo: true, repeat: -1, ease: 'sine.inOut' })
+  },
+
+  _avmarkera(b) {
+    const lek = this._lekAv(b)
+    if (lek) this._stillaPuls(lek, false)
+  },
+
+  _stillaPuls(lek, direkt) {
+    lek.pulsTw?.kill()
+    lek.pulsTw = null
+    const g = lek.g
+    if (!g || g.destroyed) return
+    gsap.killTweensOf(g.scale)
+    if (direkt) g.scale.set(SKALA)
+    else gsap.to(g.scale, { x: SKALA, y: SKALA, duration: 0.15 })
+  },
+
+  _iLadan(x, y) {
+    return x > L_UT_V && x < L_UT_H && y > L_TOPP - 40
+  },
+
+  // Tap-tap, andra trycket. Korgen: leksaken flyger dit i en båge (som med DragController förut).
+  // Annars bär handen leksaken till platsen — men inom SAMMA område (lådans vägg är i vägen).
+  _malLek(ctx, b, p) {
+    this._senastGrepp = performance.now()
+    const lek = this._lekAv(b)
+    if (!this._alive || !lek || lek.flyger) return false
+    this._idle = 0
+    if (Math.hypot(p.x - KORG.x, p.y - KORG.y) <= KORG_RADIE) {
+      this._stillaPuls(lek, true)
+      this._levererad(ctx, lek)
+      return false // leveransen är redan igång — handen behöver inte bära något
+    }
+    if (this._klar) {
+      kvittera(ctx.fxLayer, p.x, p.y, ctx.services.audio)
+      return false
+    }
+    const inne = this._iLadan(b.position.x, b.position.y)
+    if (inne !== this._iLadan(p.x, p.y)) {
+      kvittera(ctx.fxLayer, p.x, p.y, ctx.services.audio)
+      return false
+    }
+    if (inne) return { x: clamp(p.x, L_IN_V + 50, L_IN_H - 50), y: clamp(p.y, L_TOPP + 40, L_BOTTEN - 50) }
+    return { x: clamp(p.x, L_UT_H + 70, 1250), y: Math.min(p.y, GOLV - 45) }
+  },
+
   _slappt(ctx, lek) {
     if (!this._alive) return
-    // DragControllern snäpper handtaget tillbaka till sitt HEMLÄGE — men handtagets hem
-    // är där leksaken låg när den skapades. Draget dör här; handtaget hittar tillbaka
-    // till kroppen av sig självt i `_uppdatera`.
-    if (lek.handtag && !lek.handtag.destroyed) gsap.killTweensOf(lek.handtag)
     this._slappStyr()
     const b = lek.body
     if (!b) return
@@ -716,19 +859,19 @@ export default {
 
   // ---- Leverans -----------------------------------------------------------
 
-  _levererad(ctx, lek) {
+  _levererad(ctx, lek, kastad = false) {
     if (!this._alive) return
-    // Redan i luften (kaskaden) eller firandet rullar: leksaken lämnas tillbaka som
-    // dragbar och barnet får ändå ett kvitto på att fingret nådde fram (P0 — tystnad
-    // är inte en paus, den är trasig).
+    // Redan i luften (kaskaden) eller firandet rullar: leksaken ligger kvar i högen och är
+    // lika grabbbar som förut, och barnet får ändå ett kvitto på att fingret nådde fram (P0 —
+    // tystnad är inte en paus, den är trasig).
     if (lek.flyger || !lek.body || this._klar) {
-      this._drag?.aterstall(lek.handtag)
       kvittera(ctx.fxLayer, KORG.x, KORG.y - 40, ctx.services.audio)
       return
     }
     this._halls = null
     this._doljLyft()
-    if (lek.handtag && !lek.handtag.destroyed) gsap.killTweensOf(lek.handtag)
+    lek.kastad = null
+    this._stillaPuls(lek, true)
 
     const ratt = lek.spec.key === this._onskad
     const fx = lek.body.position.x
@@ -737,6 +880,11 @@ export default {
     this._phys.removeBody(lek.body)
     lek.body = null
 
+    if (kastad) {
+      // Kastet hann in: lite extra glitter och en liten stigande ton — men samma räkning som ett drag.
+      sparkle(ctx.fxLayer, KORG.x, KORG.y - 50, { count: 12 })
+      ctx.services.audio.tone({ freq: 880, slideTo: 1318.51, dur: 0.16, type: 'sine', vol: 0.12, delay: 0.04 })
+    }
     if (ratt) {
       ctx.services.audio.sfx('correct')
       ctx.services.audio.tone({ freq: TON[Math.min(this._klara, TON.length - 1)], dur: 0.24, type: 'triangle', vol: 0.18 })
@@ -766,9 +914,7 @@ export default {
   _flyg(lek, tx, ty, toppY, dur, klar) {
     const v = lek.view
     if (!v || v.destroyed) return
-    // En leksak i luften går inte att greppa — annars kunde DragControllern låsa den
-    // (`placed = true`) mitt i flykten och den hade aldrig blivit dragbar igen.
-    if (lek.handtag && !lek.handtag.destroyed) lek.handtag.eventMode = 'none'
+    // En leksak i luften går inte att greppa: den saknar kropp, och Grepp väljer bara kroppar.
     const fx = v.x
     const fy = v.y
     const r0 = v.rotation
@@ -789,7 +935,6 @@ export default {
         v.x = fx + (tx - fx) * p
         v.y = q * q * fy + 2 * q * p * toppY + p * p * ty
         v.rotation = r0 + vrid * p
-        if (lek.handtag && !lek.handtag.destroyed) lek.handtag.position.set(v.x, v.y)
       },
       onComplete: () => {
         if (this._alive && !v.destroyed) klar?.()
@@ -805,7 +950,6 @@ export default {
     Body.setVelocity(lek.body, { x: 0, y: 2 })
     this._phys.link(lek.body, lek.view)
     lek.flyger = false
-    this._drag?.aterstall(lek.handtag)
     puff(ctx.fxLayer, x, y, { count: 5, color: lek.spec.farg })
     ctx.services.audio.sfx('soft')
   },
@@ -992,7 +1136,8 @@ export default {
   _korgTryck(ctx) {
     if (!this._alive) return
     this._idle = 0
-    if (this._drag?.selected) return // tap-tap: DragControllern sköter släppet
+    // pointertap kommer efter pointerup: har Grepp just hanterat trycket (tap-tap, släpp) är det inte ett tomt tryck.
+    if (this._gr?.markerad || performance.now() - this._senastGrepp < 300) return
     kvittera(ctx.fxLayer, KORG.x, KORG.y - 40, ctx.services.audio)
     pop(this._korgInner, { scale: 1.08 })
     this._kar?.react('nyfiken')
@@ -1010,6 +1155,7 @@ export default {
   _tomTryck(ctx, e) {
     if (!this._alive) return
     this._idle = 0
+    if (performance.now() - this._senastGrepp < 300) return // ett grepp, inte ett tomt tryck
     const p = this._root.toLocal(e.global)
     if (this._klar) {
       kvittera(ctx.fxLayer, p.x, p.y, ctx.services.audio)
@@ -1099,7 +1245,9 @@ export default {
     this._t += dt
     this._phys.update(ticker.deltaMS) // `_styr` körs inifrån, per fast steg
 
-    // Handtaget hittar tillbaka till sin kropp — utom det som fingret håller i.
+    // Greppet kan ha släppt av sig självt (kroppen försvann ur världen): då lever inte lyft-skuggan längre.
+    if (this._halls && this._gr && this._gr.hallen !== this._halls.lek.body) this._slappStyr()
+
     for (const lek of this._leksaker) {
       const b = lek.body
       if (!b || lek.flyger) continue
@@ -1111,8 +1259,7 @@ export default {
         Body.setVelocity(b, { x: 0, y: 0 })
         Body.setAngularVelocity(b, 0)
       }
-      if (this._halls?.lek === lek) continue
-      if (lek.handtag && !lek.handtag.destroyed) lek.handtag.position.set(p.x, p.y)
+      if (lek.kastad) this._kastKoll(ctx, lek, dt)
     }
 
     const h = this._halls
@@ -1158,7 +1305,6 @@ export default {
     lista.sort((a, b) => b.body.position.y - a.body.position.y)
     for (const lek of lista) {
       if (lek.view && !lek.view.destroyed && lek.view.parent === this._leksakLager) this._leksakLager.addChild(lek.view)
-      if (lek.handtag && !lek.handtag.destroyed && lek.handtag.parent === this._handtagLager) this._handtagLager.addChild(lek.handtag)
     }
   },
 
@@ -1168,18 +1314,13 @@ export default {
     if (!lek) return
     lek.flygTw?.kill()
     lek.livTw?.kill()
+    lek.pulsTw?.kill()
+    lek.pulsTw = null
+    lek.kastad = null
     lek.inner?._fxLiv?.kill() // liv() tweenar ett PROXY — killTweensOf når den aldrig
+    if (lek.g && !lek.g.destroyed) gsap.killTweensOf(lek.g.scale) // markeringspulsen ligger på Graphicsen
     if (lek.body) this._phys?.removeBody(lek.body)
     lek.body = null
-    if (lek.handtag && !lek.handtag.destroyed) {
-      this._drag?.removeItem(lek.handtag)
-      lek.handtag.off('pointerdown', lek._ned)
-      lek.handtag.off('pointerup', lek._upp)
-      lek.handtag.off('pointerupoutside', lek._upp)
-      gsap.killTweensOf(lek.handtag)
-      gsap.killTweensOf(lek.handtag.scale)
-      lek.handtag.destroy({ children: true })
-    }
     if (lek.view && !lek.view.destroyed) {
       gsap.killTweensOf(lek.view)
       gsap.killTweensOf(lek.view.scale)
@@ -1202,6 +1343,7 @@ export default {
     for (const lek of this._leksaker) this._rivLeksak(lek)
     this._leksaker = []
     this._halls = null
+    this._doljLyft()
   },
 
   _rensaKorg() {
@@ -1248,8 +1390,8 @@ export default {
     if (this._lapp && !this._lapp.destroyed && this._onLapp) this._lapp.off('pointertap', this._onLapp)
     if (this._catcher && !this._catcher.destroyed && this._onCatch) this._catcher.off('pointertap', this._onCatch)
 
-    this._drag?.destroy()
-    this._drag = null
+    this._gr?.destroy() // lyssnare + fysikkrok bort FÖRE världen rivs
+    this._gr = null
     this._phys?.destroy()
     this._phys = null
 

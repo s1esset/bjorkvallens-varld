@@ -212,3 +212,13 @@ rostar åt ett spöke, och den mest påverkande kontrollen (veden) känns minst.
   30–90 Hz**; före 23,3/22,5 vid 30 fps och 22,3 vid 40 (kollapsad) och 40,0/51,2 vid 57. **Vad flyttar sig:**
   57 fps-formen blir 60 Hz-formen (±0,4 px — knappt synligt); 30–50 fps slutar kollapsa/plana. Värmen
   (`_varme`), mjukhet och mål är orörda. Kolla `_rostprobe` (styvhet 1,000 → 0,175 i lågan, 0,995 efter 3 s).
+
+- 2026-10-02 🌭 **SORTEN LOTTAS UR EN PÅSE** (F3 B1, FYSIKPLAN U2). Orderns sort kom ur
+  `ROAST_KINDS[level % 4]` — i fast ordning för alltid. Premisskoll: uttrycket sitter i
+  `_levelConfig` (bara `kind` bär det; cfg byggs i `init` och `_nextFire`). Nivå 0 är fortsatt alltid
+  marshmallow (det man känner igen, och introrösten är marshmallow); därefter drar `pase(ROAST_KINDS)`
+  — varje sort en gång per varv, aldrig samma två order i rad (nivå 0:s marshmallow räknas som
+  förra). Påsen skapas i `init`. Eftersom påsen aldrig upprepar sorten säger spelet alltid sortens
+  rubrik vid ny order (`En ny eld!` sägs bara om påsen tömts på en ensam post, vilket inte händer).
+  Svårigheten (orderstorlek, vind, värmezon) är oförändrad. **Verifiera:** `g._kind` över flera
+  order (aldrig lika två i rad).

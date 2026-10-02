@@ -26,6 +26,7 @@ import { figurForOmgang, arEgen, presentera } from '../../lib/egnafigurer.js'
 import { COLORS } from '../../lib/theme.js'
 import { verticalFill } from '../../lib/form.js'
 import { randomFrom } from '../../lib/swedish.js'
+import { pase } from '../../lib/variation.js'
 import { Mjukkropp } from '../../lib/mjukkropp.js'
 import { Varmefalt } from '../../lib/varme.js'
 
@@ -108,6 +109,9 @@ export default {
     this._pileLogs = []
 
     this._level = Math.max(0, ctx.progress.get().highestLevel | 0)
+    // Vad ordern gäller dras ur en påse: varje sort en gång per varv, aldrig samma två order i rad.
+    // Nivå 0 är alltid marshmallow (det man känner igen) och räknas då som "förra" för påsen.
+    this._kindPase = pase(ROAST_KINDS, this._level === 0 ? 'marshmallow' : undefined)
     const cfg = this._levelConfig(this._level)
     this._fuelMax = cfg.fuelMax
     this._hotR = cfg.hotR
@@ -343,8 +347,8 @@ export default {
     // Vind: ingen på nivå 0, sedan slumpad amplitud/fart som ökar lugnt med nivån.
     const windAmp = level === 0 ? 0 : clamp(24 + level * 12 + Math.random() * 30, 0, 120)
     const windFreq = 0.5 + Math.random() * 0.5 // svängningar/sek (lugnt)
-    // Vad ordern gäller roteras — nivå 0 är alltid marshmallow (det man känner igen).
-    const kind = level === 0 ? 'marshmallow' : ROAST_KINDS[level % ROAST_KINDS.length]
+    // Vad ordern gäller lottas ur påsen (U2) — nivå 0 är alltid marshmallow (det man känner igen).
+    const kind = level === 0 ? 'marshmallow' : this._kindPase.nasta()
     return { fuelMax, hotR, theme, order, windAmp, windFreq, kind }
   },
 

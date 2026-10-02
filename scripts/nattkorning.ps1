@@ -360,6 +360,9 @@ $SistaByggstart = [datetime]$plan.tider.sistaByggstart
 $LeveransSenast = [datetime]$plan.tider.leveransSenast
 $Morgon = [datetime]$plan.tider.morgon
 $LeveransSistaStart = if ($plan.tider.leveransSistaStart) { [datetime]$plan.tider.leveransSistaStart } else { $LeveransSenast.AddMinutes(30) }
+# Valfri: leveransen väntar in en tidpunkt — t.ex. en ny veckokvot när byggandet ska ske på den
+# gamla veckan men avslutet på den nya (ägaren 2026-10-02: "bara avslut efter 08").
+$LeveransTidigast = if ($plan.tider.leveransTidigast) { [datetime]$plan.tider.leveransTidigast } else { $null }
 $VeckoTak = if ($plan.kvot.veckoTak) { [double]$plan.kvot.veckoTak } else { 0.74 }
 $StartTak = if ($plan.kvot.startTak) { [double]$plan.kvot.startTak } else { 0.75 }
 Logg "── NATTKÖRNING $($plan.natt) — drivare pid $PID · sista byggstart $($SistaByggstart.ToString('HH:mm')) · leverans senast $($LeveransSenast.ToString('HH:mm')) (start senast $($LeveransSistaStart.ToString('HH:mm'))) · morgon $($Morgon.ToString('HH:mm')) · veckotak $('{0:P0}' -f $VeckoTak) · $(Kvot-Text)"
@@ -388,6 +391,10 @@ try {
     if ($arLeverans -and $nu -gt $LeveransSistaStart) {
       Logg "⏭ leveransfasen hinns inte före morgonen — drivaren levererar själv"
       $overhoppad[$fas.id] = $true
+      continue
+    }
+    if ($arLeverans -and $LeveransTidigast -and $nu -lt $LeveransTidigast) {
+      Vanta-Till $LeveransTidigast "leveransfasen väntar till $($LeveransTidigast.ToString('HH:mm')) (tider.leveransTidigast)"
       continue
     }
     # ── kvotvakterna: veckan räcker till ägarens dag, och ingen session startar i ett fullt fönster

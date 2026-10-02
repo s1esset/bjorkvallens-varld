@@ -1,7 +1,8 @@
 // Bygg Tornet — bygg-/fysiklek (3–5 år). En vänlig kloss väntar högt uppe. Barnet
 // TRYCKER var som helst — klossen flyttar sig till FINGRET och faller DÄR, rakt ner,
 // med RIKTIG fysik (matter.js). Den landar på stapeln, lutar och vajar och får sätta sig.
-// När den vilat snäpps den fast (statisk) så basen står stadigt medan tornet växer.
+// När den vilat fogas den till klossen under med leder (stod.js) — tornet är ett stort torn av
+// riktiga kroppar som GUNGAR som en helhet på sin sockel och aldrig rasar.
 // FYSIKEN avgör vinsten: när tillräckligt många klossar VILAR på varandra (ingen kloss
 // faller av) har vi byggt ett torn → firande. En kloss som tippar av är ALDRIG ett fall:
 // den puffar bara bort glatt och barnet får en ny. Barnet får sikta själv de första
@@ -20,6 +21,7 @@ import { groundFill } from '../../lib/form.js'
 import { valjEgna, byggEgenFigur, presentera } from '../../lib/egnafigurer.js'
 import { slumpIBand } from '../../lib/variation.js'
 import { vippa } from '../../lib/vippa.js'
+import { Tornstod, KAT_MARK } from './stod.js'
 
 // --- Geometri (designkoordinater 1280×720) ---
 const BASE_X = 640 // tornets mittlinje (nästa klossens default-läge)
@@ -190,7 +192,8 @@ export default {
     this._root.addChild(this._catcher)
 
     // Fysik: gravitation + golv/väggar.
-    this._phys = new PhysicsWorld({ gravityY: 1.0, walls: ['floor', 'left', 'right'] })
+    // Lederna kräver fler lösarvarv än matters förval (FYSIKPLAN F1/R5): ett torn av stift är en kedja.
+    this._phys = new PhysicsWorld({ gravityY: 1.0, walls: ['floor', 'left', 'right'], iterationer: { position: 8, villkor: 8 } })
     this._unbind = this._phys.onCollision((e) => this._onCollision(ctx, e))
     // Centreringshjälpen läggs per FAST fysiksteg (T2) — avregistreras i destroy.
     this._avHjalp = this._phys.beforeStep(() => this._centreraSteg())
@@ -205,7 +208,11 @@ export default {
       friction: 1,
       frictionStatic: 2,
       restitution: 0,
+      collisionFilter: { group: 0, category: KAT_MARK, mask: 0xffffffff }, // sockeln (stod.js) rör aldrig marken
     })
+    // Tornets sockel: en tung platta nedsänkt i marken som tornet står på. Den vippar några grader på sitt
+    // gångjärn med en vridfjäder, och hela tornet gungar med. Den byggs EN gång; torn byts, sockeln står kvar.
+    this._stod = new Tornstod(this._phys, { px: BASE_X, markY: GROUND_TOP_Y })
 
     // Tornkranen i bakgrunden (byggarbetsplatsen) — bakom skylinen och marken.
     this._buildKran()
@@ -298,6 +305,16 @@ export default {
     this._blockLayer.eventMode = 'none'
     this._blockLayer.interactiveChildren = false
     this._root.addChild(this._blockLayer)
+
+    // Gräskanten FRAMFÖR klossarna. Tornet gungar på sin sockel (stod.js): nederkanten av nedersta klossen
+    // sjunker några px vid ena hörnet och lyfter vid det andra — gräset täcker det, så den ser ut att stå i marken
+    // och aldrig svävar eller skär genom den. Ren dekor, inga tweens.
+    const kant = new Graphics()
+    kant.eventMode = 'none'
+    for (let x = -10, i = 0; x < DESIGN_W + 20; x += 15, i++) {
+      kant.ellipse(x, GROUND_TOP_Y + 4 - (i % 3), 12, 6).fill(i % 2 ? COLORS.green : lighten(COLORS.green, 0.14))
+    }
+    this._root.addChild(kant)
 
     // Kran-tralla + lina (ritas om varje bildruta medan klossen väntar).
     this._crane = new Graphics()
@@ -470,10 +487,11 @@ export default {
     else this._rejectActive(ctx)
   },
 
-  // Klossen vilade på stapeln → snäpp fast (statisk) så basen står stadigt.
+  // Klossen vilade på stapeln → foga den till klossen under (leder, stod.js). Den förblir en riktig kropp, så
+  // hela tornet kan gunga — men leden går inte att vrida, så inget som barnet byggt viker sig eller välter.
   _lockActive(ctx) {
     const block = this._active
-    Body.setStatic(block.body, true)
+    this._stod.lagg(block.body)
     const i = this._count
     const clean = this._misses === 0 // barnet prickade rätt på första försöket → fira extra
     ctx.services.audio.sfx((i + 1) % 4 === 0 ? 'pop' : 'pling')
@@ -527,17 +545,23 @@ export default {
   _autoPlace(ctx) {
     if (!this._alive) return
     const i = this._count
-    const expC = this._stackTopY - BH / 2
+    // Rakt ovanpå tornets topp, i toppklossens egen ram (den kan luta eller gunga): en klosshöjd längs dess
+    // "uppåt", samma vinkel — ingen överlappning, och leden sitter genast.
+    const under = this._placed.length ? this._placed[this._placed.length - 1].body : null
+    const ang = under ? under.angle : 0
+    const ax = under ? under.position.x + Math.sin(ang) * BH : this._supportX
+    const ay = under ? under.position.y - Math.cos(ang) * BH : slotY(0)
     const view = this._makeBlock(i)
-    view.position.set(this._supportX, expC)
+    view.position.set(ax, ay)
     this._blockLayer.addChild(view)
-    const body = this._phys.rectangle(this._supportX, expC, BW, BH, { isStatic: true, ...BLOCK_OPTS })
+    const body = this._phys.rectangle(ax, ay, BW, BH, { ...BLOCK_OPTS, angle: ang })
     this._phys.link(body, view)
+    this._stod.lagg(body)
     bounceIn(view)
     ctx.services.audio.sfx('magi')
     // Hjälpen firas ödmjukt (färre gnistor än barnets egen träff) — den ska inte kännas
     // som barnets triumf.
-    sparkle(ctx.fxLayer, this._supportX, expC - BH / 2, { count: 5 })
+    sparkle(ctx.fxLayer, ax, ay - BH / 2, { count: 5 })
     ctx.services.voice.say('Jag hjälper till!')
     this._afterPlace(ctx, { view, body })
   },
@@ -575,6 +599,17 @@ export default {
       .fill({ color: COLORS.yellow, alpha: 0.09 })
       .stroke({ width: 5, color: COLORS.yellow, alpha: 0.75 })
     this._ghost.position.set(this._supportX, this._stackTopY - BH / 2)
+  },
+
+  // Stapelns topp ur toppklossens LEVANDE läge. Tornet svajar några px, så stödpunkten (ny klosss mål), vilolinjen
+  // (hur djupt den får sjunka) och spökrutan läses varje bildruta — inte ett ögonblick från när klossen lades.
+  _lasStapel() {
+    const top = this._placed.length ? this._placed[this._placed.length - 1] : null
+    if (!top) return
+    this._supportX = clamp(top.body.position.x, BASE_X - MAX_DRIFT, BASE_X + MAX_DRIFT)
+    this._stackTopY = top.body.position.y - BH / 2
+    if (this._phase === 'carry' || this._phase === 'fall') this._expC = this._stackTopY - BH / 2
+    if (this._ghost && !this._ghost.destroyed && this._ghost.visible) this._ghost.position.set(this._supportX, this._stackTopY - BH / 2)
   },
 
   // ---- Mål-höjden nådd: firande + ny högre runda --------------------------
@@ -631,18 +666,36 @@ export default {
     const steps = [...this._placed]
       .sort((a, b) => a.body.position.y - b.body.position.y)
       .map((b) => ({ x: b.body.position.x, y: b.body.position.y - BH / 2 - 22 }))
-    const st = { x: k.x, y: k.y, r: 0 }
+    // Tornet gungar fortfarande när räddningen börjar: banan är räknad på klossarnas läge NU, så medan kattungen
+    // är PÅ tornet (w = 1) vrids den med sockeln — samma vridning som klossarna gör — och släpper det (w = 0) när
+    // den hoppar av. Då följer den tornet i stället för att sväva eller sjunka några px.
+    const th0 = this._stod ? this._stod.vinkel : 0
+    const st = { x: k.x, y: k.y, r: 0, w: 0 }
     const tl = gsap.timeline({
       onUpdate: () => {
         if (k.destroyed) return
-        k.position.set(st.x, st.y)
-        k.rotation = st.r
+        let x = st.x
+        let y = st.y
+        let r = st.r
+        const stod = this._stod
+        if (stod && st.w > 0) {
+          const d = (stod.vinkel - th0) * st.w
+          const c = Math.cos(d)
+          const sn = Math.sin(d)
+          const rx = x - stod.px
+          const ry = y - stod.py
+          x = stod.px + rx * c - ry * sn
+          y = stod.py + rx * sn + ry * c
+          r += d
+        }
+        k.position.set(x, y)
+        k.rotation = r
       },
     })
     // Hoppet över från avsatsen till tornets topp.
     if (steps.length) {
       tl.to(st, { x: (st.x + steps[0].x) / 2, y: st.y - 46, r: -0.3, duration: 0.22, ease: 'power2.out' })
-      tl.to(st, { x: steps[0].x, y: steps[0].y, r: 0, duration: 0.24, ease: 'power2.in' })
+      tl.to(st, { x: steps[0].x, y: steps[0].y, r: 0, w: 1, duration: 0.24, ease: 'power2.in' })
       tl.add(() => { if (this._alive) ctx.services.audio.sfx('pop') })
     }
     // Ett litet skutt per våning ner.
@@ -658,7 +711,7 @@ export default {
     // Sista skuttet ner till Bobo + jubel. Barnets figur är större än kattungen och står åt
     // vänster i hållaren, så den landar längre bort från Bobos utsträckta armar.
     const hemX = this._egenFig ? 316 : 268
-    tl.to(st, { x: hemX + 32, y: GROUND_TOP_Y - 90, r: 0.4, duration: 0.26, ease: 'power2.out' })
+    tl.to(st, { x: hemX + 32, y: GROUND_TOP_Y - 90, r: 0.4, w: 0, duration: 0.26, ease: 'power2.out' })
     tl.to(st, { x: hemX, y: GROUND_TOP_Y - 24, r: 0, duration: 0.26, ease: 'power2.in' })
     // Landningen sker 1,8–2,7 s efter complete(), medan dess vinstljud och konfettiregn
     // (1,6–3,2 s) ännu pågår — ett andra regn och en andra fanfar vore dubbelfirande.
@@ -731,6 +784,8 @@ export default {
 
     // Stega fysiken (fast tidssteg) och synka vyerna.
     this._phys.update(ticker.deltaMS)
+    // Tornet gungar: stödpunkten, vilolinjen och spökrutan följer toppklossen (inte ett läge från när den lades).
+    if (this._phase !== 'finish') this._lasStapel()
 
     // Rita kran-tralla + lina endast medan klossen väntar (släpps → kroken släpper).
     this._drawCrane(this._phase === 'carry' && this._active ? this._active.view : null)
@@ -739,7 +794,11 @@ export default {
     if (this._phase === 'fall' && this._active) {
       this._fallT += dt
       const b = this._active.body
-      const slow = b.speed < REST_SPEED && b.angularSpeed < ANG_REST
+      // Vila MOT toppklossen: tornet gungar, och en kloss som följer med är lika stilla som den som vilar.
+      const ref = this._placed.length ? this._placed[this._placed.length - 1].body : null
+      const rvx = b.velocity.x - (ref ? ref.velocity.x : 0)
+      const rvy = b.velocity.y - (ref ? ref.velocity.y : 0)
+      const slow = Math.hypot(rvx, rvy) < REST_SPEED && Math.abs(b.angularVelocity - (ref ? ref.angularVelocity : 0)) < ANG_REST
       // Centrerings-hjälpen ligger i `_centreraSteg` (phys.beforeStep), en gång per fysiksteg.
       this._restT = slow ? this._restT + dt : 0
       if ((this._fallT > 0.25 && this._restT > REST_HOLD) || this._fallT > MAX_FALL) {
@@ -791,6 +850,23 @@ export default {
   // Mjuk "klack" när en fallande kloss slår i stapeln/marken (strypt mot ljud-spam).
   _onCollision(ctx, e) {
     if (!this._alive) return
+    // Landningen stöter tornet: första kontakten mellan den fallande klossen och toppen (eller sockeln, om tornet
+    // är tomt) ger hela tornet en vridstöt åt det håll klossen landar — en gång per kloss. Stoppet kommer först
+    // i `stod.slag` (taket) och i fjäderns mjuka vägg.
+    const akt = this._active
+    if (akt && this._phase === 'fall' && !akt.stott && this._stod) {
+      for (const pair of e.pairs) {
+        const a = pair.bodyA
+        const b = pair.bodyB
+        if (a !== akt.body && b !== akt.body) continue
+        const o = a === akt.body ? b : a
+        if (o === this._stod.sockel || this._stod.klossar.includes(o)) {
+          akt.stott = true
+          this._stod.slag(akt.body, Math.abs(a.velocity.y - b.velocity.y))
+          break
+        }
+      }
+    }
     if (this._t - this._lastHit < HIT_THROTTLE) return
     for (const pair of e.pairs) {
       const involves = pair.bodyA.label === 'block' || pair.bodyB.label === 'block'
@@ -941,6 +1017,7 @@ export default {
     }
     this._placed = []
     this._active = null
+    this._stod?.glom() // leden följer med kropparna (removeBody); sockeln står kvar, rak och stilla
   },
 
   destroy(ctx) {
@@ -949,6 +1026,8 @@ export default {
     this._unbind?.()
     this._avHjalp?.()
     this._avHjalp = null
+    this._stod?.ta()
+    this._stod = null
     this._unbindImpact?.()
     this._svingV?.destroy()
     this._svingV = null

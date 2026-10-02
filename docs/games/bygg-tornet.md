@@ -5,12 +5,13 @@
 
 En glad himmel med sol och moln. Längst upp åker en kran-tralla på en räls och håller en
 färgglad LEGO-aktig kloss i en lina; nere på gräset lyser en pulserande spök-markör DÄR
-nästa kloss helst ska landa, och en 🚩-flagga vid mål-höjden visar hur högt jag ska bygga.
+nästa kloss helst ska landa, och en ritad flagga vid mål-höjden visar hur högt jag ska bygga.
 Jag trycker var som helst → klossen flyttas till fingret och faller RAKT NER där med riktig
 matter.js-fysik. Den landar, lutar och vajar, och får sätta sig. **Fysiken avgör vinsten:**
-vilade klossen på stapeln (inom dx/dy/vinkel-tolerans) snäpps den fast (statisk) med
-'pling' + gnistor + räkneord ("ett, två, tre…"); tippade den av är det ALDRIG ett fall —
-den puffar bort glatt och jag får en ny.
+vilade klossen på stapeln (inom dx/dy/vinkel-tolerans) fogas den till klossen under med leder
+(`stod.js`) med 'pling' + gnistor + räkneord ("ett, två, tre…") — och hela tornet GUNGAR ett par grader
+åt det håll klossen landade, och lugnar sig; tippade den av är det ALDRIG ett fall — den puffar bort glatt
+och jag får en ny.
 
 Efter 2 missar på samma våning lägger kranen nästa kloss prydligt på plats själv
 ("Jag hjälper till!") med en svag centrerings-magnet på fallande klossar, så tornet ALLTID
@@ -87,6 +88,8 @@ garanterar att flaggan alltid nås. Räkneorden gör stapeln till en mjuk siffer
 - [Enkel] Den gamla kranrälsen överst (`RAIL_Y`) läses som en lös takbalk bredvid den nya tornkranen — byt eller ta bort den. Förgrundsgräset hämtas via `scen._kamLager[length-2]`, ett skört antagande om scene.js inre (kritiken 2026-10-02).
 
 ## 5. Status / loggar
+
+- 2026-10-02 ✅ **Tornet gungar som helhet — leder + sockel + vridfjäder (FYSIKPLAN F1, `stod.js`).** Klossen låses inte längre statisk (`Body.setStatic`): den förblir en riktig kropp och fogas till klossen under med TVÅ stift (`phys.gangjarn(…, { med })`, ±45–95 px från ytans mitt, så leden inte kan vridas), och nedersta klossen till en SOCKEL — en tung platta nedsänkt i marken (toppytan = markens översida, kolliderar inte med marken) med ett gångjärn i tornets mittlinje och en vridfjäder (`gangjarn(…).vridfjader`). Fjädern läser tornet varje FAST steg: `k = kMin + 2·W·h + |M0|/0,04` (W·h = tyngd × tyngdpunktshöjd, M0 = lutande moment) ⇒ ett ensidigt torn lutar högst ~2,3° av egen tyngd, och en mjuk vägg från 2,6° tar bort resten; dämpningen följer tornets tröghet (ζ 0,15). **Landningen stöter tornet** (`stod.slag`, en stel vridstöt kring pivoten åt det håll klossen landar, tak 0,006 rad/steg): matters lösare överförde bara ~10 % av en stel gungbrädas svar (mätt 0,18° mot ~1,5°), så stöten läggs på uttryckligen — då gungar ett torn på sex klossar ±1,9° (≈ 12 px i toppen) och lugnar sig på ~2,5 s. Mätt i Node (`node scripts/_dag-bygg-tornet-nod.mjs 30`, spelets kloss-/vilo-/acceptanstal, 3×7 klossar otåligt, 4 siktstilar, 30 frön): **högsta lutning 4,4° i värsta fallet, 0 klossar utanför tornet, 0 leder som gett vika; kontrollarmen (statisk låsning = HEAD) 0,00°**. Ett stresstorn på 20 klossar (spelet når aldrig över 7) höll också: 4,3°. `lagg` blev kvar som enda lås: `_autoPlace` lägger nu en DYNAMISK kloss i toppklossens egen ram (samma vinkel, en klosshöjd längs dess uppåt) och fogar den. `_supportX`/`_stackTopY`/`_expC`/spökrutan läses varje bildruta ur toppklossen (`_lasStapel`) — tornet rör sig; vilotestet av den fallande klossen sker MOT toppklossens fart; kattungens räddningsresa vrids med sockeln så den följer tornet. Gräskanten ritas framför nedersta klossen (hörnet sjunker/lyfter några px när sockeln vippar). Lösarvarv: `iterationer: { position: 8, villkor: 8 }` (en kedja av stift; 5 räckte för 7 klossar men ett 16-torn gav vika). Oförändrat: acceptanstalen (`ACCEPT_*`), kranklossens pendel (P2), centreringen (T2), alla repliker. Sonder: `scripts/_dag-bygg-tornet-nod.mjs` (Node), `scripts/_dag-bygg-tornet.mjs` (webbläsare, `--kontroll` för HEAD-armen). Risk kvar: klossar som godtas lutande (≤ 29°, spelets gamla tolerans) fogas i den lutningen — som förut, nu svetsade.
 
 - 2026-10-02 ✅ **Kranklossen gungar i linan (FYSIKPLAN P2 / §5.4, `vippa`).** Linan, kroken och klossens ritning bor i ett inre barn `sving` (pivot i trallans lina-fäste) som `vippa(sving, { axel: 'rot', max: 0.22, k: 90, damp: 0.3 })` gungar: när en ny kloss hängs på kommer en stöt (riktad mot att trallan åkt från förra släppet, minst 0,4), och idle-recuet knuffar linan. Det är ren BILD: kroppen, `view`, `_dropX`, T2-centreringen och landningen är orörda; vippan rivs i `_dropActive` (rotationen nollställs exakt, linan döljs) och i `_clearBlocks`/`destroy`. Mätt i Node: utslaget vid klossens underkant (radie ≈ 95 px) toppar ~12 px, är ≤ 2 px efter 0,3 s och 0,0 efter 1,0 s. `_drawCrane` ritar nu bara trallan (linan följer klossen). Den vajande lasten på bakgrundskranen (`_kranLast`) är dekor och orörd. Doc-drift (§5.4): raden "ingen pendel i koden" är stängd.
 

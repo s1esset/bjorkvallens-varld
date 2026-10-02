@@ -63,6 +63,7 @@ strunta i beställningen hur länge som helst och bara leka.
 ## 3. Vad gör det lättjefullt / tunt
 
 - Bara tre grundfärger i kranen — ingen vit/vatten att späda med, ingen is, inget sugrör.
+- ✅ ~~Bobo är bara ett svävande huvud.~~ Han har kropp sedan 2026-10-02 (§5).
 - Bobo beställer men har ingen egen historia (blir han törstig? har han en favoritfärg?).
 - Ingen kolsyra, inga bubblor i saften, ingen skvalp-ljudmatta — ljudet är ton + SFX.
 - Glasen är identiska; inga former (högt glas, litet glas) som ändrar hur mycket som ryms.
@@ -75,14 +76,15 @@ strunta i beställningen hur länge som helst och bara leka.
 
 **Kärnloop**
 - [Quick] Fjärde spakläge: **vatten** som späder färgen ett steg ljusare.
-  *Not 2026-09-23:* blockerad — de ljusare nyanserna behöver egna färgutrop i rösten (TTS nere)
-  och egna PAL-poster; större än en snabbvinst.
+  *Not 2026-10-02:* "TTS nere" stämmer inte längre (`npm run voice` fungerar) — vad som kvarstår
+  är att de ljusare nyanserna behöver egna färgutrop i rösten och egna PAL-poster; större än en
+  snabbvinst men inte blockerat.
 - [Medium] Olika glasformer (smalt/brett/högt) → samma mängd ser olika ut, mer att upptäcka.
 
 **Variation**
 - [Quick] Bobo ber ibland om "mer i glaset" (nivå) i stället för färg.
-  *Not 2026-09-23:* blockerad — beställningen är en talad replik och det finns inget klipp för
-  en nivå-beställning (TTS nere).
+  *Not 2026-10-02:* kräver ett nytt röstklipp (kan genereras med `npm run voice` — "TTS nere"
+  stämmer inte längre), inte blockerat.
 - [Medium] Kunder som kommer och går (Elvira, Lova) med egna favoritfärger.
 
 **Juice**
@@ -91,8 +93,11 @@ strunta i beställningen hur länge som helst och bara leka.
 
 **Karaktär**
 - [Medium] Bobo blir törstigare ju längre man leker (blinkar mot glasen).
+- [Enkel] Bobos blick (`look`) räknar från den gamla huvudmitten — huvudet sitter nu ~31 px högre med kroppen, så blicken siktar en aning fel (kritiken 2026-10-02).
 
 ## 5. Status / loggar
+
+- 2026-10-02 · **Bobo får en kropp + baren får djup (FYSIKPLAN §5.4 + L2, F4/B2).** (1) Gästen byggs nu `makeKaraktar({ r: 58, kropp: true })` i stället för `r: 74, kropp: false`: han står med fötterna på samma hylla som barnets egen figur (`_buildGastHylla` byggs alltid; riggens fötter ligger 2,34·r under huvudmitten → `m.y = GAST_FOT_Y - BOBO_Y - BOBO_FOT`, ~199 px hög). Drain-rutan (centrum 1140,330, 190×190) täcker fortfarande munnen (huvudmitt nu y≈269). Blicken följer glas/kran och `react('jubel')` används även för Bobo (relativa hopp i figurens egen nod, så spelets hopp i hållaren lägger sig ovanpå). (2) L2: tapet med ränder och varmt lampljus (staplade ellipser, ingen radiell gradient), kakelvägg i förband bakom glasen (ljus med flit så saften lyser) med träklistlist, hyllans skugga/konsoler/flasketiketter, och i förgrunden en bänkkant med glans och skugga, plankpanel med fogar och en mässingsfotlist. Inga nya texturbakningar (cachade `verticalFill`/`cylinderFill`). Y-lägen för glas, galler, kran, spak och droppknapp orörda. Omätt i webbläsare — titta på skärmdumpen: kakelfogarna får inte konkurrera med glasen.
 
 - 2026-10-01 · **Barnets egna figurer (LYFTPLAN §10, v1.287.0).** Gästen bakom baren byts per montering (`figurForOmgang`, `kropp: false`-spelet är inget enradsbyte): varannan gång står barnets EGET knytt eller kompis (eller ett MÖTT knytt) i stället för Bobo. Den har en hel kropp, så den står på en liten hylla vid väggen (`_buildGastHylla`, fötterna y 405, 196 px hög, ≤176 bred) — hyllan 13 px över hinkhandtaget och utanför alla träffytor. Den dricker (`react('nam')`) i en egen takt (1,45 s knytt / 1,0 s kompis — en ny `nam` var 24:e bildruta hade startat om måltiden), följer det burna glaset/kranen med blicken och jublar (`react('jubel')`) när beställningen är klar. Bobos 7 repliker finns nu i tre röster (`ORDER_ROST_EGEN`: ditt knytt / din kompis / ett knytt, 18 beställningsrader + 3 vinstrader); en ny figur presenteras av `presentera`. Utan egna figurer ser spelet ut som förut.
 - 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): båda öppna [Quick] kräver nya röstklipp

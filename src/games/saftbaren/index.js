@@ -6,7 +6,7 @@
 import { Container, Graphics, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { COLORS, DESIGN_W, DESIGN_H, shade } from '../../lib/theme.js'
-import { groundFill, bage } from '../../lib/form.js'
+import { groundFill, bage, verticalFill, cylinderFill } from '../../lib/form.js'
 import { BLEED_X, BLEED_Y } from '../../lib/view.js'
 import { FluidWorld, FluidView } from '../../lib/vatska.js'
 import { lerpColor } from '../../lib/scene.js'
@@ -124,6 +124,10 @@ const BOBO_Y = 300
 const GAST_FOT_Y = 405
 const GAST_HOJD = 196
 const GAST_BREDD = 176
+// Bobo har nu en hel kropp han också (§5.4): samma hylla, fötterna på GAST_FOT_Y. Riggens
+// fötter slutar på 2,34·r under huvudmitten, så r 58 ger ~199 px — i nivå med barnets figur.
+const BOBO_R = 58
+const BOBO_FOT = Math.round(BOBO_R * 2.34)
 const LEVER_X = 150
 const LEVER_TOP = 322
 const LEVER_STEP = 96 // avstånd mellan färglägena (≥96 px träffyta)
@@ -323,9 +327,38 @@ export default {
       const c = lerpHex(0xffe9c9, 0xf7cfa0, t)
       g.rect(-BLEED_X, (DESIGN_H / 24) * i, DESIGN_W + 2 * BLEED_X, DESIGN_H / 24 + 1).fill(c)
     }
+    // L2 — baren får djup. Tapet: breda ljusa ränder i väggens ton (inte en ny färg, bara
+    // ett mönster som gör väggen till en vägg), och ett varmt ljus från lamporna uppe
+    // i mitten — tre staplade ellipser i stället för en radiell gradient (256× dyrare).
+    const W0 = -BLEED_X
+    const WW = DESIGN_W + 2 * BLEED_X
+    for (let x = W0; x < W0 + WW; x += 64) g.rect(x, 96, 26, 372).fill({ color: 0xffffff, alpha: 0.07 })
+    for (const [rx, ry, a] of [[560, 250, 0.05], [420, 190, 0.06], [290, 130, 0.07]]) {
+      g.ellipse(640, 250, rx, ry).fill({ color: 0xfff3c4, alpha: a })
+    }
+    // Kakelväggen bakom glasen: vitt kakel i förband med mörkare fog, ovanpå en list i trä.
+    // Kaklet är ljust med flit — saftens fyra färger ska lysa mot det.
+    const KT = 470
+    const KB = GRATE_Y - 8
+    g.rect(W0, KT, WW, KB - KT).fill(verticalFill(0xf6efe0, 0xe4d9c0))
+    for (let y = KT + 34; y < KB; y += 34) g.rect(W0, y, WW, 2).fill({ color: 0xb9a98a, alpha: 0.42 })
+    for (let r = 0, y = KT; y < KB; r++, y += 34) {
+      for (let x = W0 + (r % 2) * 36; x < W0 + WW; x += 72) g.rect(x, y, 2, Math.min(34, KB - y)).fill({ color: 0xb9a98a, alpha: 0.42 })
+    }
+    // skugga under listen och en glansad överkant
+    g.rect(W0, KT + 10, WW, 12).fill({ color: 0x5a3b22, alpha: 0.12 })
+    g.rect(W0, KT - 6, WW, 16).fill(verticalFill(0xc89a6a, 0x9a6f45))
+    g.rect(W0, KT - 6, WW, 3).fill({ color: 0xffffff, alpha: 0.45 })
     // hylla högst upp med saftflaskor (dekor, ger baren ett rum)
     g.rect(-BLEED_X, 70, DESIGN_W + 2 * BLEED_X, 18).fill(0xa9714a)
     g.rect(-BLEED_X, 88, DESIGN_W + 2 * BLEED_X, 8).fill(shade(0xa9714a, 0.25))
+    g.rect(-BLEED_X, 70, DESIGN_W + 2 * BLEED_X, 3).fill({ color: 0xffffff, alpha: 0.35 })
+    // plankans skugga på väggen under den, och två konsoler
+    g.rect(-BLEED_X, 96, DESIGN_W + 2 * BLEED_X, 14).fill({ color: 0x5a3b22, alpha: 0.13 })
+    g.rect(-BLEED_X, 110, DESIGN_W + 2 * BLEED_X, 8).fill({ color: 0x5a3b22, alpha: 0.06 })
+    for (const bx of [272, 1010]) {
+      g.moveTo(bx - 10, 96).lineTo(bx + 10, 96).lineTo(bx + 10, 112).lineTo(bx - 2, 132).lineTo(bx - 10, 128).closePath().fill(0x8d99a3)
+    }
     // 7 flaskor mellan x=200 och x=1082: de gamla ytterlägena (60 och 1180) låg rakt
     // bakom hem- och ljudknappen i hörnen.
     for (let i = 0; i < 7; i++) {
@@ -333,12 +366,16 @@ export default {
       const c = PAL[i % 6].hex
       // Halsen låg tidigare på y=-6 och kapades av skärmkanten. Hela flaskan ryms nu
       // mellan y=2 och hyllplanet (y=70), så korkarna syns.
+      g.ellipse(x + 4, 71, 26, 5).fill({ color: 0x000000, alpha: 0.2 }) // skugga på hyllan
       g.roundRect(x - 20, 14, 40, 56, 10).fill({ color: c, alpha: 0.85 })
       g.roundRect(x - 7, 2, 14, 18, 5).fill(shade(c, 0.3))
       g.roundRect(x - 16, 22, 12, 22, 6).fill({ color: 0xffffff, alpha: 0.3 })
+      // etikett: ett vitt band med en liten frukt-prick i flaskans färg
+      g.roundRect(x - 14, 46, 28, 14, 4).fill({ color: 0xfffdf7, alpha: 0.92 })
+      g.circle(x, 53, 3.5).fill(shade(c, 0.1))
     }
     // bänkskiva (golvet fortsätter även nedanför 720 för plattor högre än 16:9)
-    g.rect(-BLEED_X, GRATE_Y - 8, DESIGN_W + 2 * BLEED_X, 16).fill(0xc2a07d)
+    g.rect(-BLEED_X, GRATE_Y - 8, DESIGN_W + 2 * BLEED_X, 16).fill(verticalFill(0xd9b78f, 0xb08d68))
     g.rect(-BLEED_X, GRATE_Y + 8, DESIGN_W + 2 * BLEED_X, DESIGN_H - GRATE_Y + BLEED_Y).fill(groundFill(0x8f6a49))
     this._bg.addChild(g)
     this._bg.eventMode = 'none'
@@ -358,7 +395,25 @@ export default {
     // faltet i spelet. Delad markfyllning, se lib/form.js. Samma ton anvands pa bakgrunds-
     // plattan bakom vatskan, sa BADA tonas; annars syns en skarv i bleed-zonen.
     g.rect(-BLEED_X, GRATE_Y + 6, DESIGN_W + 2 * BLEED_X, DESIGN_H - GRATE_Y - 6 + BLEED_Y).fill(groundFill(0x8f6a49))
-    g.rect(-BLEED_X, GRATE_Y + 6, DESIGN_W + 2 * BLEED_X, 6).fill(shade(0x8f6a49, 0.25))
+    // L2 — disken: en framspringande bänkkant (läppen) med glans och en mjuk skugga under,
+    // plankpanelen med fogar, och en mässingsfotlist med fästen. Gallret ovan är oförändrat.
+    const W0 = -BLEED_X
+    const WW = DESIGN_W + 2 * BLEED_X
+    g.rect(W0, GRATE_Y + 6, WW, 16).fill(verticalFill(0xd9b78f, 0xa97f58))
+    g.rect(W0, GRATE_Y + 6, WW, 3).fill({ color: 0xffffff, alpha: 0.5 })
+    g.rect(W0, GRATE_Y + 20, WW, 2).fill({ color: 0x4a2f1b, alpha: 0.45 })
+    g.rect(W0, GRATE_Y + 22, WW, 12).fill({ color: 0x000000, alpha: 0.16 })
+    g.rect(W0, GRATE_Y + 34, WW, 8).fill({ color: 0x000000, alpha: 0.07 })
+    for (let x = W0 + 40; x < W0 + WW; x += 110) {
+      g.rect(x, GRATE_Y + 42, 3, DESIGN_H - GRATE_Y - 42 + BLEED_Y).fill({ color: 0x3a2412, alpha: 0.22 })
+      g.rect(x + 3, GRATE_Y + 42, 2, DESIGN_H - GRATE_Y - 42 + BLEED_Y).fill({ color: 0xffffff, alpha: 0.07 })
+    }
+    const RAIL = 692
+    for (let x = W0 + 150; x < W0 + WW; x += 440) {
+      g.roundRect(x - 7, RAIL - 4, 14, 26, 4).fill(cylinderFill(0xb8863a, { axis: 'y' }))
+    }
+    g.roundRect(W0, RAIL - 8, WW, 16, 8).fill(cylinderFill(0xd8aa4a, { axis: 'x' }))
+    g.rect(W0, RAIL - 5, WW, 2).fill({ color: 0xffffff, alpha: 0.55 })
     g.eventMode = 'none'
     this._frontL.addChild(g)
   },
@@ -541,16 +596,16 @@ export default {
     b.x = BOBO_X
     b.y = BOBO_Y
     // Gästen som BESTÄLLER och DRICKER — spelets hela poäng. Bobo som rigg är törstig medan
-    // beställningen står och nöjd när glaset är tomt. `kropp: false`: disken skär av honom vid
-    // midjan och en kropp bakom disken syns inte alls.
-    // Barnets egna figur (LYFTPLAN §10) tar hans plats varannan gång — den har en hel kropp och
-    // står därför på en hylla vid väggen (se _buildGastHylla). Utan egna figurer: Bobo, som förut.
+    // beställningen står och nöjd när glaset är tomt. Han hade förut BARA ett huvud som svävade
+    // vid väggen (`kropp: false`); nu står han med kropp och fötter på samma hylla som barnets
+    // egna figur (se _buildGastHylla), så en gäst alltid har något att stå på.
+    // Barnets egna figur (LYFTPLAN §10) tar hans plats varannan gång — den har också en hel kropp.
     this._gast = 'bobo'
     this._tuggT = 0
     const fig = figurForOmgang(ctx, 'saftbaren', {
       hojd: GAST_HOJD,
       maxBredd: GAST_BREDD,
-      reserv: () => makeKaraktar({ r: 74, kropp: false }),
+      reserv: () => makeKaraktar({ r: BOBO_R, kropp: true }),
     })
     this._kar = fig
     const m = fig.view
@@ -558,8 +613,11 @@ export default {
       this._gast = fig.mott ? 'mott' : fig.typ
       // Origo i hållaren är Bobos huvudmitt; figurens origo är fötterna.
       m.y = GAST_FOT_Y - BOBO_Y
-      this._buildGastHylla()
+    } else {
+      // Riggens origo är huvudmitten: fötterna hamnar BOBO_FOT under den.
+      m.y = GAST_FOT_Y - BOBO_Y - BOBO_FOT
     }
+    this._buildGastHylla()
     b.addChild(m)
     this._propL.addChild(b)
     this._bobo = b
@@ -1137,13 +1195,12 @@ export default {
     const pal = this._order.pal
     d.g.wantAngle = 0
     this._sendHome(d.g)
-    // Bobos egen finish: nöjd hoppning, en färgad rapbubbla och glitter. Spelets
-    // fyra hopp på 46 px är större än riggens och får äga `y` — därför `setMood`
-    // och inte `react('jubel')`, som hade tweenat samma `y` samtidigt.
+    // Gästens egen finish: nöjd hoppning, en färgad rapbubbla och glitter. Spelets fyra hopp
+    // på 46 px äger HÅLLARENS `y`; riggens `react('jubel')` tweenar figurens egen nod relativt
+    // (`-=`/`+=`), så de två hoppen läggs ihop utan att slåss.
     this._kar?.setMood('stolt')
-    // Barnets figur jublar på sitt eget sätt (knyttets motiv / kompisens armar upp) — den hoppar
-    // i en egen nod, så spelets hållare får fortsätta äga sitt hopp.
-    if (this._gast !== 'bobo') this._kar?.react('jubel')
+    // Gästen jublar på sitt sätt — Bobos armar upp, knyttets motiv eller kompisens armar.
+    this._kar?.react('jubel')
     gsap.to(this._bobo, { y: BOBO_Y - 46, duration: 0.22, yoyo: true, repeat: 3, ease: 'power2.out' })
     burst(this._propL, BOBO_X, BOBO_Y, { count: 16, colors: [PAL[pal].hex, PAL[pal].mork, 0xffffff] })
     const bubbla = new Graphics()
@@ -1228,7 +1285,7 @@ export default {
 
     // Barnets figur följer det som händer med blicken: glaset som bärs till den, annars kranen.
     // `look` tar förälderns rum (hållaren, origo = Bobos gamla huvudmitt).
-    if (this._gast !== 'bobo' && this._kar && this._bobo) {
+    if (this._kar && this._bobo) {
       const held = this._drink?.g || this._glasses.find((g) => g.held)
       const mx = held ? held.x : this._kran.x
       const my = held ? held.y - 90 : SPOUT_Y

@@ -57,6 +57,7 @@ detta spel beskrev en enklare 3-bitars en-läges-mun; den är nu överspelad av 
 - ✅ ~~**[Medium] Låt valet avgöra — dämpa auto-glidet.**~~ Redan byggd 2026-07-02 (ren fångst
   inom `CATCH_CLEAN_R`, synlig sträckning + "Jag sträcker mig!") — uppdagat 2026-09-23.
 - ✅ ~~**[Quick] Synlig favorit.**~~ Redan byggd 2026-07-02 (`makePrefBubble` :1689) — uppdagat 2026-09-23.
+- ✅ ~~**[Quick] Kast mot munnen (bonus, FYSIKPLAN G2).**~~ Klar 2026-10-02 i klassiskt läge och promenad — se §5.
 
 ### Variation & överraskning
 - **[Medium] Smak-reaktioner.** Monstret gör en rolig "äsch men gott ändå"-grimas på icke-
@@ -91,6 +92,19 @@ detta spel beskrev en enklare 3-bitars en-läges-mun; den är nu överspelad av 
 
 ## 5. Status / loggar
 
+- 2026-10-02 🎯 **D9/G2: kast mot munnen (bonus)** — klassiskt läge och promenad (maten dras med
+  DragController; hylla/plinko har egen fysik och rörs inte). `addItem(…, { onKast })` ger släppfarten
+  ur `lib/pekspar.js` (via DragController — samma mätning som mata-munnen). Släpps maten med fart
+  (≥ 11 px/steg ≈ 660 px/s, tak 22) UTANFÖR munzonen (`EAT_R` 150) flyger den i en båge
+  (`_kasta` → `_stegKast` i tickern; tyngdkraft 0,22 px/steg², uppåtfart högst 14 så en lob når
+  munnen men aldrig lämnar bild, sidoväggar 70/1210 studsar mjukt). Går den in i munzonen — i promenaden
+  följer zonen med det gående monstret — äts den som vid ett drag (`_onEatMade`) plus en uppåtgående
+  treklang och mer glitter. Missar den landar den (`_kastLanda`) och glider hem som vid ett vanligt
+  miss (mjukt ljud, vingel, ring, `_miss++` → efter 3 hjälper monstret till som förut). **Draget till
+  munnen är oförändrat**: släpps maten ovanpå munnen är det ett släpp, hur fort den än rörde sig.
+  `settle` (pointerup) hoppar över sin egen miss-reaktion för ett kast — landningen tar den. Maten är
+  låst (`rec.placed`, `eventMode 'none'`) i luften och väljs inte som hjälpmat. Munnen gapar och ögonen
+  följer den flygande maten (samma spår som ett drag). `_kastade` nollas i `_teardownRound`.
 - 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): `_finishRound` spelade eget vinstljud och
   eget konfettiregn i samma tick som `complete()` — strukna. "Mätt"-repliken (3,4–4,4 s) stod
   redan före `complete()` men kapades av nästa rundas intro efter 1,9 s. Introt köas nu med

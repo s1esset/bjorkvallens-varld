@@ -26,6 +26,7 @@ import { randomFrom, shuffle } from '../../lib/swedish.js'
 import { COLORS } from '../../lib/theme.js'
 import { verticalFill, cylinderFill, sphereFill } from '../../lib/form.js'
 import { Mjukkropp } from '../../lib/mjukkropp.js'
+import { kastSteg } from '../../lib/pekspar.js'
 import { FOODS, makeFood, foodCat, foodColor } from '../../lib/mat.js'
 
 // --- layout (designkoordinater 1280×720) -----------------------------------
@@ -58,6 +59,17 @@ const CHEW_TID = 0.42 // hur länge tugget varar innan den sväljs (= _chomp-ked
 const JATTE_CHANS = 1 / 8
 const JATTE_SKALA = 1.5
 const JATTE_TON = [392, 523.25, 659.25] // stämt "oj!" när den dyker upp (G-C-E)
+
+// KAST mot munnen (G2, BONUS — bara klassiskt + promenad, där maten dras med DragController).
+// Släpps maten med fart utanför munzonen flyger den i en båge (px/steg, ticker-integrerad) och
+// ätes om den går in i munzonen; annars landar den och glider hem som vid ett vanligt miss.
+// Draget till munnen är oförändrat — kastet läggs bara OVANPÅ.
+const KAST_MIN = 11 // px/steg (~660 px/s): långsammare släpp är ett vanligt släpp
+const KAST_MAX = 22 // px/steg: tak mot tunnling
+const KAST_UPP = 14 // högsta uppåtfart (px/steg): en lob når munnen men lämnar aldrig bild
+const KAST_GRAV = 0.22 // px/steg²: mjuk båge
+const KAST_STEG = 110 // flygtidens tak (steg): maten landar alltid
+const KAST_VAGG = [70, 1210] // sidoväggar: maten studsar mjukt tillbaka, lämnar aldrig bild
 
 const MODES = ['classic', 'walk', 'shelf', 'plinko']
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
@@ -136,6 +148,7 @@ export default {
     this._mscale = 1
     this._mouthFloor = 0.42
     this._flightFood = null
+    this._kastade = [] // kastad mat i luften (klassiskt/promenad): { made, rec, vx, vy, t, landY }
     this._lastBounce = -1
     this._homeX = 640 // monstrets vilo-x (hylla/plinko) — glider bara HIT när det behövs
     this._reaching = false // sträcker sig efter en mat som annars skulle missa
@@ -353,6 +366,10 @@ export default {
         // Mjuk miss-reaktion (snäpper redan hem via DragController). Aldrig bestraffning.
         const rec = made.rec
         if (rec && rec.dragging && !made._eaten) {
+          // Ett KAST avgör själv i luften: träffar det munnen är det ingen miss, och landar det
+          // gör landningen miss-reaktionen (`_kastLanda`). Annars hade den räknats här också.
+          const kk = kastSteg(this._drag?._slappFart(rec), KAST_MAX)
+          if (kk && kk.fart >= KAST_MIN) return
           const mw = this._mouthWorld()
           if (Math.hypot(view.x - mw.x, view.y - mw.y) > EAT_R) {
             ctx.services.audio.sfx('soft')
@@ -378,8 +395,99 @@ export default {
           if (this._alive) wiggle(made.body)
         },
         onCorrect: (rec) => this._onEat(ctx, rec),
+        onKast: (rec, k) => this._kasta(ctx, rec, k),
       })
     })
+  },
+
+  // ---- KAST (G2, bonus): släpp maten med fart så flyger den mot munnen --------------
+
+  // Kroken ropas av DragController bara när släppet var UTANFÖR munzonen. `true` = spelet äger maten.
+  _kasta(ctx, rec, k) {
+    if (!this._alive || this._resolving) return false
+    const made = rec?.data?.made
+    const view = made?.container
+    if (!made || made._eaten || !view || view.destroyed) return false
+    const s = kastSteg(k, KAST_MAX)
+    if (!s || s.fart < KAST_MIN) return false
+    this._idle = 0
+    this._killHint()
+    // Tap-tap-markeringen (pulsen) hör till draget; DragController släpper den bara på sin egen väg.
+    if (this._drag?.selected === rec) this._drag._deselect()
+    gsap.killTweensOf(view)
+    gsap.killTweensOf(view.scale)
+    gsap.killTweensOf(made.body)
+    view.rotation = rec.restRot || 0
+    view.scale.set(rec.base.x, rec.base.y)
+    rec.placed = true // låst i luften: kan varken tas igen eller väljas som hjälpmat
+    view.eventMode = 'none'
+    if (made.shadow && !made.shadow.destroyed) made.shadow.visible = false
+    this._kastade.push({ made, rec, vx: s.vx, vy: Math.max(s.vy, -KAST_UPP), t: 0, landY: clamp(view.y + 110, 330, 640) })
+    ctx.services.audio.sfx('whoosh')
+    ctx.services.audio.tone({ freq: 392, slideTo: 523.25, dur: 0.14, type: 'triangle', vol: 0.12 })
+    return true
+  },
+
+  _stegKast(ctx, dt) {
+    const l = this._kastade
+    for (let i = l.length - 1; i >= 0; i--) {
+      const f = l[i]
+      const view = f.made.container
+      if (!view || view.destroyed || f.made._eaten) {
+        l.splice(i, 1)
+        continue
+      }
+      f.vy += KAST_GRAV * dt
+      view.x += f.vx * dt
+      view.y += f.vy * dt
+      f.t += dt
+      // Sidoväggarna: mjuk studs tillbaka in i bild.
+      if (view.x < KAST_VAGG[0] || view.x > KAST_VAGG[1]) {
+        view.x = clamp(view.x, KAST_VAGG[0], KAST_VAGG[1])
+        f.vx *= -0.5
+      }
+      if (f.made.body && !f.made.body.destroyed) f.made.body.rotation += 0.2 * dt // snurrar i luften
+      const mw = this._mouthWorld()
+      if (Math.hypot(view.x - mw.x, view.y - mw.y) < EAT_R) {
+        l.splice(i, 1)
+        this._kastTraff(ctx, f)
+      } else if ((f.vy > 0 && view.y >= f.landY) || f.t > KAST_STEG) {
+        l.splice(i, 1)
+        this._kastLanda(ctx, f)
+      }
+    }
+  },
+
+  // Kastet nådde munnen: precis som ett drag dit, plus en liten extra (treklang + glitter).
+  _kastTraff(ctx, f) {
+    const { made } = f
+    if (made.body && !made.body.destroyed) made.body.rotation = 0
+    const m = this._mouthWorld()
+    ;[523.25, 659.25, 783.99].forEach((freq, i) => ctx.services.audio.tone({ freq, dur: 0.12, type: 'triangle', vol: 0.12, delay: 0.1 + i * 0.08 }))
+    sparkle(ctx.fxLayer, m.x, m.y - 40, { count: 8 })
+    this._onEatMade(ctx, made, made.cat)
+  },
+
+  // Kastet missade: maten landar mjukt och glider hem — samma vänliga miss som ett släpp utanför.
+  _kastLanda(ctx, f) {
+    const { made, rec } = f
+    const view = made.container
+    if (!view || view.destroyed) return
+    if (made.body && !made.body.destroyed) {
+      made.body.rotation = 0
+      wiggle(made.body)
+    }
+    if (made.shadow && !made.shadow.destroyed) {
+      made.shadow.visible = true
+      made.shadow.alpha = 0.2
+    }
+    rec.placed = false
+    view.eventMode = 'static'
+    ctx.services.audio.sfx('soft')
+    ripple(ctx.fxLayer, view.x, view.y, { color: 0xffffff, maxR: 80, alpha: 0.4 })
+    gsap.to(view, { x: rec.home.x, y: rec.home.y, duration: 0.32, ease: 'back.out(1.4)' })
+    this._miss++
+    if (this._miss >= 3) this._autoAssistDeliver(ctx)
   },
 
   _setupWalk(ctx) {
@@ -1241,9 +1349,18 @@ export default {
       }
     }
 
+    // Kastad mat i luften (bonus) — steg före blick/mun så de följer den.
+    if (this._kastade.length) this._stegKast(ctx, Math.min(2.5, ticker.deltaMS / 16.67))
+
     // Spårad mat (för blick + munöppning).
     let food = null
-    if (mode === 'classic' || mode === 'walk') food = this._activeDragFood()
+    if (mode === 'classic' || mode === 'walk') {
+      food = this._activeDragFood()
+      if (!food && this._kastade.length) {
+        const v = this._kastade[0].made.container
+        if (v && !v.destroyed) food = v
+      }
+    }
     else food = this._flightFood && !this._flightFood.container.destroyed ? this._flightFood.container : null
     this._gaze(food)
     this._mouthFollow(food)
@@ -1567,6 +1684,7 @@ export default {
     this._holding = false
     this._reaching = false
     this._flightFood = null
+    this._kastade = [] // maten i luften rivs av _destroyFoods nedan
     this._shelfFood = null
     this._shelf = null
     this._prefBubble = null // ligger i _fgLayer och rensas av _clearLayer nedan

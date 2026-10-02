@@ -10,6 +10,17 @@
 
 export const NYHETER = [
   {
+    version: '1.378',
+    fran: '1.375',
+    datum: '2026-10-02',
+    titel: 'Saker som landar',
+    punkter: [
+      'I Stor och Liten faller sakerna ner på filten när rundan börjar: det stora landar med en tung duns, det lilla studsar flera gånger. Så hörs och syns det vilken storlek saken har innan barnet väljer.',
+      'Skräpet i Sortera Skräp landar på gräset framför tunnorna och står nu ordentligt på marken. Formerna i Passa Formerna har fått en hylla att landa på bakom lådan.',
+      'Fröna i Plantera Frön faller ner på gräskanten i stället för att hänga i luften, och man behöver dra dem en bit ner till hålet. Man kan alltid ta tag i en sak medan den faller.',
+    ],
+  },
+  {
     version: '1.374',
     fran: '1.368',
     datum: '2026-10-02',

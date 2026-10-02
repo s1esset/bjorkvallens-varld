@@ -28,6 +28,9 @@ const BEAR_CX = 640
 const BEAR_CY = 405
 const SHELF_Y = 648 // plagghyllans y (designkoordinater)
 const RINGR = 66 // ledtråds-ringens radie
+const BLICK_X = 7 // längsta sidoförskjutning av ögonen mot ett plagg (px, ansiktet är 184 brett)
+const BLICK_Y = 5 // längsta lodräta förskjutning
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
 
 // Nallens färger.
 const BEAR = 0xb07a4a
@@ -74,6 +77,7 @@ const OUTFITS = [
   {
     say: 'vinterkläder',
     scene: 'water',
+    sil: 'gran',
     weather: 'snow',
     slots: ['huvud', 'hals', 'kropp', 'hander', 'fotter'],
     garments: {
@@ -87,6 +91,7 @@ const OUTFITS = [
   {
     say: 'sommarkläder',
     scene: 'meadow',
+    sil: 'skog',
     weather: 'sun',
     slots: ['huvud', 'kropp', 'ben', 'fotter'],
     garments: {
@@ -99,6 +104,7 @@ const OUTFITS = [
   {
     say: 'regnkläder',
     scene: 'sky',
+    sil: 'skog',
     weather: 'rain',
     slots: ['huvud', 'kropp', 'hander', 'fotter'],
     garments: {
@@ -111,6 +117,7 @@ const OUTFITS = [
   {
     say: 'finkläder',
     scene: 'candy',
+    sil: 'stad',
     weather: 'petals',
     slots: ['huvud', 'hals', 'kropp', 'ben', 'fotter'],
     garments: {
@@ -124,6 +131,7 @@ const OUTFITS = [
   {
     say: 'mysiga kläder',
     scene: 'sunset',
+    sil: 'skog',
     weather: 'cozy',
     slots: ['huvud', 'kropp', 'ben', 'fotter'],
     garments: {
@@ -383,7 +391,10 @@ export default {
     this._root.addChild(bg)
 
     // Levande bakgrundsscen (varierar med outfiten).
-    this._root.addChild(createScene(outfit.scene))
+    // L1: trädlinje på fjärran- och mellanbandet + strån/blomtuvor i förgrunden (förgrunden
+    // tänds bara av teman med gräs: ängen och himlen). Siluetten väljs efter platsen, och `fro`
+    // är outfitens nummer så varje plats har sin egen, men alltid samma, horisont.
+    this._root.addChild(createScene(outfit.scene, { silhuett: outfit.sil, forgrund: true, fro: 11 + (this._outfitIdx % OUTFITS.length) }))
 
     // Mjuk markskugga under nallen (grundar henne på scenen).
     const platform = new Graphics().ellipse(BEAR_CX, 660, 236, 34).fill({ color: 0x16314a, alpha: 0.12 })
@@ -567,9 +578,17 @@ export default {
     // Ögon i en egen container (pivot på ögonlinjen) så blinkningen squashar på plats.
     const eyes = new Container()
     eyes.position.set(0, -6)
+    // Varje öga är en egen nod (mörk boll + glans) så blicken kan flyttas ur vilopunkten utan att
+    // röra blinkningen (som skalar hela `eyes`). `_ogon` = [{ e, x0 }]; `_blick` = nuvarande blick.
+    this._ogon = []
+    this._blick = { x: 0, y: 0 }
     for (const ex of [-36, 36]) {
-      eyes.addChild(new Graphics().circle(ex, 0, 12).fill(EYE))
-      eyes.addChild(new Graphics().circle(ex - 4, -4, 4.5).fill(COLORS.white))
+      const oga = new Container()
+      oga.position.set(ex, 0)
+      oga.addChild(new Graphics().circle(0, 0, 12).fill(EYE))
+      oga.addChild(new Graphics().circle(-4, -4, 4.5).fill(COLORS.white))
+      eyes.addChild(oga)
+      this._ogon.push({ e: oga, x0: ex })
     }
     head.addChild(eyes)
     this._eyes = eyes
@@ -856,7 +875,9 @@ export default {
   // Lugn idle-lockelse: efter ~6 s utan handling — namnge ett kvarvarande plagg,
   // låt det "andas" och pulsera dess ring.
   _update(ctx, ticker) {
-    if (!this._alive || this._resolving) return
+    if (!this._alive) return
+    this._uppdateraBlick(ticker.deltaMS / 1000)
+    if (this._resolving) return
     // Tomgången räknas från TYSTNAD: medan en replik talar står klockan still (V21 —
     // annars kapar påminnelsens say() en replik som redan talar).
     if (ctx.services.voice.talar) this._idle = 0
@@ -873,6 +894,30 @@ export default {
         const ring = this._rings[it.slot]
         if (ring && !ring.destroyed) pop(ring)
       }
+    }
+  },
+
+  // Nallen följer plagget i handen med blicken: pupillernas (ögonens) läge mjukas mot riktningen
+  // till det plagg barnet håller (eller har valt med tap), och glider tillbaka till mitten när
+  // inget hålls. Bara ögonen flyttas — huvudet står still, så påklädda mössor sitter kvar.
+  _uppdateraBlick(dt) {
+    const ogon = this._ogon
+    if (!ogon || !ogon.length || !this._blick) return
+    const rec = this._drag?.active || this._drag?.selected
+    let mx = 0
+    let my = 0
+    if (rec && !this._resolving && rec.view && !rec.view.destroyed && !rec.placed) {
+      const [hx, hy] = SLOT_POS.huvud
+      mx = clamp((rec.view.x - hx) / 220, -1, 1) * BLICK_X
+      my = clamp((rec.view.y - (hy - 6)) / 260, -1, 1) * BLICK_Y
+    }
+    const k = 1 - Math.exp(-Math.min(dt, 0.05) * 9)
+    this._blick.x += (mx - this._blick.x) * k
+    this._blick.y += (my - this._blick.y) * k
+    for (const o of ogon) {
+      if (o.e.destroyed) continue
+      o.e.x = o.x0 + this._blick.x
+      o.e.y = this._blick.y
     }
   },
 
@@ -961,6 +1006,8 @@ export default {
     }
     this._bear = null
     this._eyes = null
+    this._ogon = null
+    this._blick = null
     this._parts = {}
     this._rings = {}
     this._zones = {}

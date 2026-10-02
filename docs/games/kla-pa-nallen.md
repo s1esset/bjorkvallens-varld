@@ -72,6 +72,7 @@ Strikt felfritt, allt ritat programmatiskt, all transient-effekt exit-säker via
 - ✅ ~~**[Quick] Spegel-/poseringsögonblick** vid varje påsatt plagg~~ Redan byggd i enkel form
   (`index.js:293`, `REACT_EMOJI` 🕶️→😎 osv. + kroppsdelens popp och nallens studs i `_onCorrect`)
   — uppdagat 2026-09-23. En riktig pose (nallen tittar ner och ler) vore en [Medium].
+- ✅ ~~**[Quick] Nallen följer plagget med blicken.**~~ Klar 2026-10-02 (`_uppdateraBlick`).
 
 ### Progression
 - **[Medium] Garderob/album.** Spara den färdigklädda nallen som en liten "kort"-bild i en
@@ -127,3 +128,5 @@ Strikt felfritt, allt ritat programmatiskt, all transient-effekt exit-säker via
     `_garmentSound` utan krasch); skärmdump bekräftar blå keps på den uttrycksfulla nallen.
   - **Deferred:** [Medium] garderob/album; [Medium] nallen *känner* klädseln (huttrar→nöjd);
     [Deep] handritade vektor-plagg i nallens stil; [Quick] lugn ambient-loop (central hantering).
+
+- **2026-10-02 · Blick + trädlinje/förgrund (FYSIKPLAN §5.4 + L1).** (1) Nallens ögon är egna noder (`_ogon`, ett barn per öga i `eyes`, så blinkningen som skalar `eyes` är orörd) och förskjuts mjukt (1−e^(−9dt), högst 7×5 px) mot plagget barnet håller eller har tap-valt (`DragController.active ?? selected`); inget hålls eller rundan firas → tillbaka till mitten. Huvudet står still så påklädda mössor sitter kvar. Mätning: `g._blick` ({x,y}) och `g._ogon[0].e.x`. (2) `createScene(outfit.scene, { silhuett: outfit.sil, forgrund: true, fro })`: vinter = gran, äng/himmel = skog (+ strån och blomtuvor, bara temor med gräs), fin = stad, mys = skog; ingen ny bakning. Scenen lottas om per outfit (samma outfit = samma horisont). Inget "något i mitten som hör till spelet" (L2) är byggt.

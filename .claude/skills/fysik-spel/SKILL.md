@@ -146,6 +146,14 @@ Den återanvändbara **"dra för att sätta riktning + kraft, med levande pricka
 `slingshot` (dra bakåt) eller kast. Tap-fallback siktar mot `defaultAim` — obligatorisk för
 under-4-år. `setWind` / `setPreview` håller förhandsvisningen ärlig.
 
+### Skuggvärlden (AimLauncher, G3a)
+
+- **`new AimLauncher({ …, skuggvarld: { varld: phys, kula: ballBody, filter?, vindMinFart? } })`** (opt-in; utan nyckeln är banan byte-för-byte `predict()`). En liten matter-motor DELAR världens statiska kroppar (deras `studs`/`friktion`, ramper, räcken — och en kropp som läggs till/tas bort följer med) och kör en provkula med den riktiga kulans tal, LIVE (restitution, friktion, frictionAir, låst tröghet). 64 motorsteg, en prick var 3:e; gravitationen läses ur `varld.engine.gravity` (utan `varld`: `kroppar: () => Body[]` + `previewGravity`). `previewDamp`/`bounds` blir reserv om motorn faller.
+- **Uppmätt (`node scripts/_skuggprobe.mjs`): 0,0 px fel mot verklig bana** (bowling HEAD 298 → 0; rulla-bollen-hem HEAD 1 072 → 0, alla yta/boll/vind-varianter), 0,03 ms per omritning (24 statiska: 0,05). Högst en omräkning per bildruta; sista fingerläget köas till nästa bildruta.
+- **`filter(b)`** väljer kroppar (rulla-bollen-hem: bara `'wall'` — hindren är medvetet inte med i pricklinjen). Sensorer är aldrig med, utom med `forhandsStopp`.
+- **`{ forhandsStopp: true }`** på en kropp med egna impulser (studsmoln, flipperdyna): den tas med och banan SLUTAR vid kontakten i stället för att ljuga. Spelets egna kraftfält (en `beforeStep`-knuff) syns inte i skuggvärlden — markera dem.
+- Riv: `AimLauncher.destroy()` river motorn (`Skuggvarld.destroy()`); en egen `Skuggvarld` kan även användas fristående (`bana(x, y, vx, vy, { gy, wx })` → `[{x,y}]` eller `null`). Kula som matter-kropp läser `circleRadius`; en plain `{ r, restitution, … ineria: Infinity }` går också.
+
 ## Rep och kedjor (`src/lib/rep.js`)
 
 Verlet-tråd (PBD) för allt långt och böjligt: slangar, nätlinor, svingar, vinschar, kedjor.
@@ -309,6 +317,21 @@ till sammanhängande vätska. Samma enheter som resten av repot: **px/steg**, fa
 - TAP = KNUFF: fartimpuls `tapVinkel·damp` (+ dödzonens svans) som glider ett kvarts varv på en stilla ratt; knuffar ADDERAS (taket gäller) → 10 tryck à 250 ms når 1,25 varv/s mot ett drags 1,0. Tryck hållet > 600 ms eller > 12 px är ingen knuff.
 - Mät: `node scripts/_vevlibprobe.mjs` (Node; kontroller: ingen input = 0 · damp 0 snurrar vidare · utan tak skenar · tung ratt med momenttak är långsammare). `_vevprobe.mjs` är KUGGHJULENS egen vev i webbläsaren — en annan sond. Första kund: `vattenvagen`s ventil (`_dag-vattenvagen.mjs`).
 
+## Ytvågor (`lib/ytvag.js`, F5)
+
+Ytan som ett 1D-höjdfält, rena tal (ingen Pixi/matter): `new Ytvag({ n, x0, x1, ytY, sprid, k, damp, max })` + opt-in `stotProfil` (förval 1·0,6·0,25), `stotKlamma`, `vilaKop` (0,9), `vilaTrosk` (> 0 = grind: hojd/avvikelse ger 0 under den), `rorTrosk` (0,02).
+- `stot(x, kraft)` — fart in (+ nedåt). **Per bildruta är det en konstant kraft** (jämvikt ≈ 36× insatsen): ge ~1/36 av önskat utslag.
+- `vila(x, djup, bredd_px)` — en dell som fältets VILOLÄGE (trekant). **Deklarera den varje bildruta medan den ska finnas** (utan anrop = borta); vågor kommer av att den FLYTTAR sig, en stilla dell gör inga. Aldrig "dra h mot ett måldjup" — det är en energikälla.
+- `uppdatera(deltaMS)` — fast steg via `Takt`; returnerar sant medan ytan rör sig (+ en sista gång) → rita bara om då. `hojd(x)` = våg + dell · `avvikelse(x)` = bara vågen (en flytare som själv gör dellen ska läsa denna) · `path(g, { x0, x1, steg, dy, extra })` lägger moveTo/lineTo · `nollstall()` fyller på plats. `h`/`v`/`rest` är publika Float32Array.
+- Långt läge klingar av på ~6 s (vänta ≥ 10 s i en sond). En dell dragen med vågens egen fart (~6 px/steg) resonerar (2,2 px → 10 px våg). Kunder: pruttbad, grodan-slurp/dammen. Mätning: `node scripts/_ytvagprobe.mjs` (gamla fälten som kontrollarmar).
+
+## Vindfält (`lib/vind.js`, F4)
+
+- `new Vindfalt({ varld: phys, form: { typ: 'band'|'kon'|'fn', x, y, rackvidd, halvhojd, vidgning?, vinkel?, sug?: { rackvidd, halvhojd, del, tvars } }, luft: { x, y }, avtag: { langs, tvars }, filter(body) → false|true|fångfaktor, kroppar?, aktiv: bool|fn, styrka, puff: { period, djup, fas } })` — stegar SJÄLV per fysiksteg (`beforeStep`); `.flytta(x,y)` · `.rikta(vinkel)` · `.luft` · `.pust(steg, styrka)` (enstaka by) · `.luftVid(x,y)` → `{vx,vy,s}` · `.medelAcc(punkter, fa)` (ETT vind-tal för en förhandsbana) · `.rita(g, { t, … })` (strömmen SYNS) · `.destroy()`.
+- Vinden är luftens FART `w` (px/steg), aldrig en kraft: Δv = `fa·(w − v)` — matter drar redan `fa·v`, Vindfalt lägger `massa·speedToAccel(w, fa)`. Sluthastighet = w; lätt (stort `frictionAir`) följer med, tung släpar; `frictionAir` 0 → `reservFa`. Vill du ha DAGENS massablinda vind: `filter` returnerar `FANG_FA / b.frictionAir`.
+- `kon` = band som vidgar sig (0,42); `sug` lägger luft BAKOM källan som strömmar mot den (flugan-pa-nasan: en ren kon nådde 22 av 200, kon + sug når allt); `fn` = egen `(x,y) → {vx,vy,s}`. Axel = `vinkel`, annars `luft`s riktning. Flera fält på en värld går bra (egen `filter` per fält).
+- Kunder: studsa-ner (port, kraften BIT FÖR BIT lika dagens `_fanForce`), bajs-och-kiss (pruttvind = kon ur kompisens hand). Mät: `node scripts/_vindprobe.mjs` (A–F, kontrollarmar; E mäter förhandsbanans fel mot dagens). Fällor: ett `filter` som pekar på spelets egna listor måste släppa avklarade kroppar; en kort kon dimensioneras inte i sluthastighet — släpp föremål och mät var de landar.
+
 ## Förhandsvisningens kalibrering (uppmätt mot matter.js vid fast 1/60-steg)
 
 Matters nedåtriktade hastighetsökning ≈ `0.2778 × gravityY` px/steg, och luftfriktionen dämpar
@@ -362,6 +385,13 @@ vid `GY` och har därför en exakt förhandsvisning per konstruktion.
 - `avbryt()` ur pekhanteraren lägger noden på `markY` direkt; `destroy()` gör samma på en levande nod och rör inte en riven.
   `klar` resolvas alltid ('landad' | 'avbruten' | 'riven'). Efter landning: exakt `markY`, lyssnaren lossad.
 - Ljud och skak är kundens: `onLand(tyngd, { nr, fart })` vid varje nedslag. Mät: `node scripts/_landaprobe.mjs`.
+
+## Inspelning och repris (`lib/inspelning.js`, F8)
+
+- `const rec = spelaIn(phys, kropp, { max: 900 })` hakar på `phys.beforeStep` (physics.js orörd) och skriver `{ x, y, vinkel }` per FAST steg i en `Float64Array`-ringbuffert (exakt, 21,6 KB fast). Skriver inget förrän `rec.start()` (rensar) — `stopp()`, `rensa()`, `fanga()` (NU-läget som sista post: beforeStep ligger ett steg efter spelets egen koll), `ta()` (lossar kroken). `rec.langd`, `rec.steg(i)` (0 = äldsta).
+- `rep = rec.spelaUpp(vy, { fart: 0.4, sista: 60, spar: true, lage: true, ticker, onKlar })` snapshotar de `sista` stegen och interpolerar linjärt (0,4× blir mjukt; på helsteg EXAKT inspelat läge, 0,0 px). Driv med `rep.tick(deltaMS)` i spelets update EFTER `phys.update` (länken skriver annars över vyn), eller ge `ticker`. `rep.hoppa()` = ett tryck: avsluta direkt + `onKlar`; `rep.ta()` = riv utan `onKlar` (idempotent, kalla vid rundbyte/destroy).
+- `spar` = mjuk avtagande linje i en egen Graphics strax BAKOM `vy` (kräver `vy.parent`), riven vid slut/hoppa/ta/död vy. Ingen gsap — inget som kan överleva en rivning. `lage: false` = bara `rotation` (en propeller i takt med kulan: två `spelaIn` på samma värld skriver samma steg).
+- Fällor: reprisen får inte låsa nästa runda (tryck = `hoppa()`); en replik under reprisen får `complete()` att hoppa över berömmet; kroppar som INTE spelats in (fjäderbräda, klockor) går vidare i verkligheten medan reprisen rullar. Kund: `kulbana` (`_startaRepris`). Mät: `node scripts/_inspelningprobe.mjs` (21 rader, kontrollarmar K1–K3) · webbläsare `scripts/_dag-repris.mjs`.
 
 ## Fysiköverlägg (`lib/fysikdebug.js`, F9) — DEV, bara med `?fysik`
 

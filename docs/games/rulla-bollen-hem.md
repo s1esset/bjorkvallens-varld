@@ -98,6 +98,18 @@ Banorna trappar svårighet (rak → vinkel → hörn/studs → vind → hinder) 
 
 ## 5. Status / loggar
 
+- 2026-10-02 · **Pricklinjen går genom en skuggvärld (FYSIKPLAN G3a)** — bara förhandsbanan. `skuggvarld: { varld:
+  this._phys, kula: this._ballBody, filter: b => b.label === 'wall', vindMinFart: WIND_CUTOFF }`: planens fyra
+  väggar och bollens egna tal (yta/studs/luftmotstånd läses live ur bollkroppen, så `_applyMaterials` inte behöver
+  mata linjen) i en egen matter-motor. Handtrimningen `Math.max(ball.rest, WALL_REST)` mot väggens nollade tal är
+  inte längre vad som ritar (`PREVIEW_BOUNDS`/damp finns kvar som reserv). **Hindren är medvetet INTE med** (header:
+  "det är banans utmaning") — `filter` släpper bara in 'wall'; vill man någon gång visa dem är det en rad (uppmätt:
+  med hinder 0,0 px fel, utan 504 px). Vinden verkar som i spelet — bara medan farten ≥ `WIND_CUTOFF` (4).
+  **MÄTT** (`node scripts/_skuggprobe.mjs`, 6 yta/boll/vind-varianter × 6 skott, läge per fast steg över 64 steg):
+  största fel **HEAD 1 072 px → (a) 0,0 px** (HEAD: studs/ceiling saknas — predict har ingen takvägg — och
+  heavy-bollens 0,4 mot handtrimmade 0,55; skotten som bara möter golv/höger vägg låg redan på 0–8 px).
+  Negativ kontroll: (a) med FEL kula (studs 0,1) avviker 95 px, så 0,0 är inte en blind mätare. 0,029 ms per
+  omritning (budget 0,5).
 - 2026-10-02 🎨 **L2: banan ligger i en trädgård** (`tradgard.js`, ny fil). Planen var en platt grön
   yta på en platt grön yta. Nu: en rest vedkant runt banan (skugga, undersida, ljus kant,
   träådring, skruvar), en tät häck i två djupled (bakre mörk rad + främre ljus rad uppe, två

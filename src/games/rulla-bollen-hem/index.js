@@ -29,6 +29,9 @@
 // sätts matter-vinden windAccel = previewWind / (1000/60)²  (≈ /277.8). Då matchar den
 // böjda pricklinjen bollens verkliga böj. Hinder ritas medvetet INTE i pricklinjen
 // (det är banans utmaning) — och glide-hjälpen garanterar ändå alltid mål.
+// G3a: pricklinjen ritas numera genom en SKUGGVÄRLD (launcher.js `Skuggvarld`): planens väggar + bollens
+// egna tal, 0,0 px fel mot bollens bana i alla uppmätta yta/boll/vind-varianter i stället för upp till
+// 1 072 px (`node scripts/_skuggprobe.mjs`). PREVIEW_BOUNDS/damp-raderna är bara reserven.
 import { Container, Graphics, Text } from 'pixi.js'
 import { gsap } from 'gsap'
 import { PhysicsWorld, Body } from '../../lib/physics.js'
@@ -259,6 +262,11 @@ export default {
       previewWind: 0,
       previewDamp: 1 - SURFACES[0].frictionAir, // = ytans bromsning -> linjen stannar rätt
       bounds: { ...PREVIEW_BOUNDS },
+      // G3a: banan går genom en skuggvärld med planens FYRA VÄGGAR och bollens egna tal (yta, studs,
+      // luftmotstånd läses live ur bollkroppen) — ingen `Math.max(ball.rest, WALL_REST)` mot ett nollat
+      // väggtal längre. Bara 'wall': hindren är medvetet INTE med i pricklinjen (banans utmaning).
+      // Vinden verkar som i spelet: bara medan farten är ≥ WIND_CUTOFF. `bounds`/`previewDamp` = reserven.
+      skuggvarld: { varld: this._phys, kula: this._ballBody, filter: (b) => b.label === 'wall', vindMinFart: WIND_CUTOFF },
       getOrigin: () => ({ x: this._ball.x, y: this._ball.y }),
       defaultAim: () => ({ x: this._home.x, y: this._home.y }),
       onGrab: () => {

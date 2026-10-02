@@ -20,7 +20,13 @@
 //     onLaunch: ({ vx, vy, power }) => this._fire(vx, vy, power),
 //   })
 //   ...destroy(): this._launcher.destroy()
+//
+// SKUGGVÄRLD (FYSIKPLAN G3a, opt-in): `skuggvarld: { varld: this._phys, kula: this._ballBody }` ritar
+// banan genom en liten matter-motor med världens STATISKA kroppar (deras `studs`/`friktion`) och en
+// provkula med den riktiga kulans egna tal, i stället för punktmassan i `predict()`. Se `Skuggvarld`.
+// Utan nyckeln är förhandsvisningen byte-för-byte `predict()`.
 import { Graphics, Circle } from 'pixi.js'
+import { Matter, Body, Composite, Bodies } from './physics.js'
 import { logAim } from './gamelog.js'
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
@@ -53,6 +59,12 @@ export class AimLauncher {
     this.onAim = opts.onAim || null
     this.onLaunch = opts.onLaunch || null
     this.trailColor = opts.trailColor ?? 0xffffff
+    // Skuggvärlden (G3a): { varld, kula, filter?, vindMinFart?, steg? } eller en färdig `Skuggvarld`.
+    // AimLauncher äger den och river den i destroy().
+    this.skuggvarld = opts.skuggvarld ? (opts.skuggvarld instanceof Skuggvarld ? opts.skuggvarld : new Skuggvarld(opts.skuggvarld)) : null
+    this._skuggT = -1e9 // när skuggbanan senast räknades (högst en gång per bildruta)
+    this._skuggVantar = null // senaste dragvektorn som väntar på nästa bildruta
+    this._skuggTimer = null
 
     this.enabled = true
     this._alive = true
@@ -138,8 +150,42 @@ export class AimLauncher {
     this._senastRort = performance.now()
     const p = this.root.toLocal(e.global)
     const v = this._velFrom(p)
-    this._drawTrail(v.vx, v.vy)
+    if (this.skuggvarld) this._ritaSkugg(v)
+    else this._drawTrail(v.vx, v.vy)
     this.onAim?.(v)
+  }
+
+  // Skuggbanan kostar 64 motorsteg: högst EN omräkning per bildruta. Första rörelsen i en bildruta
+  // räknas direkt (ingen fördröjning); en rörelse som kommer < 14 ms efter den köas och ritas av
+  // nästa bildruta, så sista fingerläget aldrig tappas.
+  _ritaSkugg(v) {
+    const nu = performance.now()
+    if (nu - this._skuggT >= 14) {
+      this._skuggT = nu
+      this._skuggVantar = null
+      this._drawTrail(v.vx, v.vy)
+      return
+    }
+    this._skuggVantar = v
+    if (this._skuggTimer != null) return
+    const flush = () => {
+      this._skuggTimer = null
+      const k = this._skuggVantar
+      this._skuggVantar = null
+      if (!k || !this._alive || !this._aiming) return
+      this._skuggT = performance.now()
+      this._drawTrail(k.vx, k.vy)
+    }
+    this._skuggTimer = typeof requestAnimationFrame === 'function' ? requestAnimationFrame(flush) : setTimeout(flush, 16)
+  }
+
+  _stoppaSkugg() {
+    this._skuggVantar = null
+    if (this._skuggTimer == null) return
+    // rAF- och timeout-id:n är olika namnrymder: avbryt med SAMMA slags anrop som schemalade.
+    if (typeof requestAnimationFrame === 'function') cancelAnimationFrame(this._skuggTimer)
+    else clearTimeout(this._skuggTimer)
+    this._skuggTimer = null
   }
 
   _annatFinger(e) {
@@ -198,7 +244,15 @@ export class AimLauncher {
   _drawTrail(vx, vy) {
     const o = this.getOrigin()
     const b = this.bounds || {}
-    const pts = predict(o.x, o.y, vx, vy, this.previewGravity, this.previewWind, b, this.previewDamp)
+    let pts = null
+    if (this.skuggvarld) pts = this.skuggvarld.bana(o.x, o.y, vx, vy, { gy: this.previewGravity, wx: this.previewWind })
+    // Skuggvärlden kan ge null (motorn föll, NaN): då ritar den gamla punktmassan i stället för ingenting.
+    if (!pts) pts = predict(o.x, o.y, vx, vy, this.previewGravity, this.previewWind, b, this.previewDamp)
+    // `bounds.topY` (opt-in): banan slutar där spelplanen tar slut, så prickarna inte vandrar upp i dekoren.
+    if (b?.topY != null) {
+      const i = pts.findIndex((p) => p.y < b.topY)
+      if (i >= 0) pts = pts.slice(0, i)
+    }
     const g = this._trail
     g.clear()
     if (!pts.length) {
@@ -214,6 +268,7 @@ export class AimLauncher {
   }
 
   _hideTrail() {
+    this._stoppaSkugg()
     if (this._trail && !this._trail.destroyed) {
       this._trail.clear()
       this._trail.visible = false
@@ -239,6 +294,9 @@ export class AimLauncher {
   destroy() {
     this._alive = false
     this._cancel()
+    this._stoppaSkugg()
+    this.skuggvarld?.destroy()
+    this.skuggvarld = null
     const t = this.target
     if (t && !t.destroyed) t.off('pointerdown', this._onDown)
     if (this._trail && !this._trail.destroyed) this._trail.destroy()
@@ -250,7 +308,7 @@ export class AimLauncher {
 // Lättviktig banprediktion (visuell guide) — punktmassa under gravitation + vind, med
 // studs mot golv/väggar. Stannar tidigt om den lämnar skärmen åt sidorna utan väggar.
 // damp (<1) = luftmotstånd per steg så pricklinjen matchar matter.js verkliga inbromsning.
-function predict(x, y, vx, vy, gy, wx, bounds, damp = 1) {
+export function predict(x, y, vx, vy, gy, wx, bounds, damp = 1, every = 3) {
   const pts = []
   const { floorY = null, leftX = null, rightX = null, restitution = 0.55 } = bounds || {}
   let px = x
@@ -279,9 +337,205 @@ function predict(x, y, vx, vy, gy, wx, bounds, damp = 1) {
       px = rightX
       pvx = -Math.abs(pvx) * restitution
     }
-    if (i % 3 === 0) pts.push({ x: px, y: py })
+    if (i % every === 0) pts.push({ x: px, y: py })
     // sluta om den åkt långt under skärmen
     if (py > 900) break
   }
   return pts
+}
+
+// ---------------------------------------------------------------------------------------------
+// SKUGGVÄRLD (FYSIKPLAN G3a) — banan genom spelets egna statiska kroppar.
+//
+// `predict()` är en punktmassa som bara känner golv och väggar: en ramp, en platta eller ett
+// räcke ritas fel, och tre spel handtrimmade runt det. Skuggvärlden är i stället en LITEN
+// matter-motor med samma statiska kroppar (de DELAS med spelets värld — deras `studs`/`friktion`
+// och ev. rörelse följer med utan kopiering) och EN provkula som tar den riktiga kulans tal. Samma
+// motor + samma tal + samma 1/60-steg = samma bana, så pricklinjen kan inte avvika på en yta som
+// handtrimningen aldrig kände till.
+//
+//   new AimLauncher({ …, skuggvarld: { varld: this._phys, kula: this._ballBody } })
+//
+//   varld        PhysicsWorld — statiska kroppar OCH gravitationen läses ur den (live), så
+//                skuggvärlden aldrig kan ärva en egen gammal gravitationslögn. Utelämnad: kropparna
+//                ges med `kroppar: () => Body[]` och gravitationen kommer ur launcherns
+//                `previewGravity` (px/steg², 0,2778 × motorns gravityY).
+//   kula         den riktiga kulans matter-kropp (läses LIVE vid varje bana: restitution, friktion,
+//                frictionAir — en yta som byts mitt i spelet följer med), eller ett objekt
+//                `{ r, restitution, friction, frictionAir, density, ineria }`, eller en funktion
+//                som ger ett av dem.
+//   filter(b)    valfritt — false = kroppen är inte med. Förval: alla statiska, icke-sensor-kroppar.
+//                (rulla-bollen-hem tar bara 'wall': hindren är medvetet INTE med i pricklinjen.)
+//   vindMinFart  px/steg — vinden verkar bara medan kulans fart ≥ detta (spelets egen vindavstängning).
+//   steg · hoppa antal motorsteg (förval 64) · var `hoppa`:e steg ger en prick (förval 3, som predict).
+//
+// `forhandsStopp`: en kropp med egna impulser som skuggvärlden inte kan veta något om (en studsmoln-
+// sensor som skjuter kulan uppåt, en flipperdyna) markeras `{ forhandsStopp: true }` när den skapas. Den
+// tas med OCH banan SLUTAR där kulan nuddar den — hellre en kort ärlig bana än en som ljuger. En
+// sensor tas annars aldrig med (den påverkar inte kulan).
+//
+// ⚠️ Skuggvärlden kör ALDRIG spelets värld: den har egen motor, egen tidslinje och egen provkula, och
+// de delade statiska kropparna rörs inte av ett steg (matter hoppar över dem i integrationen och
+// räknar om en fart som redan står där — mätt i `_skuggprobe`: spelets bana är bit-identisk med och
+// utan skuggsteg emellan). Riv den: `destroy()` (AimLauncher.destroy gör det).
+const STEG2 = (1000 / 60) ** 2
+
+export class Skuggvarld {
+  constructor({ varld = null, kroppar = null, kula = null, filter = null, vindMinFart = 0, steg = 64, hoppa = 3 } = {}) {
+    this.varld = varld
+    this.kroppar = kroppar
+    this.kula = kula
+    this.filter = filter
+    this.vindMinFart = vindMinFart
+    this.steg = steg
+    this.hoppa = Math.max(1, hoppa | 0)
+    this.engine = Matter.Engine.create()
+    this.engine.gravity.x = 0
+    this.engine.gravity.y = 0
+    const k = varld?.engine
+    if (k) {
+      this.engine.positionIterations = k.positionIterations
+      this.engine.velocityIterations = k.velocityIterations
+      this.engine.constraintIterations = k.constraintIterations
+    }
+    this._alive = true
+    this._lista = [] // de statiska kroppar som ligger i skuggvärlden just nu
+    this._prov = null
+    this._provR = -1
+    this._provIn = false // ligger provkulan i motorns värld?
+    this._stopp = false
+    this._onStart = (e) => {
+      for (const p of e.pairs) {
+        if (stoppar(p.bodyA) || stoppar(p.bodyB)) this._stopp = true
+      }
+    }
+    Matter.Events.on(this.engine, 'collisionStart', this._onStart)
+  }
+
+  // De statiska kroppar som ska vara med just nu.
+  _kallor() {
+    const alla = this.kroppar ? this.kroppar() : this.varld ? Composite.allBodies(this.varld.world) : []
+    const ut = []
+    for (let i = 0; i < alla.length; i++) {
+      const b = alla[i]
+      if (!b.isStatic) continue
+      if (b.isSensor && !stoppar(b)) continue
+      if (this.filter && !this.filter(b)) continue
+      ut.push(b)
+    }
+    return ut
+  }
+
+  // Läs den riktiga kulans tal (live) och lägg dem på provkulan; bygg om provkulan bara om radien ändrats.
+  _kula() {
+    let k = typeof this.kula === 'function' ? this.kula() : this.kula
+    if (!k) k = { r: 30 }
+    const kropp = k.position != null && k.vertices != null // en matter-kropp
+    const r = kropp ? k.circleRadius || (k.bounds.max.x - k.bounds.min.x) / 2 : k.r ?? 30
+    if (!this._prov || this._provR !== r) {
+      this._prov = Bodies.circle(0, 0, r, { label: 'skuggkula' })
+      this._provR = r
+      this._provIn = false // den nya provkulan måste in i världen (_synk)
+    }
+    const p = this._prov
+    p.restitution = k.restitution ?? 0.45
+    p.friction = k.friction ?? 0.1
+    p.frictionStatic = k.frictionStatic ?? 0.5
+    p.frictionAir = k.frictionAir ?? 0.01
+    p.slop = k.slop ?? p.slop
+    if (kropp) {
+      p.collisionFilter.category = k.collisionFilter.category
+      p.collisionFilter.mask = k.collisionFilter.mask
+      p.collisionFilter.group = k.collisionFilter.group
+    }
+    const dens = k.density ?? 0.001
+    if (p.density !== dens) Body.setDensity(p, dens)
+    // Ett låst tröghetsmoment (toppvyns puck) ska vara låst även här — annars snurrar provkulan på friktionen.
+    const stel = kropp ? k.inertia === Infinity : k.ineria === Infinity
+    if (stel) Body.setInertia(p, Infinity)
+    else if (p.inertia === Infinity) Body.setInertia(p, (p.mass * r * r) / 2)
+    return p
+  }
+
+  _synk(prov) {
+    const nu = this._kallor()
+    const gamla = this._lista
+    let lika = this._provIn && gamla.length === nu.length
+    for (let i = 0; lika && i < nu.length; i++) if (gamla[i] !== nu[i]) lika = false
+    if (lika) return
+    const w = this.engine.world
+    Composite.clear(w, false)
+    if (nu.length) Composite.add(w, nu)
+    Composite.add(w, prov)
+    this._lista = nu
+    this._provIn = true
+  }
+
+  // Banan som prickar [{x, y}, …] — var `hoppa`:e motorsteg. `gy`/`wx`/`wy` i px/steg² (launcherns
+  // previewGravity/previewWind), `gy` bara när ingen `varld` ger gravitationen. null = motorn föll.
+  bana(x, y, vx, vy, { gy = 0, wx = 0, wy = 0, steg = this.steg, hoppa = this.hoppa } = {}) {
+    if (!this._alive) return null
+    try {
+      const e = this.engine
+      const prov = this._kula()
+      this._synk(prov)
+      const g = this.varld ? this.varld.engine.gravity : null
+      e.gravity.x = g ? g.x : 0
+      e.gravity.y = g ? g.y : gy / (0.001 * STEG2)
+      e.gravity.scale = g?.scale ?? 0.001
+      Matter.Engine.clear(e)
+      // Engine.clear tömmer DETEKTORNS kroppslista, och matter fyller den bara igen när världen är ändrad —
+      // utan raden kolliderade bara FÖRSTA banan efter en _synk, och varje omritning under draget gick rakt
+      // genom räcket (uppmätt i spelet: 407 px; en färsk värld per skott i Node såg det aldrig).
+      Matter.Composite.setModified(e.world, true, false, false)
+      this._stopp = false
+      Body.setPosition(prov, { x, y })
+      Body.setAngle(prov, 0)
+      Body.setVelocity(prov, { x: vx, y: vy })
+      Body.setAngularVelocity(prov, 0)
+      const vind = wx !== 0 || wy !== 0
+      const pts = []
+      for (let i = 0; i < steg; i++) {
+        if (vind && Math.hypot(prov.velocity.x, prov.velocity.y) >= this.vindMinFart) {
+          Body.applyForce(prov, prov.position, { x: (prov.mass * wx) / STEG2, y: (prov.mass * wy) / STEG2 })
+        }
+        Matter.Engine.update(e, 1000 / 60)
+        const px = prov.position.x
+        const py = prov.position.y
+        if (!(Math.abs(px) < 1e5 && Math.abs(py) < 1e5)) return null // NaN eller skenat
+        if (i % hoppa === 0) pts.push({ x: px, y: py })
+        if (this._stopp) {
+          pts.push({ x: px, y: py }) // slutar vid kroppen med egna impulser
+          break
+        }
+        if (py > 900) break // som predict: åkt långt under skärmen
+        if (prov.speed < 0.02) break // stilla — fler prickar på samma ställe tillför inget
+      }
+      return pts
+    } catch {
+      return null
+    }
+  }
+
+  destroy() {
+    this._alive = false
+    try {
+      Matter.Events.off(this.engine)
+      Composite.clear(this.engine.world, false) // river bara listorna — de delade kropparna rörs inte
+      Matter.Engine.clear(this.engine)
+    } catch {
+      /* noop */
+    }
+    this._lista = []
+    this._prov = null
+    this._provIn = false
+    this.varld = null
+    this.kroppar = null
+    this.kula = null
+  }
+}
+
+// En kropp (eller dess förälder, för en sammansatt) med egna impulser skuggvärlden inte kan veta något om.
+function stoppar(b) {
+  return !!(b && (b.forhandsStopp || b.parent?.forhandsStopp))
 }

@@ -117,6 +117,17 @@ auto-hjälpen gör siktet kosmetiskt**.
 
 ## 5. Status / loggar
 
+- 2026-10-02 · **Pricklinjen går genom en skuggvärld (FYSIKPLAN G3a)** — bara förhandsbanan, regler, kroppar och
+  kontroller är orörda. `AimLauncher` fick `skuggvarld: { varld: this._phys, kula: this._ballBody }`: en liten
+  matter-motor som DELAR spelets statiska kroppar (lane-väggarna + kantstödets räcken, med deras `studs`/
+  `friktion`; ett räcke som läggs till/tas bort i `_setBumper` följer med av sig självt) och en provkula som
+  läser klotets egna tal live (heavy · frictionAir 0,012 · låst tröghet). `previewDamp`/`_previewBounds` finns
+  kvar som reserv om skuggmotorn skulle falla. **MÄTT** (`node scripts/_skuggprobe.mjs`, spelets geometri, sex
+  skott × kantstöd PÅ/AV, kulans läge per fast steg över hela 64-stegsbanan): största fel **HEAD 298 px (kantstöd
+  PÅ, "svagt vänster": räcksstudsen sent i banan, pricklinjens 0,75 mot klotets verkliga 0,18) / 18,3 px vid käglornas rader → (a) 0,0 px**;
+  det kända HEAD-felet 9,1 px ("vänster flack", rad 210) reproduceras i kontrollarmen och är 0,0 i (a). Mätaren rör
+  sig: räckets gamla deklaration (`restitution: 0.75`, nollad) ger HEAD 363 px fel och (a) 0,0 utan att en rad ändrats.
+  Kostnad 0,032 ms per omritning (medel, p95 0,036) mot budget 0,5; högst en omritning per bildruta.
 - 2026-10-02 · **Formationer (U2) och ett rum runt banan (L2)** (FYSIKPLAN omgång 0, nattkörning B4).
   ⓵ `_pinLayout` ger inte längre alltid en triangel: `FORMATIONER` har 4 mönster per kägelantal
   (3: triangel · omvänd · rad · diagonal; 6: triangel · omvänd · mur 3×2 · dubbelkolonn; 10: triangel ·

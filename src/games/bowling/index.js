@@ -16,6 +16,9 @@
 // vektor som launchern matar förhandsvisningen med, och bounds = väggarnas inneryta +
 // klotradien, så den prickade banan följer klotets verkliga, raka, lätt-bromsande
 // studsbana (mot bumper-/rännstenskanterna) till ~några px. Allt ritas programmatiskt.
+// G3a: pricklinjen ritas numera genom en SKUGGVÄRLD (launcher.js `Skuggvarld`) — samma statiska
+// kroppar och samma kula som spelet själv, 0,0 px fel mot klotets bana i stället för 9
+// (`node scripts/_skuggprobe.mjs`). `previewDamp`/`_previewBounds` är bara reserven.
 import { Container, Graphics, Text, Circle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { PhysicsWorld, MATERIALS, nudge, Body } from '../../lib/physics.js'
@@ -165,6 +168,10 @@ export default {
       previewWind: 0,
       previewDamp: 1 - BALL_FA, // = klotets luftbroms -> linjen stannar där klotet stannar
       bounds: this._previewBounds(),
+      // G3a: banan går genom en skuggvärld med lane-väggarna och (när de är på) kantstödets räcken —
+      // deras egna studs/friktion och klotets egna tal, så ingen handtrimning kan glida isär.
+      // `previewDamp`/`bounds` är reserven om skuggmotorn skulle falla.
+      skuggvarld: { varld: this._phys, kula: this._ballBody },
       getOrigin: () => ({ x: this._ball.x, y: this._ball.y }),
       defaultAim: () => ({ x: this._pinCenter.x, y: this._pinCenter.y }),
       onGrab: () => {
@@ -568,8 +575,8 @@ export default {
   // pricklinjen matchar klotets verkliga studs.
   _previewBounds() {
     return this._bumperOn
-      ? { leftX: 368 + BALL_R, rightX: 912 - BALL_R, restitution: 0.75 } // bumper-inneryta 368/912
-      : { leftX: 324 + BALL_R, rightX: 956 - BALL_R, restitution: 0.2 } // lane-väggens inneryta 324/956
+      ? { leftX: 368 + BALL_R, rightX: 912 - BALL_R, restitution: 0.75, topY: LANE.y } // bumper-inneryta 368/912
+      : { leftX: 324 + BALL_R, rightX: 956 - BALL_R, restitution: 0.2, topY: LANE.y } // lane-väggens inneryta 324/956
   },
 
   // ---- Nivå ----------------------------------------------------------------

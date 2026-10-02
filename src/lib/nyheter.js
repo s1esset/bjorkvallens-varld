@@ -10,6 +10,17 @@
 
 export const NYHETER = [
   {
+    version: '1.374',
+    fran: '1.368',
+    datum: '2026-10-02',
+    titel: 'Saker som fjädrar till',
+    punkter: [
+      'I Bygg en Kompis gungar antenner, öron och tofsar när man kittlar kompisen eller byter en del. Djuren i Loopdjuren flaxar med öronen när de spelar.',
+      'Hamburgaren i Hamburgerbygget svajar åt sidan när ett nytt lager landar, men välter aldrig. Bilen i Zackes biltvätt fjädrar på hjulen när den bromsar in och när fågelbajset landar.',
+      'Stenarna i Golvet är lava sviktar när man hoppar på dem. Vagnarna i Siffertåget gungar när tåget startar och stannar, och klossen i Bygg Tornet gungar i kranens lina när den hängs på.',
+    ],
+  },
+  {
     version: '1.367',
     fran: '1.365',
     datum: '2026-10-02',

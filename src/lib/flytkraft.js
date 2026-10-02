@@ -135,9 +135,13 @@ export class Flytvolym {
   // flyt  > 1 flyter (jämvikt vid nedsänkning 1/flyt), < 1 sjunker, = 1 svävar neutralt.
   // liv   gupp + vaggning (default: bara flytare — en sten på botten ska ligga still).
   // hemX  sidofjäderns viloläge; utelämnat = ingen fjäder för just den kroppen.
-  lagg(body, { flyt = 1, r = null, hemX = null, fas = Math.random() * TAU, liv = null } = {}) {
+  // sparr 'alltid' (förval) = fartspärren (maxFart) och vridDamp gäller var kroppen än är, även
+  //       ovanför ytan (tunnlingsskyddet). 'vatten' = bara när nedsänkningen > 0: en kropp som flyger
+  //       fort eller snurrar fritt i luften lämnas ifred (grodan-slurps superhopp). Ovanför ytan
+  //       finns då INGEN spärr — ett spel som väljer det äger tunnlingsfrågan själv (`hog-fart`).
+  lagg(body, { flyt = 1, r = null, hemX = null, fas = Math.random() * TAU, liv = null, sparr = 'alltid' } = {}) {
     if (!body) return null
-    const rec = { body, flyt, r: r ?? radie(body), hemX, fas, liv: liv ?? flyt > 1 }
+    const rec = { body, flyt, r: r ?? radie(body), hemX, fas, liv: liv ?? flyt > 1, sparr }
     this._items.push(rec)
     return rec
   }
@@ -198,6 +202,7 @@ export class Flytvolym {
       const pos = b.position
       if (!isFinite(pos.x) || !isFinite(pos.y)) continue
       const frac = this._frac(o)
+      const spar = o.sparr !== 'vatten' || frac > 0
       if (frac > 0) {
         // Uppåt: flytkraft. Nedåt räknar matter själv (gravitationen).
         let vAcc = -this.bas * frac * o.flyt
@@ -218,9 +223,11 @@ export class Flytvolym {
       if (this.botten != null && pos.y > this.botten - o.r - this.bottenMarg) {
         Body.setVelocity(b, { x: b.velocity.x * this.bottenLugn, y: b.velocity.y * this.bottenLugn })
       }
+      if (!spar) continue
       if (b.angularVelocity) Body.setAngularVelocity(b, b.angularVelocity * this.vridDamp)
-      // Fartspärren gäller ALLTID, även ovanför ytan: det är den som gör att inget
-      // kan tunnla genom kärlets vägg mellan två steg (se `hog-fart` i physics.js).
+      // Fartspärren gäller som förval ALLTID, även ovanför ytan: det är den som gör att inget
+      // kan tunnla genom kärlets vägg mellan två steg (se `hog-fart` i physics.js). Med
+      // `sparr: 'vatten'` gäller den bara i vattnet.
       const sp = Math.hypot(b.velocity.x, b.velocity.y)
       if (sp > this.maxFart) {
         Body.setVelocity(b, { x: (b.velocity.x / sp) * this.maxFart, y: (b.velocity.y / sp) * this.maxFart })

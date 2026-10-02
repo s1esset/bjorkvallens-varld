@@ -58,6 +58,12 @@ Mallar: **`rulla-bollen-hem`** (top-down minigolf, underlagsväxling), **`spinde
   57 fps → 1,000 vid 30 Hz). `new Flytvolym({ varld: phys, … })` registrerar sig SJÄLV i
   `phys.beforeStep` (egen stegklocka för gupp/vaggning) — kalla ALDRIG `steg(t)` (no-op + dev-varning);
   `perSteg: false` eller en rå matter-Engine ger gamla per-bildruta-vägen. `destroy()` avregistrerar.
+  **`lagg(body, { sparr: 'vatten' })` (R4, opt-in):** fartspärren (`maxFart`) och `vridDamp` gäller bara när
+  nedsänkningen > 0; förval `'alltid'` = spärr även ovanför ytan (tunnlingsskyddet, oförändrat).
+  Ovanför ytan finns då INGEN spärr — spelet äger tunnlingen (`hog-fart`). OBS grodan-slurp ska INTE
+  använda den utan mer: grodans delar ligger i volymen även på land, och där bär `vridDamp` 0,9 den
+  inställda ragdoll-känslan (vanligt hopp 188,9 → 192,2 px, studs 4 → 7 steg i `_superhoppprobe`).
+  Mät: `node scripts/_sparrprobe.mjs`.
   Egna kraftfält (`Magnetfalt.dra`, simning, knuffar): lägg dem i `phys.beforeStep` (spara unbindern,
   kalla den i `destroy`); ljud/bild/röst sätter en flagga i steget och löses in i tickern, ett fält
   per kropp. Mät: `node scripts/_flytsteg.mjs` (Pixis Ticker vid 30–90 Hz, kontrollarm = HEAD-kopian).
@@ -75,9 +81,23 @@ Mallar: **`rulla-bollen-hem`** (top-down minigolf, underlagsväxling), **`spinde
   ⚠️ **`studs` väcker BARA studsen — friktionen står kvar på 1.** Paret tar `min` av
   friktionerna, alltså den rörliga kroppens egen, och en studs med hög friktion äter farten
   LÄNGS ytan. `bowling`s kantstöd: pricklinjens fel 214 px idag → 79 px med bara `studs` → 9 px
-  när räckets deklarerade 0,1 också sattes tillbaka (`body.friction = 0.1` efter skapandet —
-  `_make` rör medvetet aldrig friktion). Ska en förhandsvisning stämma mot en studsande statisk
-  yta: sätt båda. Mätt i `node scripts/_studsprobe.mjs` §7.
+  när räckets deklarerade 0,1 också sattes tillbaka. Ska en förhandsvisning stämma mot en
+  studsande statisk yta: sätt båda. Mätt i `node scripts/_studsprobe.mjs` §7.
+  **R3: `{ isStatic: true, studs: 0.75, friktion: 0.1 }`** — samma opt-in för friktionen (sätts efter
+  `setStatic`, bärs av `_original`; `bowling`s räcke använder den, bit-identiskt mot handraden).
+  Ett deklarerat `friction` på en statisk kropp gör INGET (`npm run check -- --studs` listar dem);
+  den rörliga kroppens egen friktion är taket (`min`), så läs den först (flipperspels kula står på
+  0,02 — dess statiska 0,02/0,05 är redan no-ops). `_buildWalls`-väggar = restitution 0 · friction 1.
+  Matters friktion håller en kloss stilla på en lutning redan vid 0,01 — mät glid på platt yta + knuff.
+- **R5/R6 (physics.js, opt-in, förval = dagens):** `new PhysicsWorld({ iterationer: { position, fart,
+  villkor }, sova })` (utelämnat tal = matters 6/4/2; `sova` bara om en mätning visar vilokryp — en
+  sovande kropp utan stöd hänger kvar, `_fysikbank` S1). `phys.fartTak(body, max|null)` klämmer
+  före OCH efter varje fast steg (S3: bara efter-steget släpper igenom en kick intill en vägg).
+  `phys.paKontakt('kula', 'kagla', (kula, kagla, par) => …)` båda ordningarna, etikett ur
+  `part.parent` (en handmatchning på delens etikett missar sammansatta par: 39 av 139).
+  `phys.konvex(punkter, opts)` (hörn exakt på punkterna; konkav → konvext hölje, ingen varning) ·
+  `phys.sammansatt(delar, opts)` · `phys.grupp()` — alla genom `_make`, alltså väckbara och med
+  `studs`/`friktion`. Mät: `node scripts/_fysikbank.mjs --bara S1,S3,S10`.
 - `predictTrajectory(…)` + re-exporterade `Body` / `Composite` / `Vector`.
 
 ## Material som LÅTER (`MATERIAL` + `onImpact` / `impactAudio`)

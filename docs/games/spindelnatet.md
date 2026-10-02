@@ -9,7 +9,7 @@ fram. Mitt i bilden sitter en gosig, helt egen liten
 **webb-hjälte** (pytteliten figur i röd dräkt med svarta nät-linjer och stora vita ögon — INTE
 Marvels Spindelmannen) i sitt vita spindelnät. Godis och krypljus (🍬🍭🍫🐛🪲) regnar ner som
 riktiga matter.js-kroppar under mjuk gravitation. Jag trycker nära ett fallande föremål → en vit
-nättråd skjuts ut med ett "whoosh", fångar kroppen (tas ur fysiken) och drar in den glidande i
+nättråd skjuts ut med ett "whoosh", fångar kroppen (den hänger kvar i fysiken och halas in, G1) och drar in den i
 nätet; en nät-mätare uppe till vänster tickar upp ett godis-steg. Tre kontroller ändrar utfallet:
 (A) **var/när** jag trycker (sikte + timing), (B) en stor lila **"Bredare nät"-knapp** nere till
 höger som i ett svep fångar ALLA föremål inom en stor radie och laddar långsamt om (synlig
@@ -90,6 +90,7 @@ fångar försvinner in i abstrakta prickar.
   byte landar (tickern skriver bara nätets x); tidslinjen dödas i `destroy`.
 - ✅ ~~**[Quick] Trådens indrag med översläng.**~~ Klar 2026-09-23 (v1.251.0): `_reelIn` :475 går
   med `back.out(1.4)` på 0,34 s i stället för `power2.in` — bytet rycks in och studsar till ro.
+  *(Ersatt 2026-10-02 av G1: tweenen är borta, bytet svänger in på tråden — se §5.)*
 
 ### Progression
 - **[Medium] Skafferi/skattkista.** De faktiska fångade emojierna samlas i en liten rad/burk vid
@@ -110,6 +111,20 @@ fångar försvinner in i abstrakta prickar.
   har redan ett F5-klipp.)*
 
 ## 5. Status / loggar
+
+- 2026-10-02 ✅ **G1: bytet halas in på tråden i stället för att tweenas (fas D9 B1).** Premissen höll:
+  `_capture` tog bytet ur fysiken (`removeBody`) och `_reelIn` gled in det med `back.out` på 0,34 s.
+  Nu stannar kroppen i världen: den hålls still medan tråden skjuts ut (150 ms) och dras sedan mot nätet
+  i den punkt där tråden fäster — `drivPunkt` + `handSteg` ur `lib/grepp.js`, en gång per fast steg i
+  `phys.beforeStep`, krafttak `{ dv: 6, v: 32 }`, handens acc 3,5, högsta fart 28 px/steg. Fästet sitter
+  på bytets kant vänd mot jägarens hand (`GRIP_R` 22), så tyngdpunkten följer efter och bytet SVÄNGER runt
+  fästet (vinkel vid landning −1,2…+1,2 rad, max |ω| 0,01–0,11 rad/steg mätt i Node). Bytet är ett spöke
+  (`collisionFilter.mask = 0`) medan det halas: ett draget byte är en murbräcka. Tråden slutar i fästet
+  (som krymper med bytet 1 → 0,35); trådens `Takt`-stegning är orörd. Landningen avgörs i `_update` (aldrig mitt
+  i ett fysiksteg) och har ett tak, `INDRAG_MAX_S` 1,5 s: kommer bytet inte fram landar det ändå.
+  Rundbyte och rivning river kroppar, vyer och trådar (`_rivStrands`); tweenen som kom för sent gör inget
+  (`strand.riven`). Mätt i Node (samma värld, gravitation 0,9–1,5): landar efter 0,35–0,75 s (HEAD-tweenen 0,34 s),
+  utan krafttak 72 px/steg och 1,08 s (kontrollarmen). Fångst-, siktes- och bredknapps-mekaniken är orörd.
 
 - 2026-10-02 ✅ **L2: ett eget rum — trädgårdsmuren i månsken** (nattkörning F5 B4). Himlen med en
   mörk remsa var scenen. Nu: en stenmur (`kulisser.js:ritaVagg`, tre stentoner, kappa med månljus,

@@ -14,6 +14,7 @@ import { Container, Graphics, Circle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { PhysicsWorld, MATERIALS, Body } from '../../lib/physics.js'
 import { Rep, repPath } from '../../lib/rep.js'
+import { drivPunkt, handSteg } from '../../lib/grepp.js'
 import { createScene, lerpColor, slump } from '../../lib/scene.js'
 import { nastaVariant } from '../../lib/variation.js'
 import { COLORS, shade, tint } from '../../lib/theme.js'
@@ -65,6 +66,25 @@ const TRAD_ITER = 14
 const TRAD_MAXV = 120
 const SAG_UT = 1.12 // på väg ut: slak, tråden hinner inte ikapp spetsen
 const SAG_IN = 0.92 // vid indraget: spänd, den HALAR
+
+// --- Bytet HALAS in av tråden (FYSIKPLAN G1) ----------------------------------
+// Bytet lämnar aldrig fysiken: det hänger kvar som en kropp och dras mot nätet i den punkt där tråden
+// fäster (`drivPunkt` ur lib/grepp.js, krafttak), så det svänger runt fästet i stället för att glida
+// i en tween. Fästet sitter på bytets kant, vänd mot jägarens hand (r = GRIP_R ur tyngdpunkten) — en
+// kropp som dras i en punkt följer efter med tyngdpunkten, och det är hela svängen.
+// Bytet är ett SPÖKE medan det halas (kolliderar med inget): ett draget byte är en murbräcka som
+// annars knuffar undan allt som faller i vägen.
+const GRIP_R = 22 // px — trådens fäste ur bytets tyngdpunkt (bytet har radie 34)
+const INDRAG_FART = 28 // px/steg — handens högsta fart mot nätet (mätt: bytet landar efter 0,35–0,75 s, tweenen tog 0,34)
+const INDRAG_ACC = 3.5 // px/steg² — handens accelerationstak
+const INDRAG_TAK = { dv: 6, v: 32 } // krafttaket: fästpunktens fartändring per steg / högsta fart (utan tak: 72 px/steg och 1,08 s)
+const INDRAG_K = 0.35
+const INDRAG_MAX_S = 1.5 // s — kommer bytet inte fram av sig självt landar det ändå (aldrig ett fast grepp)
+const rotv = (x, y, a) => {
+  const c = Math.cos(a)
+  const s = Math.sin(a)
+  return { x: x * c - y * s, y: x * s + y * c }
+}
 
 // Alla punkter föds i handen och dras ut av spetsen — samma mönster som `mkRope` i
 // `natskott-pa-stan`. En tråd som byggs utsträckt syns i sin fulla längd på bildruta ett.
@@ -163,6 +183,7 @@ export default {
     // Fysik: mjuk gravitation + sidoväggar; egen studsig markkropp en bit ner.
     this._phys = new PhysicsWorld({ gravityY: 0.9, walls: ['floor', 'left', 'right'] })
     this._phys.rectangle(640, 689, 1400, 80, { isStatic: true, restitution: 0.5, friction: 0.4, label: 'ground' })
+    this._unbindSteg = this._phys.beforeStep(() => this._drivIndrag()) // byten som halas in: per FAST steg
 
     // Heltäckande osynlig fångst-yta (tap). Ligger bakom spindel/knapp som vinner i
     // sina egna ytor; föremål är icke-interaktiva så taps når hit och fångas via avstånd.
@@ -291,6 +312,7 @@ export default {
     this._spawnT = 0
     this._wideCooldown = 0
     this._clearLure()
+    this._rivStrands() // ett byte som halas in vid rundbytet följer inte med in i nästa runda
     this._clearItems()
 
     const lvl = this._level
@@ -487,16 +509,37 @@ export default {
     if (obj === this._luredItem) this._clearLure()
     const i = this._items.indexOf(obj)
     if (i >= 0) this._items.splice(i, 1)
-    if (obj.body) this._phys.removeBody(obj.body)
+    // Kroppen STANNAR i fysiken (G1): den hålls still medan tråden skjuts ut och halas sedan in i
+    // `_drivIndrag`. Ett spöke — den kolliderar med inget medan den hänger i tråden.
+    const b = obj.body
+    if (b) b.collisionFilter.mask = 0
     this._idle = 0
 
     ctx.services.audio.sfx('whoosh')
     this._flapArm() // jägaren kastar nätet
     const v = obj.view
-    const targetX = v && !v.destroyed ? v.x : this._baseX
-    const targetY = v && !v.destroyed ? v.y : BASE_Y
     const hp = this._handPos()
-    const strand = { obj, t: 0, reeling: false, targetX, targetY, rep: mkTrad(hp.x, hp.y) }
+    // Fästet: bytets kant vänd mot handen. Handen (fästpunktens mål) börjar där fästet är, med
+    // fästpunktens fart — ett fallande byte tvärbromsas inte, det svingar förbi och hänger.
+    let gx = v && !v.destroyed ? v.x : this._baseX
+    let gy = v && !v.destroyed ? v.y : BASE_Y
+    let rLok = { x: 0, y: -GRIP_R }
+    let hand = { x: gx, y: gy, vx: 0, vy: 0 }
+    if (b) {
+      const dx = hp.x - b.position.x
+      const dy = hp.y - b.position.y
+      const m = Math.hypot(dx, dy) || 1
+      const rv = { x: (dx / m) * GRIP_R, y: (dy / m) * GRIP_R }
+      rLok = rotv(rv.x, rv.y, -b.angle)
+      gx = b.position.x + rv.x
+      gy = b.position.y + rv.y
+      const w = b.angularVelocity
+      hand = { x: gx, y: gy, vx: b.velocity.x - w * rv.y, vy: b.velocity.y + w * rv.x }
+    }
+    const strand = {
+      obj, t: 0, reeling: false, targetX: gx, targetY: gy, rep: mkTrad(hp.x, hp.y),
+      rLok, hand, hold: { x: gx, y: gy }, d0: 1, tid: 0, riven: false,
+    }
     this._strands.push(strand)
 
     // Skjut ut tråden (~150 ms), dra sedan in föremålet.
@@ -509,50 +552,78 @@ export default {
           this._removeStrand(strand)
           return
         }
+        if (strand.riven) return // rundan hann bytas
         // Klistrigt "tjong/sproing" när tråden fäster (ej i bred-kaskaden — den har egen
         // stigande ton per fångst så det inte blir rörigt).
         if (!opts.cascade) ctx.services.audio.tone({ freq: 190, slideTo: 540, dur: 0.17, type: 'triangle', vol: 0.42 })
-        strand.reeling = true
-        this._reelIn(ctx, strand)
+        this._startaIndrag(strand)
       },
     })
     this._tweens.push(tw)
   },
 
-  _reelIn(ctx, strand) {
-    const v = strand.obj.view
-    if (!this._alive || !v || v.destroyed) {
-      this._removeStrand(strand)
-      if (v && !v.destroyed) v.destroy()
-      return
+  // Fästpunktens läge i världen (kroppens läge + fästet vridet med kroppen).
+  _gripPos(s) {
+    const b = s.obj.body
+    if (!b) {
+      const v = s.obj.view
+      return v && !v.destroyed ? { x: v.x, y: v.y } : { x: this._baseX, y: BASE_Y }
     }
-    gsap.killTweensOf(v)
-    gsap.killTweensOf(v.scale)
-    const st = { x: v.x, y: v.y, s: v.scale.x || 1 }
-    const tw = gsap.to(st, {
-      x: this._baseX,
-      y: BASE_Y - 8,
-      s: 0.35,
-      // Elastisk översläng: bytet rycks in, skjuter en aning förbi och studsar till ro i
-      // nätet i stället för en rak glidning.
-      duration: 0.34,
-      ease: 'back.out(1.4)',
-      onUpdate: () => {
-        if (v.destroyed) {
-          tw.kill()
-          return
-        }
-        v.x = st.x
-        v.y = st.y
-        v.scale.set(st.s)
-      },
-      onComplete: () => {
-        this._removeStrand(strand)
-        if (!v.destroyed) v.destroy()
-        this._landInNet(ctx, strand.obj)
-      },
-    })
-    this._tweens.push(tw)
+    const r = rotv(s.rLok.x, s.rLok.y, b.angle)
+    return { x: b.position.x + r.x, y: b.position.y + r.y }
+  },
+
+  // Tråden har fäst: handen får nätet som mål i stället för att stå still.
+  _startaIndrag(s) {
+    const a = this._gripPos(s)
+    s.d0 = Math.max(40, Math.hypot(a.x - this._baseX, a.y - (BASE_Y - 8)))
+    s.reeling = true
+    const v = s.obj.view
+    if (v && !v.destroyed) {
+      gsap.killTweensOf(v)
+      gsap.killTweensOf(v.scale)
+    }
+  },
+
+  // EN gång per FAST fysiksteg (phys.beforeStep): handen går mot sitt mål med ett accelerationstak och
+  // `drivPunkt` ger bytet den impuls som får fästet att följa handen — med krafttak, aldrig ett
+  // matter-Constraint (det skenar) och aldrig `setPosition(…, true)` (lämnar en fart kvar).
+  _drivIndrag() {
+    for (const s of this._strands) {
+      const b = s.obj?.body
+      if (!b || s.riven) continue
+      const mal = s.reeling ? { x: this._baseX, y: BASE_Y - 8 } : s.hold // före fästet: hänger still
+      handSteg(s.hand, mal, { maxFart: INDRAG_FART, acc: INDRAG_ACC })
+      drivPunkt(b, rotv(s.rLok.x, s.rLok.y, b.angle), s.hand, INDRAG_K, INDRAG_TAK)
+      Body.setAngularVelocity(b, b.angularVelocity * 0.92) // svängen klingar av
+    }
+  },
+
+  // Bytet är framme (eller har hängt för länge): ut ur fysiken, och in i nätet.
+  _landaStrand(ctx, s) {
+    this._avslutaStrand(s)
+    this._landInNet(ctx, s.obj)
+  },
+
+  // Rev en tråd tillsammans med kroppen och vyn den bar.
+  _avslutaStrand(s) {
+    s.riven = true
+    this._removeStrand(s)
+    const o = s.obj
+    if (o?.body) {
+      this._phys?.removeBody(o.body)
+      o.body = null
+    }
+    const v = o?.view
+    if (v && !v.destroyed) {
+      gsap.killTweensOf(v)
+      gsap.killTweensOf(v.scale)
+      v.destroy()
+    }
+  },
+
+  _rivStrands() {
+    for (const s of [...this._strands]) this._avslutaStrand(s)
   },
 
   _removeStrand(strand) {
@@ -798,6 +869,21 @@ export default {
     this._phys.update(t.deltaMS)
     const dt = Math.min(0.05, (t.deltaMS || 16.67) / 1000)
 
+    // Byten som halas in: krymper på vägen och landar när fästet nått nätet (aldrig mitt i ett fysiksteg).
+    for (const s of [...this._strands]) {
+      if (!s.reeling) continue
+      const v = s.obj.view
+      if (!v || v.destroyed) {
+        this._avslutaStrand(s)
+        continue
+      }
+      s.tid += dt
+      const a = this._gripPos(s)
+      const d = Math.hypot(a.x - this._baseX, a.y - (BASE_Y - 8))
+      v.scale.set(1 - 0.65 * clamp(1 - d / s.d0, 0, 1))
+      if ((d < 14 && Math.hypot(s.hand.vx, s.hand.vy) < 4) || s.tid > INDRAG_MAX_S) this._landaStrand(ctx, s)
+    }
+
     // Eldflugorna driver och blinkar (ren sinus per bildruta — inga tweens att städa).
     this._nattT += dt
     const T = this._nattT
@@ -860,8 +946,12 @@ export default {
           if (s.reeling) {
             const v = s.obj.view
             if (!v || v.destroyed) continue
-            tx = v.x
-            ty = v.y
+            // Tråden slutar i fästet på bytets kant — och fästet krymper med bytet (skalan 1 → 0,35).
+            const a = this._gripPos(s)
+            const bb = s.obj.body
+            const k = v.scale.x
+            tx = bb ? bb.position.x + (a.x - bb.position.x) * k : a.x
+            ty = bb ? bb.position.y + (a.y - bb.position.y) * k : a.y
           } else {
             tx = bx + (s.targetX - bx) * s.t
             ty = by + (s.targetY - by) * s.t
@@ -1015,6 +1105,8 @@ export default {
     this._trad = null
 
     this._clearItems()
+    this._unbindSteg?.()
+    this._unbindSteg = null
     this._tweens.forEach((t) => t.kill())
     this._tweens = []
     this._strands.forEach((s) => s.rep?.destroy())

@@ -92,6 +92,13 @@ inget distraherar från storleksjämförelsen.
 
 ## 5. Status / loggar
 
+- 2026-10-02 ✅ **Sakerna ligger på marken (FYSIKPLAN §5.4 + L1)**: horisonten flyttad till y 200
+  (`groundH`), en picknickfilt i perspektiv ritad under sakerna, trädlinje (`silhuett: 'skog'`) och
+  strån i förgrunden (`forgrund`). `_gridSlots` ger högst två förskjutna rader på filten (y 258/316) i
+  stället för tre rader i himlen (y 140–320); jitter via `slumpIBand`. Texten "Stor"/"Mellan"/"Liten"
+  under kompisarna är borta. Scenens moln är avstängda (temat som objekt med `clouds: 0`) — de slumpas ner till y ≈ 300 och drev över gräset; skuggan under sakerna dragen upp till `font * 0.38` så de LIGGER (kritiken) (P0: noll läsning — önske-spöket på magen bär ledtråden). Landa-intro (P4)
+  är INTE byggd; sakerna dyker fortfarande upp med `bounceIn`.
+
 - 2026-10-01 · **Barnets egna figurer (LYFTPLAN §10, v1.287.0).** Mottagarna kan vara barnets knytt/kompisar
   (eller mötta knytt): `valjEgna(…, { antal: antalMottagare })` EN gång per runda (`_valjFigurer`), figurerna
   läggs på slumpade storlekar och resten förblir spelets egna kompisar (alla, när takten säger spelets egen

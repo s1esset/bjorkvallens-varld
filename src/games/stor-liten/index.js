@@ -10,7 +10,7 @@
 // fler föremål, ny gullig figur varje runda, och en tredje kompis på högre nivåer.
 // När rundan är klar firar vi (stjärna + klistermärke) och en ny runda startar.
 // Barnets egna knytt/kompisar kan ta mottagarnas plats (LYFTPLAN §10): se `_valjFigurer`.
-import { Container, Graphics, Text, Circle } from 'pixi.js'
+import { Container, Graphics, Circle } from 'pixi.js'
 import { drawIcon } from '../../lib/artikoner.js'
 import { gsap } from 'gsap'
 import { DragController } from '../../lib/DragController.js'
@@ -18,7 +18,8 @@ import { createScene } from '../../lib/scene.js'
 import { pop, wiggle, sparkle, ripple, shake, breathe, bounceIn, floatText, puff } from '../../lib/feedback.js'
 import { randomFrom, shuffle } from '../../lib/swedish.js'
 import { valjEgna, byggEgenFigur, presentera } from '../../lib/egnafigurer.js'
-import { COLORS, FONT } from '../../lib/theme.js'
+import { slumpIBand } from '../../lib/variation.js'
+import { COLORS } from '../../lib/theme.js'
 
 // Ny gullig figur varje runda (samma figur i flera storlekar) -> alltid en rent
 // STORLEKS-uppgift, men friskt och varierat: djur, frukt, fordon, leksaker.
@@ -35,17 +36,17 @@ const EMOJIS = [
 // osynliga träffradie; föremålen visas helt utan platta.)
 const SIZES = {
   stor: {
-    plate: 86, font: 120, bw: 232, bh: 216, color: COLORS.blue, label: 'Stor',
+    plate: 86, font: 120, bw: 232, bh: 216, color: COLORS.blue,
     shakeAmt: 8, squashY: 0.78, stretchX: 1.16,
     tone: { freq: 150, slideTo: 90, dur: 0.3, type: 'sine', vol: 0.34 }, // djup *bom*
   },
   mellan: {
-    plate: 62, font: 82, bw: 176, bh: 168, color: COLORS.teal, label: 'Mellan',
+    plate: 62, font: 82, bw: 176, bh: 168, color: COLORS.teal,
     shakeAmt: 4, squashY: 0.86, stretchX: 1.1,
     tone: { freq: 340, slideTo: 250, dur: 0.22, type: 'sine', vol: 0.3 },
   },
   liten: {
-    plate: 44, font: 54, bw: 130, bh: 128, color: COLORS.orange, label: 'Liten',
+    plate: 44, font: 54, bw: 130, bh: 128, color: COLORS.orange,
     shakeAmt: 2, squashY: 0.92, stretchX: 1.06,
     tone: { freq: 1180, slideTo: 1560, dur: 0.14, type: 'triangle', vol: 0.24 }, // hög *tink*
   },
@@ -91,6 +92,36 @@ const FIG_MATT = {
 const INTRO_TWO = 'Ge de stora sakerna till den stora kompisen och de små till den lilla kompisen!'
 const INTRO_THREE = 'Ge sakerna till rätt kompis: stor, mellan och liten!'
 
+// Marken: horisonten på y 200, filten ligger mellan horisonten och kompisarnas huvuden.
+const GROUND_Y = 200
+const FILT = { yTopp: 236, yBotten: 400, yRad1: 258, yRad2: 316 }
+
+// Picknickfilt i perspektiv (smalare längst bort): rutor av två lager ränder i en genomskinlig
+// röd, så korsningarna blir mörkare av sig själva. Ren dekor, ritas bakom spelet.
+function ritaFilt() {
+  const g = new Graphics()
+  g.eventMode = 'none'
+  const { yTopp: y0, yBotten: y1 } = FILT
+  const vx = (t) => 270 + (160 - 270) * t // vänster kant
+  const hx = (t) => 1010 + (1120 - 1010) * t // höger kant
+  const yy = (t) => y0 + (y1 - y0) * t
+  const punkt = (u, t) => [vx(t) + (hx(t) - vx(t)) * u, yy(t)]
+  const ner = (p, d) => [p[0], p[1] + d]
+  const kropp = [...punkt(0, 0), ...punkt(1, 0), ...punkt(1, 1), ...punkt(0, 1)]
+  // skugga under, främre kant (vikt tyg) och ytan
+  g.poly(kropp.map((v, i) => (i % 2 ? v + 9 : v))).fill({ color: 0x000000, alpha: 0.16 })
+  g.poly([...punkt(0, 1), ...punkt(1, 1), ...ner(punkt(1, 1), 9), ...ner(punkt(0, 1), 9)]).fill(0xc4434f)
+  g.poly(kropp).fill(0xfff1e6)
+  const KOL = 16
+  for (let i = 0; i < KOL; i += 2) g.poly([...punkt(i / KOL, 0), ...punkt((i + 1) / KOL, 0), ...punkt((i + 1) / KOL, 1), ...punkt(i / KOL, 1)])
+  g.fill({ color: 0xe8505b, alpha: 0.42 })
+  const RAD = 6
+  for (let r = 0; r < RAD; r += 2) g.poly([...punkt(0, r / RAD), ...punkt(1, r / RAD), ...punkt(1, (r + 1) / RAD), ...punkt(0, (r + 1) / RAD)])
+  g.fill({ color: 0xe8505b, alpha: 0.42 })
+  g.poly(kropp).stroke({ width: 3, color: 0xffffff, alpha: 0.7 })
+  return g
+}
+
 export default {
   id: 'stor-liten',
   titleSv: 'Stor och Liten',
@@ -116,8 +147,21 @@ export default {
     this._root = new Container()
     ctx.stage.addChild(this._root)
 
-    // Mjuk, inbjudande äng-bakgrund (sol, moln, kullar, gräs) — exit-säker.
-    this._root.addChild(createScene('meadow', { width: ctx.width, height: ctx.height }))
+    // Äng med trädlinje bakom och strån framför (L1). Horisonten ligger högt (y 200): sakerna
+    // som ska sorteras LIGGER på gräset och en picknickfilt, de svävar inte i himlen. Trädlinjen
+    // får ett eget frö per start så ängen inte är densamma varje gång. Ängens färger UTAN
+    // scenens moln: de slumpas ner till y ≈ 300 och drev över gräset under den höga horisonten.
+    this._root.addChild(
+      createScene({ top: 0xbfe9ff, bottom: 0xdcf5cf, ground: 0x86d27a, groundDark: 0x5bbf6a, sun: true, clouds: 0, hills: true, gras: true }, {
+        width: ctx.width,
+        height: ctx.height,
+        groundH: ctx.height - GROUND_Y,
+        silhuett: 'skog',
+        forgrund: true,
+        fro: 1 + Math.floor(Math.random() * 9),
+      }),
+    )
+    this._root.addChild(ritaFilt())
 
     // Genomskinlig tap-fångare: tomt tryck -> lekfullt litet ljud (aldrig negativt).
     const tapCatcher = new Graphics().rect(0, 0, ctx.width, ctx.height).fill({ color: 0x000000, alpha: 0 })
@@ -229,18 +273,11 @@ export default {
     art.addChild(ears, shell, belly, ...eyes, mouth)
     body.addChild(art, ghost)
 
-    const label = new Text({
-      text: s.label,
-      style: { fontFamily: FONT.title, fontSize: key === 'liten' ? 22 : key === 'mellan' ? 26 : 32, fontWeight: '700', fill: COLORS.white },
-    })
-    label.anchor.set(0.5)
-    label.position.set(0, h / 2 + 20)
-
     // Prickrad ovanför huvudet — räknar upp vad kompisen fått denna runda.
     const dots = new Container()
     dots.position.set(0, -h / 2 - 24)
 
-    c.addChild(shadow, body, label, dots)
+    c.addChild(shadow, body, dots)
     c._body = body
     c._art = art
     c._fig = null
@@ -424,8 +461,8 @@ export default {
       made.variant = v
       const view = made.container
       // Jätten hålls ovanför kompisarnas prickrader (konsten når 78 px nedåt).
-      const y = slot.y + (Math.random() * 2 - 1) * 16
-      view.position.set(slot.x + (Math.random() * 2 - 1) * 20, v === 'jatte' ? Math.min(y, 300) : y)
+      const y = slot.y + slumpIBand(0, 14)
+      view.position.set(slot.x + slumpIBand(0, 20), v === 'jatte' ? Math.min(y, FILT.yRad1 + 20) : y)
       this._play.addChild(view)
       bounceIn(view, { delay: i * 0.05, duration: 0.34 })
 
@@ -520,7 +557,7 @@ export default {
     const c = new Container()
     // Jätte/pytte skalar bara KONSTEN (figur + skugga) — träffytan nedan står kvar.
     const font = s.font * (VARIANT[variant]?.art ?? 1)
-    const shadow = new Graphics().ellipse(0, font * 0.5 + 8, font * 0.4, font * 0.15).fill({ color: 0x000000, alpha: 0.18 })
+    const shadow = new Graphics().ellipse(0, font * 0.38, font * 0.44, font * 0.14).fill({ color: 0x000000, alpha: 0.18 })
     const body = new Container()
     // P0 ASSETS: RITAD figur (var en emoji-Text). Storleken bär hela poängen.
     const e = drawIcon(emoji, font)
@@ -602,18 +639,21 @@ export default {
 
   // --- Hjälp/idle ---------------------------------------------------------
 
-  // Rutnät i spawn-zonen (ovanför kompisarna), blandat så placeringen känns ny.
+  // Rutnät på filten (ovanför kompisarna), blandat så placeringen känns ny. Högst två rader:
+  // sakerna ligger på marken och ska inte skymma varandra.
   _gridSlots(count) {
     const x0 = 250
     const x1 = 1030
-    const y0 = 140
-    const y1 = 320
-    const cols = count <= 3 ? count : count <= 6 ? 3 : Math.ceil(count / 3)
+    const y0 = FILT.yRad1
+    const y1 = FILT.yRad2
+    const cols = count <= 3 ? count : Math.ceil(count / 2)
     const rows = Math.ceil(count / cols)
     const slots = []
     for (let r = 0; r < rows; r++) {
       for (let c = 0; c < cols; c++) {
-        const x = cols > 1 ? x0 + ((x1 - x0) * c) / (cols - 1) : (x0 + x1) / 2
+        // rad 2 förskjuts en halv kolumn: två rader på filten får inte stå rakt över varandra
+        const half = rows > 1 ? (x1 - x0) / (2 * cols) : 0
+        const x = cols > 1 ? x0 + ((x1 - x0 - half) * c) / (cols - 1) + r * half : (x0 + x1) / 2 + (r - (rows - 1) / 2) * half
         const y = rows > 1 ? y0 + ((y1 - y0) * r) / (rows - 1) : (y0 + y1) / 2
         slots.push({ x, y })
       }

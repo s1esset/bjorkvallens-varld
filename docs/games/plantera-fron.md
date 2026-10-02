@@ -104,6 +104,8 @@ berättelsebåge (frö → blomma) som passar 2–4 år. Fjärilarna är "skörd
 - ✅ ~~**Sidofynd: blomhuvudet var en emoji-`Text` (storlek 92) som täckte kronbladen.**~~
   **BYGGD 2026-10-02** (ägarbeslut FYSIKPLAN Ä12: ja, rita den) — se §5.
 
+- ✅ ~~**Fröna svävade i himlen (FYSIKPLAN P4).**~~ **BYGGD 2026-10-02** — de faller in och landar, se §5.
+
 ### Progression
 - **[Medium] En trädgård som minns.** Visa `custom.flowers` som en faktisk **rabatt** längst ner
   som fylls med de blommor man odlat över tur (eller på en "min trädgård"-skärm). Ger en
@@ -123,10 +125,28 @@ berättelsebåge (frö → blomma) som passar 2–4 år. Fjärilarna är "skörd
   *Första halvan klar (kontrollerat 2026-09-23):* vinstljudet varieras redan i
   `AudioService._celebrate` varje gång. ⛔ Ambienten kräver ett nytt SFX-klipp (MOSS nere).
 
-- **[Quick] Staketets fot (kritiken 2026-10-02).** Staketet står på ett platt mörkbrunt band (y 432–478) utan gräs; en gräskant eller några blommor vid foten. Halva bilden är tom himmel med bara ollonet.
+- **[Quick] Staketets fot (kritiken 2026-10-02).** Staketet står på ett platt mörkbrunt band (y 432–478) utan gräs; en gräskant eller några blommor vid foten. (Den tomma himlen med bara ollonet är löst sedan P4: fröna står nu på gräskanten.)
 - **[Quick] Bakningar vid montering.** Första monteringen bakar ~14 linjära gradienter (cachade per färg). `test:all` var grön, men kör `scripts/_ab.sh` om sviten börjar flaka med `tom-scen`.
 
 ## 5. Status / loggar
+
+- 2026-10-02 🌰 **Fröna landar (FYSIKPLAN P4, nattkörning B4).** Premissen höll delvis: fröraden låg på
+  y 210 i ren himmel (skugga men ingen yta), så det fanns ingen "mark" att landa på. Fröna flyttades
+  därför ned till gräskanten (`SEED_Y` 392, fot/skugga på y 426, strax över jordlisten 432) — avståndet
+  till hålraden (560) är >160 = hålens snäppradie, så inget frö börjar inne i ett mål. Varje runda
+  faller fröna in uppifrån över synlig överkant (`ctx.view.top`, 170 ms mellan dem) via
+  `lib/landa.js`: tyngd 'liten' med `studs` 0,4 (en ollonnöt: några avtagande hopp), tryckning i
+  bilden per nedslag (`feedback.landa`, styrka efter farten), stämd duns ur dur-pentatonen (en ton
+  per frö, lägre än blommornas) och en jordpuff vid första nedslaget. Allt rör sig i det INRE barnet
+  `bild` (origo = fotpunkten, skalar kring foten) — containern är DragControllerns föremål och står
+  stilla, så `home`, hit-halon (Ø140, STILLA på vilplatsen) och snäppet aldrig flyttar sig. Skuggan
+  är liten och blek högt upp och växer till full när fröet når marken (`_stegaFro`). Greppar barnet
+  mitt i fallet (`pointerdown`) kör `avbryt()`: fröet står på marken samma ögonblick och draget tar
+  vid. `bounceIn` på fröna (skala 0 → 1, som slogs mot lyft-skalan vid ett tidigt grepp) är borta.
+  Fröna fick också vilo-liv: de står och vaggar (`liv`, bob 0, egen fas) när de landat. Rivning:
+  `_rivFro()` före varje rundbyte och i `destroy` — lossar landa-tickern, dödar sway/tryckning
+  (inre barnet), så en runda som rivs mitt i fallet lämnar inget kvar. Inga nya repliker.
+  ⚠️ Ej testat med `npm run test` av byggaren (andra byggare sparade filer samtidigt).
 
 - 2026-10-02 🌸 **Blomman ritas (Ä12) + bilden får djup** (nattkörning F1/B4). Emoji-`Text`en
   (`FLOWERS`) är borta. Sex SORTER (`SORTER`) med egen silhuett — prästkrage (11 smala), ros
@@ -218,3 +238,10 @@ berättelsebåge (frö → blomma) som passar 2–4 år. Fjärilarna är "skörd
 - 2026-08-09: **LYFTPLAN rad 3 / A2** (v1.47–48.0, `62b91db` + `bce776d`): **jordprofilen fick en lodrät gradient** (ljusare vid ytan, mörkare på djupet). Den var 301 300 px i en enda brun ton — den största enfärgade ytan i hela appen (uppmätt med nya `scripts/_plattprobe.mjs`), och en jordprofil sedd i genomskärning är just det som INTE ska vara enfärgad.
   Kontroll: `check` 0 fel · `test:all` 72/72 · skärmdump granskad. Inga spelregler eller layout rörda.
 - 2026-08-09 ✅ **Full bleed [Quick]** (v1.68.0): himmel/jord breddade (jordgradienten bara i sidled — bbox-höjden styr mappningen — plus remsa under i slutton), gräskanten fortsätter deterministiskt i bleed-zonerna. Testad båda viewports: 0 fel.
+- 2026-10-02 **Kritikens fixvarv på P4 (orkestreraren).** Hålens snäppradie 160 → 100: med fröraden
+  på y 392 stod fröet bara 168 px från hålet, så 8 px vingel planterade det — nu krävs ett riktigt
+  drag (≥ 68 px), och hålens snäppytor (230 isär) överlappar inte längre. Fröna står 170 isär i
+  stället för 120 (halorna r 70 höll inte P0-avståndet ≥ 24 px). Skuggan alfa 0,15 → 0,3 och
+  jordpuffen ljusare — båda försvann mot den mörka jordkanten. Otåligt grepp mätt med
+  `scripts/_dag-landa.mjs`: mitt i fallet (400 ms) följer fröet fingret på 1 px; vid 150 ms träffar
+  trycket skalets skärmövergång, inte fröet (app-brett, inte P4).

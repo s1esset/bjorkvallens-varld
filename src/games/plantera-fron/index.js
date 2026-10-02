@@ -18,7 +18,8 @@
 import { Container, Graphics, Circle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { DragController } from '../../lib/DragController.js'
-import { bounceIn, pop, wiggle, squash, puff, sparkle , kvittera} from '../../lib/feedback.js'
+import { bounceIn, pop, wiggle, squash, puff, sparkle , kvittera, liv, landa as landaFx } from '../../lib/feedback.js'
+import { landa } from '../../lib/landa.js'
 import { randomFrom } from '../../lib/swedish.js'
 import { COLORS, tint } from '../../lib/theme.js'
 import { verticalFill, sphereFill, topLightFill, bage } from '../../lib/form.js'
@@ -29,7 +30,11 @@ import { BLEED_X, BLEED_Y } from '../../lib/view.js'
 const SKY_TOP = 0xa7dbfd
 const SKY_HORIZON = 0xd8f1ff
 const HOLE_Y = 560 // jordhålens y (i jordrabatten)
-const SEED_Y = 210 // fröförrådets y (uppe i himlen)
+// Fröna står på marken (gräskanten strax ovanför jordlisten), inte i himlen: de FALLER in uppifrån
+// och landar med studs (FYSIKPLAN P4, lib/landa.js). Skuggan sitter på markens y = SEED_Y + SEED_FOT.
+// Avståndet till hålraden (HOLE_Y 560) är 168 > 100 = hålens snäppradie, så ett frö börjar aldrig INNE i ett mål och kräver ett drag.
+const SEED_Y = 392
+const SEED_FOT = 34 // fröets fot (och skuggan) under dess mitt
 const BUD_COLORS = [0x6fbf73, 0x88c98a, 0x7bc043]
 const POLLEN = 0xffe08a
 // Dur-pentatonisk skala (C5–E6) för kronbladens pling och blommornas fnitter — stämd, inte gissad.
@@ -231,6 +236,7 @@ export default {
     this._drops = [] // aktiva vattendroppar (ticker-drivna)
     this._plants = [] // per-runda-plantor
     this._worms = [] // maskarna i jorden (ticker-drivna, per runda)
+    this._fro = [] // landningarna: { l, bild, art, sh, klar } per frö (per runda)
     this._tweened = [] // per-runda-objekt vars tweens måste dödas vid städ/exit
     this._level = Math.max(0, ctx.progress.get().highestLevel | 0)
     this._ctx = ctx
@@ -447,21 +453,77 @@ export default {
       hole._filled = false
       this._round.addChild(hole)
       this._holes.push({ view: hole, x: hx, y: HOLE_Y })
-      this._drag.addTarget(hole, () => !hole._filled, { hitRadius: 160 })
+      // Fröet står 168 px ovanför hålet: radie 160 snäppte efter 8 px vingel. 100 kräver ett riktigt
+      // drag, och hålen (230 isär) får inte längre överlappande snäppytor.
+      this._drag.addTarget(hole, () => !hole._filled, { hitRadius: 100 })
     }
 
     // Frön (källa): lika många som hålen, alltid lösbart.
-    const sStart = 640 - ((this._holeCount - 1) * 120) / 2
+    // 170 isär: halorna (r 70) håller P0-avståndet ≥ 24 px (120 lät dem överlappa).
+    const sStart = 640 - ((this._holeCount - 1) * 170) / 2
     for (let i = 0; i < this._holeCount; i++) {
       const seed = this._makeSeed()
-      seed.position.set(sStart + i * 120, SEED_Y)
+      seed.position.set(sStart + i * 170, SEED_Y)
       this._round.addChild(seed)
-      bounceIn(seed, { delay: i * 0.08 })
       this._drag.addItem(
         seed,
         { idx: i },
         { onCorrect: (rec, target) => this._onSow(ctx, rec, target), onWrong: (rec) => this._onMiss(ctx, rec) }
       )
+      this._landaFro(ctx, seed, i)
+    }
+  },
+
+  // Fröet faller in uppifrån och landar på marken (lib/landa.js). Allt rör sig i det INRE barnet
+  // `bild` (origo = fotpunkten) — containern `seed` är DragControllerns föremål och står stilla på
+  // sin vilplats, så draget, hit-halon och `home` aldrig flyttar sig. Greppar barnet mitt i fallet
+  // lägger `avbryt()` fröet på marken i samma ögonblick (pointerdown), och draget tar vid.
+  _landaFro(ctx, seed, i) {
+    const bild = seed._bild
+    const topY = Math.min(0, ctx.view?.top ?? 0) - 110 // fotpunkten börjar över synlig överkant
+    const post = { l: null, bild, art: seed._art, sh: seed._sh, klar: false }
+    post.l = landa(bild, {
+      ticker: ctx.ticker,
+      fran: topY - SEED_Y,
+      markY: SEED_FOT,
+      tyngd: 'liten',
+      studs: 0.4, // en ollonnöt: några avtagande hopp
+      fordrojning: i * 170,
+      onLand: (ty, slag) => this._froSlag(ctx, seed, i, slag),
+    })
+    this._fro.push(post)
+    seed.on('pointerdown', () => post.l.avbryt())
+    post.l.klar.then((orsak) => {
+      post.klar = true
+      if (!this._alive || orsak === 'riven' || post.art.destroyed) return
+      liv(post.art, { bob: 0, sway: 0.045, duration: 2.6 + i * 0.4 }) // står och vaggar lite
+    })
+  },
+
+  // Varje nedslag: tryckning i bilden, stämd duns, jordpuff vid det första.
+  _froSlag(ctx, seed, i, slag) {
+    if (!this._alive || seed.destroyed || seed._bild.destroyed) return
+    const k = clamp01(slag.fart / 1500)
+    landaFx(seed._bild, { intensity: 0.25 + 1.1 * k, base: { x: 1, y: 1 } })
+    const f = PENTA[(i * 2) % PENTA.length] / 2
+    ctx.services.audio.tone({ freq: f * (1 + slag.nr * 0.12), dur: 0.11, type: 'sine', vol: 0.03 + 0.1 * k, slideTo: f * 0.8 })
+    if (slag.nr === 0) puff(ctx.fxLayer, seed.x, SEED_Y + SEED_FOT, { count: 5, color: tint(COLORS.brown, 0.45) }) // ljusare än jordlisten bakom
+  },
+
+  // Skuggan följer höjden: liten och blek högt upp, full när fröet står på marken.
+  _stegaFro() {
+    for (const f of this._fro) {
+      if (f.klar || f.sh.destroyed || f.bild.destroyed) continue
+      const h = Math.max(0, SEED_FOT - f.bild.y)
+      const k = clamp01(1 - h / 520)
+      f.sh.scale.set(0.45 + 0.55 * k)
+      f.sh.alpha = k
+    }
+    for (const f of this._fro) {
+      if (f.klar && !f.sh.destroyed && f.sh.alpha !== 1) {
+        f.sh.scale.set(1)
+        f.sh.alpha = 1
+      }
     }
   },
 
@@ -480,10 +542,24 @@ export default {
     this._drops = [] // droppar ligger i _round och förstörs nedan; nolla referenserna
     this._plants = []
     this._worms = [] // maskarna ligger också i _round — nolla före rivningen
+    this._rivFro()
     this._can = null
     this._dropLayer = null
     this._pouring = false
     this._round.removeChildren().forEach((o) => o.destroy({ children: true }))
+  },
+
+  // Landningarna ligger i fröna i _round: lossa tickern och döda sway/tryckning FÖRE rivningen
+  // (killTweensOf på roten når inte det inre barnet).
+  _rivFro() {
+    for (const f of this._fro || []) {
+      f.l.destroy()
+      f.art._fxLiv?.kill()
+      f.bild._fxSquashTl?.kill()
+      f.bild._fxPopTl?.kill()
+      if (!f.bild.destroyed) gsap.killTweensOf(f.bild.scale)
+    }
+    this._fro = []
   },
 
   _track(obj) {
@@ -495,8 +571,15 @@ export default {
   // 🌰-emoji inuti en vit cirkel, alltså en ikon i en bricka.
   _makeSeed() {
     const c = new Container()
-    const sh = new Graphics().ellipse(0, 34, 30, 9).fill({ color: 0x000000, alpha: 0.15 })
+    const sh = new Graphics().ellipse(0, SEED_FOT, 30, 9).fill({ color: 0x000000, alpha: 0.3 }) // 0,15 försvann mot jordkanten
+    sh.alpha = 0 // tonas in medan fröet faller (_stegaFro)
+    sh.scale.set(0.45)
+    sh.pivot.set(0, SEED_FOT) // skalar kring fotpunkten, flyttar sig inte
+    sh.position.set(0, SEED_FOT)
+    const bild = new Container() // origo = fotpunkten: lib/landa.js skriver bara bild.y, tryckningen skalar härifrån
+    bild.position.set(0, SEED_FOT)
     const g = new Graphics()
+    g.position.set(0, -SEED_FOT)
     g.ellipse(0, 6, 26, 30).fill(0xc98a4b).stroke({ width: 4, color: 0x9a5c33 }) // nöten
     g.ellipse(-8, -2, 9, 13).fill({ color: 0xe0aa72, alpha: 0.7 }) // glans
     g.moveTo(-27, -12).quadraticCurveTo(0, -34, 27, -12).quadraticCurveTo(0, 0, -27, -12).closePath()
@@ -507,8 +590,12 @@ export default {
     g.circle(-8, 8, 3.5).fill(0x3a2616)
     g.circle(8, 8, 3.5).fill(0x3a2616)
     bage(g, 0, 12, 7, 0.15 * Math.PI, 0.85 * Math.PI).stroke({ width: 2.5, color: 0x3a2616 })
-    c.addChild(sh, g)
-    c.hitArea = new Circle(0, 0, 70) // hit-halo ≥96px Ø
+    bild.addChild(g)
+    c.addChild(sh, bild)
+    c._bild = bild
+    c._art = g
+    c._sh = sh
+    c.hitArea = new Circle(0, 0, 70) // hit-halo ≥96px Ø, STILLA på vilplatsen (även under fallet)
     return c
   },
 
@@ -1237,6 +1324,7 @@ export default {
     const dt = ticker.deltaMS
     this._stepDrops(ctx, dt)
     this._stepWorms(dt / 1000)
+    this._stegaFro()
     this._stepBlommor(dt / 1000)
 
     // Tomgången räknas från TYSTNAD: medan en replik talar står klockan still (V21 —
@@ -1272,6 +1360,7 @@ export default {
     ctx.ticker.remove(this._tick)
     this._newRoundCall?.kill()
     this._canBob?.kill()
+    this._rivFro()
     this._drag?.destroy()
     for (const o of this._tweened) {
       if (o && !o.destroyed) {

@@ -88,6 +88,8 @@ garanterar att flaggan alltid nås. Räkneorden gör stapeln till en mjuk siffer
 
 ## 5. Status / loggar
 
+- 2026-10-02 ✅ **Kranklossen gungar i linan (FYSIKPLAN P2 / §5.4, `vippa`).** Linan, kroken och klossens ritning bor i ett inre barn `sving` (pivot i trallans lina-fäste) som `vippa(sving, { axel: 'rot', max: 0.22, k: 90, damp: 0.3 })` gungar: när en ny kloss hängs på kommer en stöt (riktad mot att trallan åkt från förra släppet, minst 0,4), och idle-recuet knuffar linan. Det är ren BILD: kroppen, `view`, `_dropX`, T2-centreringen och landningen är orörda; vippan rivs i `_dropActive` (rotationen nollställs exakt, linan döljs) och i `_clearBlocks`/`destroy`. Mätt i Node: utslaget vid klossens underkant (radie ≈ 95 px) toppar ~12 px, är ≤ 2 px efter 0,3 s och 0,0 efter 1,0 s. `_drawCrane` ritar nu bara trallan (linan följer klossen). Den vajande lasten på bakgrundskranen (`_kranLast`) är dekor och orörd. Doc-drift (§5.4): raden "ingen pendel i koden" är stängd.
+
 - 2026-10-02 ✅ **Byggarbetsplats + variation (FYSIKPLAN §5.4, L1, U2)**: scenen har nu horisont på y 520
   med trädlinje och kullar bakom bygget, och strån i förgrunden (`forgrund`-lagret lyfts ut ur scenen och
   läggs ovanpå marken, annars döljs det av den opaka marken). I mitten/bakgrunden: en gul tornkran med

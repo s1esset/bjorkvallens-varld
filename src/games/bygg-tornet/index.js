@@ -19,6 +19,7 @@ import { COLORS, PLAYFUL, DESIGN_W, DESIGN_H } from '../../lib/theme.js'
 import { groundFill } from '../../lib/form.js'
 import { valjEgna, byggEgenFigur, presentera } from '../../lib/egnafigurer.js'
 import { slumpIBand } from '../../lib/variation.js'
+import { vippa } from '../../lib/vippa.js'
 
 // --- Geometri (designkoordinater 1280×720) ---
 const BASE_X = 640 // tornets mittlinje (nästa klossens default-läge)
@@ -131,6 +132,7 @@ export default {
     this._egenFig = null // barnets knytt/kompis på avsatsen (varannan torn), annars kattungen
     this._goalX = GOAL_X // målets x i nuvarande torn (flagga + kattunge), slumpas per torn
     this._kranLast = null
+    this._svingV = null // vippan på den väntande klossens linsving (bara medan klossen hänger i kranen)
 
     this._phase = 'reset' // reset | carry | fall | wait | finish
     this._placed = [] // fastlåsta klossar { view, body }
@@ -382,12 +384,34 @@ export default {
     view.position.set(this._dropX, READY_Y)
     this._blockLayer.addChild(view)
 
+    // Kranlinan + klossen gungar som EN pendel (P2): bilden (lina, krok, klossens ritning) bor i ett
+    // inre barn `sving` med pivoten i trallan. Klossens fysikkropp och `view` rörs inte — var klossen
+    // landar avgörs som förut. Vippan rivs vid släppet (då är bilden redan ~stilla).
+    this._svingV?.destroy()
+    const sving = new Container()
+    const pivotY = RAIL_Y + 13 - READY_Y // trallans lina-fäste i klossens egna koordinater
+    sving.pivot.set(0, pivotY)
+    sving.position.set(0, pivotY)
+    const lina = new Graphics()
+    // Linan börjar mitt i trallan (som ritas ovanpå) så att klossens gupp aldrig öppnar en glipa.
+    lina.moveTo(0, RAIL_Y - READY_Y).lineTo(0, -BH / 2).stroke({ width: 5, color: COLORS.inkSoft, alpha: 0.9 })
+    lina.circle(0, -BH / 2, 6).stroke({ width: 4, color: COLORS.inkSoft })
+    sving.addChild(lina)
+    for (const ch of [...view.children]) sving.addChild(ch)
+    view.addChild(sving)
+    // Trallan åker från förra släppet till nya läget → klossen hänger efter åt andra hållet.
+    const dx = this._dropX - this._carrierX
+    const sida = dx === 0 ? (this._swingSida = -(this._swingSida || 1)) : -Math.sign(dx)
+    const stot = Math.max(0.4, Math.min(0.9, Math.abs(dx) / 260)) * sida
+    this._svingV = vippa(sving, { axel: 'rot', max: 0.22, k: 90, damp: 0.3, ticker: ctx.ticker })
+    this._svingV.stot(stot)
+
     const opts = { isStatic: true, ...BLOCK_OPTS }
     if (spec.kind === 'tunna') { opts.friction = 0.5; opts.frictionStatic = 0.9 }
     const body = this._phys.rectangle(this._dropX, READY_Y, spec.w, BH, opts)
     this._phys.link(body, view)
 
-    this._active = { view, body, w: spec.w }
+    this._active = { view, body, w: spec.w, lina }
     this._phase = 'carry'
     this._idle = 0
     this._moveGhost()
@@ -419,6 +443,10 @@ export default {
   _dropActive(ctx) {
     if (!this._active) return
     this._phase = 'fall'
+    // Släppet: pendeln har dött ut (bilden), nu nollställs den exakt och linan släpper.
+    this._svingV?.destroy()
+    this._svingV = null
+    if (this._active.lina && !this._active.lina.destroyed) this._active.lina.visible = false
     this._fallT = 0
     this._restT = 0
     const b = this._active.body
@@ -728,6 +756,7 @@ export default {
         this._idle = 0
         ctx.services.voice.say(this.voiceIntro)
         if (this._active && !this._active.view.destroyed) pop(this._active.view)
+        this._svingV?.stot(0.5) // en lockande knuff i linan
       }
     }
   },
@@ -756,9 +785,7 @@ export default {
     g.roundRect(cx - 34, RAIL_Y - 12, 68, 24, 8).fill(COLORS.inkSoft)
     g.circle(cx - 18, RAIL_Y + 13, 6).fill(COLORS.ink)
     g.circle(cx + 18, RAIL_Y + 13, 6).fill(COLORS.ink)
-    // Lina ner till klossens topp + liten krok.
-    g.moveTo(cx, RAIL_Y + 13).lineTo(blockView.x, blockView.y - BH / 2).stroke({ width: 5, color: COLORS.inkSoft, alpha: 0.9 })
-    g.circle(blockView.x, blockView.y - BH / 2, 6).stroke({ width: 4, color: COLORS.inkSoft })
+    // Linan + kroken ritas av klossen själv (inre barnet `sving`, gungar i trallan) — här bara trallan.
   },
 
   // Mjuk "klack" när en fallande kloss slår i stapeln/marken (strypt mot ljud-spam).
@@ -900,6 +927,8 @@ export default {
   // ---- Städning (exit-säkert) --------------------------------------------
 
   _clearBlocks() {
+    this._svingV?.destroy()
+    this._svingV = null
     const all = [...this._placed]
     if (this._active) all.push(this._active)
     for (const b of all) {
@@ -921,6 +950,8 @@ export default {
     this._avHjalp?.()
     this._avHjalp = null
     this._unbindImpact?.()
+    this._svingV?.destroy()
+    this._svingV = null
     this._spawnCall?.kill()
     this._finishCall?.kill()
     this._flagTween?.kill()

@@ -32,6 +32,14 @@ väljer spel på `category`; **Utmaning** (`band: 'stor'`) tar alla storbarnsspe
 visas inte. `GameHost` sätter `ctx.band` och väljer `complete()`-berömmet efter bandet.
 Sond: `_flikprobe.mjs`.
 
+**Avbrutna pekningar (K1):** Pixi 8.19 binder aldrig `pointercancel` — efter en systemgest/
+kantsvep kom aldrig något `pointerup`, och `DragController.active` / en spelägd `_grepp`
+fastnade för alltid. `lappaPekavbrott(app)` (`lib/pixilapp.js`, körd en gång av `createApp`)
+gör varje `pointercancel` till ett `pointerup` på `window` med fingrets SENAST kända läge →
+Pixi ger `pointerupoutside` längs pressmålets kedja. Lyssna därför bara på
+`pointerup`+`pointerupoutside` i spelen; en egen `'pointercancel'`-lyssnare på ett Pixi-objekt
+matas aldrig. Bryggan hör hemma i skalet, aldrig i ett spel.
+
 ## Designsystemet
 
 `docs/DESIGN.md` är appens globala UI-designsystem (spacing, färgroller, typografi, radier,

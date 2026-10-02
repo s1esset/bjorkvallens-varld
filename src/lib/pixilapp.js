@@ -10,6 +10,58 @@ export function lappaPixi() {
   lappaGraphicsDestroy()
 }
 
+// FYSIKPLAN K1. Pixi 8.19 binder aldrig `pointercancel` (EventSystem.mjs:322-327; touch-grenen
+// tar bara touchstart/touchend/touchmove) — efter ett avbrutet finger (systemgest, kantsvep,
+// inkommande samtal) kommer alltså aldrig något `pointerup`, och `DragController.active` /
+// `if (this._grepp) return` står kvar för alltid. Bryggan gör varje `pointercancel` till ett
+// `pointerup` på `window` med fingrets SENAST kända läge (en cancel bär ofta clientX/Y = 0).
+// Skickat på window, inte duken → Pixis `_onPointerUp` gör det till `pointerupoutside`
+// (`target !== domElement`, :241) längs pressmålets egen kedja: det släpp varje kontroll redan
+// lyssnar på. Ett avbrutet finger över ett mål blir ett släpp PÅ målet — aldrig ett straff.
+// Dubbla släpp är ofarliga. Lever hela appens livstid (körs av App.js, aldrig av ett spel);
+// returnerar en rivare. Idempotent per app.
+const _brygga = new WeakMap()
+
+export function lappaPekavbrott(app) {
+  const canvas = app?.canvas
+  if (!canvas || typeof PointerEvent === 'undefined') return () => {}
+  if (_brygga.has(app)) return _brygga.get(app)
+
+  const sist = new Map() // pointerId → { x, y, typ } (bara siffror, inga kvarhållna händelser)
+  const minns = (e) => sist.set(e.pointerId, { x: e.clientX, y: e.clientY, typ: e.pointerType })
+  const glom = (e) => { sist.delete(e.pointerId) }
+  const avbryt = (e) => {
+    const p = sist.get(e.pointerId)
+    sist.delete(e.pointerId)
+    window.dispatchEvent(new PointerEvent('pointerup', {
+      pointerId: e.pointerId,
+      pointerType: p ? p.typ : e.pointerType,
+      isPrimary: e.isPrimary,
+      clientX: p ? p.x : e.clientX,
+      clientY: p ? p.y : e.clientY,
+      button: 0,
+      buttons: 0,
+      bubbles: true,
+    }))
+  }
+
+  document.addEventListener('pointermove', minns, true)
+  canvas.addEventListener('pointerdown', minns, true)
+  window.addEventListener('pointerup', glom, true)
+  window.addEventListener('pointercancel', avbryt, true)
+
+  const riv = () => {
+    document.removeEventListener('pointermove', minns, true)
+    canvas.removeEventListener('pointerdown', minns, true)
+    window.removeEventListener('pointerup', glom, true)
+    window.removeEventListener('pointercancel', avbryt, true)
+    sist.clear()
+    _brygga.delete(app)
+  }
+  _brygga.set(app, riv)
+  return riv
+}
+
 // ÅTGÄRDER V16. `Graphics.destroy(options)` river den ÄGDA GraphicsContexten bara när
 // `options` saknas eller är `true`/`{ context: true }` (Pixi 8.19, `Graphics.mjs:145-153`).
 // Ett options-OBJEKT — repots `destroy({ children: true })`, 251 anrop i 89 filer — faller

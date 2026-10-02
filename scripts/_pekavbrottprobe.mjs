@@ -266,7 +266,8 @@ try {
       const pc = await page.evaluate(() => ({ ...window.__pc }))
       const flaggEfter = await G(id, s.flagg)
       let c2 = { grepp: false, flytt: 0 }
-      if (c1.grepp) c2 = await drag(id, 22, 'upp', true)
+      // Med K1-bryggan ÄR en cancel ett släpp (en slangbella skjuter) — vänta in rundan som arm 0.
+      if (c1.grepp) { await vantaKlar(id); c2 = await drag(id, 22, 'upp', true) }
       rad.aA = { avbrutet: c1.flytt, ny: c2.flytt, flagg: flaggEfter, cancelDom: pc.cancel }
       rad.aAok = c2.flytt >= N
 

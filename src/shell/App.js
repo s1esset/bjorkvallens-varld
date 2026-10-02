@@ -7,7 +7,7 @@
 //     gateLayer    – föräldra-grind, dialoger, avier (överst)
 import { Application, Container, Graphics } from 'pixi.js'
 import { Scaler } from '../services/Scaler.js'
-import { lappaPixi } from '../lib/pixilapp.js'
+import { lappaPixi, lappaPekavbrott } from '../lib/pixilapp.js'
 
 export async function createApp(mountEl) {
   lappaPixi()
@@ -23,6 +23,7 @@ export async function createApp(mountEl) {
   })
   app.ticker.maxFPS = 60
   mountEl.appendChild(app.canvas)
+  lappaPekavbrott(app) // FYSIKPLAN K1: pointercancel → pointerup (Pixi binder den aldrig)
 
   const bgLayer = new Graphics()
   bgLayer.eventMode = 'none'

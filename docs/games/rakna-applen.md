@@ -1,5 +1,5 @@
 # Räkna Äpplena (`rakna-applen`)
-> 🔤 larande · tap · 2–5 år · status: 🔧 förbättringar pågår
+> 🔤 larande · tap · 2–5 år · status: ✅ klar (kvar: medelstora idéer i §4, inget [Deep])
 
 ## 1. Nuläge (sett som spelare)
 
@@ -62,6 +62,9 @@ ber barnet *förstå* mängd, känna igen siffran eller stanna vid rätt antal.
   uppdagat 2026-09-23.
 
 ### Variation & överraskning
+- ✅ ~~**[Quick] Rundorna lika förutsägbara (U2).**~~ Klar 2026-10-02: målet lottas inom nivåns band
+  (`slumpIBand`, ± 1 kring 2..5, aldrig samma som förra) och "räkna alla"-rundan ligger på en
+  lottad plats i varje fyrarundorsblock (`_arAllaRunda`) i stället för var fjärde.
 - **[Quick] Subitiserings-runda:** visa korta stunder en grupp om 1–3 frukter och fråga
   "Hur många ser du?" innan de räknas — bygger taluppfattning utan att räkna ett-och-ett.
 - **[Medium] Olika behållare/teman:** korg → fruktfat → saftpress (frukten pressas till
@@ -92,6 +95,16 @@ ber barnet *förstå* mängd, känna igen siffran eller stanna vid rätt antal.
   ⛔ Blockerad: kräver nya SFX-klipp (MOSS nere). Plumsen finns redan som stämd ton.
 
 ## 5. Status / loggar
+
+- 2026-10-02 ✅ **Omgång 0 (FYSIKPLAN U2 + L1 + L2).** *Variation:* målantalet i "tryck på N"-rundor
+  lottas inom nivåns band (`2 + ((lvl-1) % 4)` ± 1, golv 2, tak 5, aldrig samma som förra) och
+  "räkna alla" ligger på en lottad plats per fyrarundorsblock (aldrig först i blocket, så två
+  i rad kan inte hända). Räkningen är orörd: 1 tryck = 1 frukt = 1 ord, målsiffran syns. *Bild:*
+  `createScene` med `silhuett: 'skog'` + `forgrund: true` (L1, `fro` slumpas per start) och ett
+  riktigt äppelträd i stället för fem bollar (L2): bark, rotfötter, grenar som sticker ut under
+  kronan, krona i tre lager, mark- och korgskuggor, blommor vid roten, handtag på korgen. Varje
+  frukt guppar i grenen (`liv` på ett barn, egen fas); plockad frukt slutar gunga. Högen
+  (P3) och subitiseringen ligger kvar i kön. Mät: `g._target`, `g._goalMode`.
 
 - 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): spelet firade aldrig dubbelt, men
   nästa rundas instruktion byggdes 1,7 s efter `complete()` och kapade berömmet — den väntar nu

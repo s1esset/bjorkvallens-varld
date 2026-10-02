@@ -14,12 +14,13 @@
 // fördröjda anrop, breathe/shake-tweens och flyg-tweens dödas i destroy().
 import { Container, Graphics, Text, Circle } from 'pixi.js'
 import { gsap } from 'gsap'
-import { bounceIn, wiggle, floatText, ripple, shake, burst, breathe, puff , kvittera} from '../../lib/feedback.js'
-import { createScene } from '../../lib/scene.js'
+import { bounceIn, wiggle, floatText, ripple, shake, burst, breathe, puff, liv, kvittera } from '../../lib/feedback.js'
+import { createScene, slump } from '../../lib/scene.js'
 import { makeSquirrel } from '../../lib/figurer.js'
 import { COLORS, FONT } from '../../lib/theme.js'
-import { topLightFill } from '../../lib/form.js'
+import { topLightFill, cylinderFill } from '../../lib/form.js'
 import { randomFrom, shuffle } from '../../lib/swedish.js'
+import { slumpIBand } from '../../lib/variation.js'
 
 // Räkneorden 1–10 (rundans mål håller sig alltid inom 1–10).
 const NUM = ['ett', 'två', 'tre', 'fyra', 'fem', 'sex', 'sju', 'åtta', 'nio', 'tio']
@@ -65,12 +66,17 @@ export default {
     this._count = 0
     this._level = Math.max(0, ctx.progress.get().highestLevel | 0)
     this._lastFruitId = null
+    this._forraMal = undefined // förra rundans mål (slumpIBand undviker det)
+    this._allaBlock = -1 // vilket fyrarundorsblock "räkna alla"-platsen är lottad för
+    this._allaSlot = 1
+    this._fro = 1 + Math.floor(Math.random() * 40) // äng, trädlinje och träd byter utseende per start
 
     this._root = new Container()
     ctx.stage.addChild(this._root)
 
-    // 1) Marknadsmässig bakgrund: mjuk äng med sol, kullar och drivande moln.
-    this._root.addChild(createScene('meadow', { width: ctx.width, height: ctx.height }))
+    // 1) Marknadsmässig bakgrund: mjuk äng med sol, kullar, en trädlinje i fjärran och strån
+    //    längst fram (L1). Trädet och korgen framför den (L2) bär själva platsen.
+    this._root.addChild(createScene('meadow', { width: ctx.width, height: ctx.height, silhuett: 'skog', forgrund: true, fro: this._fro }))
 
     // 2) Heltäckande, osynlig tap-fångare (ligger UNDER frukten): tryck bredvid
     //    frukten -> mjukt ljud + vänlig vingel + en liten ring där fingret var.
@@ -79,8 +85,8 @@ export default {
     tap.on('pointertap', (e) => this._emptyTap(ctx, e))
     this._root.addChild(tap)
 
-    // 3) Trädet som frukten hänger i (programmatiskt, dekorativt).
-    this._root.addChild(this._makeTree())
+    // 3) Äppelträdet som frukten hänger i, med mark och skuggor (programmatiskt, dekorativt).
+    this._root.addChild(this._makeTree(this._fro))
 
     // 4) Korg (bakdel bakom frukten, framkant ovanpå så plockad frukt tuckas in).
     const basket = this._makeBasket()
@@ -172,40 +178,120 @@ export default {
 
   // --- scen-byggare -------------------------------------------------------
 
-  // Charmigt träd: stam + organisk lövkrona i två gröna toner (för djup).
-  _makeTree() {
+  // Äppelträd (L2): marken det står på, en tjock stam med bark och rotfötter, grenar som
+  // sticker ut under kronan och en krona i tre lager — mörka bas-puffar, ljusare mellanpuffar
+  // och ljusfläckar överst. Frukten som barnet räknar hänger i kronan (varje frukt har egen
+  // vilo-gupp, se `_makeFruit`). Allt är dekor (eventMode 'none'), ritat i absoluta koordinater.
+  //
+  // `_plattprobe --medbakgrund` mätte den gamla kronan (fem stora bollar) till 265 955 px — 29 %
+  // av skärmen — i EN ton. Basens puffar fylls därför med `topLightFill`, som mappas mot VARJE
+  // FORMS egen bbox (ljus ovanifrån per puff, inte en enda grön silhuett). Cachad per färg.
+  _makeTree(fro) {
+    const rnd = slump(fro * 31 + 5)
     const tree = new Container()
     tree.eventMode = 'none'
     tree.interactiveChildren = false
+    const CX = 640
+    const CY = 262
+    const RX = 470
+    const RY = 232
 
-    // Stam med en mörk mittlinje och liten rotuppsving nedtill.
+    // Marken: skuggor under trädet och korgen, så de står PÅ gräset.
+    const marken = new Graphics()
+    marken.ellipse(CX, 626, 250, 22).fill({ color: 0x2e6b3a, alpha: 0.24 })
+    marken.ellipse(CX, 626, 160, 13).fill({ color: 0x24562f, alpha: 0.22 })
+    marken.ellipse(1000, 676, 184, 16).fill({ color: 0x2e6b3a, alpha: 0.26 })
+    tree.addChild(marken)
+
+    // Stam: tapererad, med rotfötter, barklinjer och en kvistknut. `cylinderFill` ger rundningen.
     const trunk = new Graphics()
-    trunk.roundRect(-52, 320, 104, 304, 26).fill(COLORS.brown)
-    trunk.roundRect(-78, 588, 156, 40, 24).fill(COLORS.brown)
-    trunk.moveTo(0, 340).lineTo(0, 600).stroke({ width: 6, color: 0x6e4528, alpha: 0.4 })
-    trunk.position.set(640, 0)
-    tree.addChild(trunk)
+    trunk
+      .moveTo(534, 634)
+      .quadraticCurveTo(598, 624, 602, 548)
+      .quadraticCurveTo(606, 470, 598, 420)
+      .lineTo(682, 420)
+      .quadraticCurveTo(674, 470, 678, 548)
+      .quadraticCurveTo(682, 624, 746, 634)
+      .closePath()
+      .fill(cylinderFill(COLORS.brown, { dark: 0.3, highlight: 0.2 }))
+    trunk.moveTo(622, 600).quadraticCurveTo(612, 540, 622, 470)
+    trunk.moveTo(648, 610).quadraticCurveTo(656, 540, 646, 450)
+    trunk.moveTo(666, 590).quadraticCurveTo(660, 530, 668, 480)
+    trunk.stroke({ width: 4, color: 0x5e3a22, alpha: 0.32, cap: 'round' })
+    trunk.ellipse(628, 538, 10, 14).fill({ color: 0x5e3a22, alpha: 0.75 })
+    trunk.ellipse(629, 541, 5, 8).fill({ color: 0x3f2616, alpha: 0.8 })
 
-    // Lövkrona: mörka bas-bollar + ljusare topp-bollar.
+    // Grenar: tre kraftiga armar upp i kronan. Kronans lägsta puffar täcker det mesta;
+    // det som syns är grenfästet under kronan, där frukten i mitten hänger.
+    const limbs = new Graphics()
+    limbs.moveTo(632, 480).quadraticCurveTo(596, 440, 536, 408)
+    limbs.moveTo(648, 480).quadraticCurveTo(684, 440, 744, 408)
+    limbs.moveTo(640, 480).lineTo(640, 380)
+    limbs.stroke({ width: 36, color: 0x7a4d2f, cap: 'round' })
+    limbs.moveTo(632, 480).quadraticCurveTo(596, 440, 536, 408)
+    limbs.moveTo(648, 480).quadraticCurveTo(684, 440, 744, 408)
+    limbs.stroke({ width: 10, color: 0x9a6a46, alpha: 0.5, cap: 'round' })
+    tree.addChild(limbs, trunk)
+
+    // Kronans puffar: ett förskjutet rutnät inom en ellips + knoppar längs kanten (så konturen
+    // blir bucklig, inte en ellips). Luckan över stammen hålls öppen så den syns gå in i kronan.
+    const puffar = []
+    const lucka = (x, y) => Math.abs(x - CX) < 140 && y > 360
+    for (let rad = 0; rad < 5; rad++) {
+      const y0 = 90 + rad * 85
+      for (let x0 = 200 + (rad % 2 ? 50 : 0); x0 <= 1090; x0 += 100) {
+        const nx = (x0 - CX) / RX
+        const ny = (y0 - CY) / RY
+        if (nx * nx + ny * ny > 0.92 || lucka(x0, y0)) continue
+        puffar.push([x0 + (rnd() - 0.5) * 24, y0 + (rnd() - 0.5) * 20, 78 + rnd() * 26])
+      }
+    }
+    for (let a = 0; a < Math.PI * 2; a += 0.3) {
+      const x = CX + RX * Math.cos(a) * 0.98
+      const y = CY + RY * Math.sin(a) * 0.98
+      if (lucka(x, y)) continue
+      puffar.push([x, y, 62 + rnd() * 20])
+    }
+
     const back = new Graphics()
-    const blobs = [
-      [640, 300, 270],
-      [370, 330, 190],
-      [910, 330, 190],
-      [520, 200, 170],
-      [760, 200, 170],
-    ]
-    // `_plattprobe --medbakgrund` mätte kronan till 265 955 px — 29 % av skärmen — i EN
-    // ton. Scenen runt omkring (himmel, kullar, gräs) var redan tonad via `createScene`;
-    // det var trädet som var platt. Varje klump fylls nu med `topLightFill`, som mappas
-    // mot VARJE FORMS egen bbox — så de fem bollarna läser som fem klumpar med ljus
-    // ovanifrån i stället för som en enda grön silhuett. Cachad per färg.
-    blobs.forEach(([x, y, r]) => back.circle(x, y, r).fill(topLightFill(0x49a657, { highlight: 0.16, dark: 0.16 })))
+    puffar.forEach(([x, y, r]) => back.circle(x, y, r).fill(topLightFill(0x3f9a4f, { highlight: 0.12, dark: 0.22 })))
     tree.addChild(back)
 
-    const front = new Graphics()
-    blobs.forEach(([x, y, r]) => front.circle(x, y - 26, r - 34).fill(topLightFill(0x63c46f, { highlight: 0.2, dark: 0.18 })))
-    tree.addChild(front)
+    const mid = new Graphics()
+    puffar.forEach(([x, y, r], i) => {
+      if (i % 3 === 2) return
+      mid.circle(x + 6, y - 12, r * 0.74).fill(0x54b362)
+      mid.circle(x - r * 0.12, y - r * 0.42, r * 0.42).fill({ color: 0x6cc476, alpha: 0.85 })
+    })
+    tree.addChild(mid)
+
+    // Ljusfläckar och bladskuggor ovanpå: kronan får struktur i stället för jämna puffar.
+    const fl = new Graphics()
+    puffar.forEach(([x, y, r], i) => {
+      if (i % 2) return
+      fl.circle(x - r * 0.26, y - r * 0.5, r * 0.26).fill({ color: 0x9be39b, alpha: 0.5 })
+    })
+    for (let i = 0; i < 46; i++) {
+      const a = rnd() * Math.PI * 2
+      const d = Math.sqrt(rnd()) * 0.88
+      const x = CX + Math.cos(a) * RX * d
+      const y = CY + Math.sin(a) * RY * d
+      if (lucka(x, y)) continue
+      fl.circle(x, y, 4 + rnd() * 3).fill({ color: i % 2 ? 0x2f7a3f : 0xb6ecae, alpha: i % 2 ? 0.3 : 0.4 })
+    }
+    tree.addChild(fl)
+
+    // Små blommor i gräset vid roten.
+    const blommor = new Graphics()
+    ;[[430, 656, 0xff9ec4], [472, 674, 0xffffff], [378, 676, 0xffd35c], [526, 666, 0xff9ec4], [566, 650, 0xffffff]].forEach(([x, y, c]) => {
+      blommor.moveTo(x, y).lineTo(x + 1, y - 16).stroke({ width: 2.5, color: 0x3f8f4a })
+      for (let k = 0; k < 5; k++) {
+        const a = (k / 5) * Math.PI * 2
+        blommor.circle(x + 1 + Math.cos(a) * 5.5, y - 17 + Math.sin(a) * 5.5, 4.2).fill(c)
+      }
+      blommor.circle(x + 1, y - 17, 3).fill(0xffd35c)
+    })
+    tree.addChild(blommor)
 
     return tree
   },
@@ -217,7 +303,11 @@ export default {
     back.eventMode = 'none'
     back.interactiveChildren = false
     const b = new Graphics()
-    b.roundRect(-150, -46, 300, 116, 28).fill(COLORS.brown)
+    // Handtag bakom korgen: en båge som gör den till en korg, inte en låda. Toppen ligger på
+    // y ≈ 488, under rotens lägsta frukt i kronan.
+    b.moveTo(-132, -58).bezierCurveTo(-124, -130, 124, -130, 132, -58).stroke({ width: 14, color: 0x7a4a2a, cap: 'round' })
+    b.moveTo(-126, -62).bezierCurveTo(-118, -126, 118, -126, 126, -62).stroke({ width: 4, color: 0xb98457, alpha: 0.6, cap: 'round' })
+    b.roundRect(-150, -46, 300, 116, 28).fill(topLightFill(COLORS.brown, { highlight: 0.18, dark: 0.18 }))
     for (let i = -120; i <= 120; i += 30) b.moveTo(i, -40).lineTo(i, 64)
     b.moveTo(-148, -8).lineTo(148, -8)
     b.moveTo(-148, 30).lineTo(148, 30)
@@ -242,7 +332,7 @@ export default {
   _fruitArt(fruit) {
     const c = new Container()
     // Mjuk vit halo: lyfter frukten från den gröna kronan.
-    c.addChild(new Graphics().circle(0, 4, 60).fill({ color: 0xffffff, alpha: 0.22 }))
+    c.addChild(new Graphics().circle(0, 4, 60).fill({ color: 0xffffff, alpha: 0.38 })) // 0,22 räckte inte för päronet mot kronan
     // Markskugga.
     c.addChild(new Graphics().ellipse(0, 56, 42, 12).fill({ color: 0x000000, alpha: 0.16 }))
 
@@ -278,7 +368,12 @@ export default {
   // Interaktiv frukt-bricka: generös hitArea (radie 72 ≈ 144px mål) för små fingrar.
   _makeFruit(ctx, fruit) {
     const a = new Container()
-    a.addChild(this._fruitArt(fruit))
+    // Frukten hänger och guppar lite i grenen — i ett BARN (`_art`), så `a` (träffyta, flygtween,
+    // andnings-puls) står still medan bilden rör sig. Egen fas och takt per frukt.
+    const art = this._fruitArt(fruit)
+    a.addChild(art)
+    a._art = art
+    liv(art, { bob: 3.5, sway: 0.04, duration: 2 + Math.random() * 0.9 })
     a.eventMode = 'static'
     a.cursor = 'pointer'
     a.hitArea = new Circle(0, 0, 72)
@@ -350,6 +445,18 @@ export default {
 
   // --- rund-logik ---------------------------------------------------------
 
+  // Är nivån en "räkna alla"-runda? Nivå 0 är alltid det (introt). Därefter lottas EN plats per
+  // fyrarundorsblock (nivå 1–4, 5–8 …) bland blockets andra, tredje och fjärde runda.
+  _arAllaRunda(lvl) {
+    if (lvl < 1) return true
+    const block = Math.floor((lvl - 1) / 4)
+    if (this._allaBlock !== block) {
+      this._allaBlock = block
+      this._allaSlot = slumpIBand(2, 1, { heltal: true }) // 1..3
+    }
+    return (lvl - 1) % 4 === this._allaSlot
+  },
+
   // Ny runda: välj mål (växer med nivån), välj färsk frukttyp, spawna med studs.
   _newRound(ctx) {
     if (!this._alive) return
@@ -362,11 +469,18 @@ export default {
     // runda 2 blir det oftast ett "tryck på N stycken"-mål med en SYNLIG mål-
     // siffra så barnet övar att stanna vid rätt antal — där räkneförståelsen
     // sitter. Var fjärde runda blir "räkna alla" igen för variation.
+    //
+    // U2: ingen runda är lika förutsägbar som förut. "Räkna alla" ligger kvar EN gång per
+    // fyra rundor men på en lottad plats (aldrig först i blocket, så två "räkna alla" aldrig
+    // kommer i rad), och målet lottas inom nivåns band (± 1 kring 2..5, golv 2, tak 5, aldrig
+    // samma som förra rundans) — svårigheten står kvar, antalet är inte given på förhand.
     const lvl = this._level
     const grow = Math.min(10, 3 + lvl)
-    this._goalMode = lvl >= 1 && lvl % 4 !== 0
+    this._goalMode = lvl >= 1 && !this._arAllaRunda(lvl)
     if (this._goalMode) {
-      this._target = 2 + ((lvl - 1) % 4) // 2..5 att trycka på (börjar på 2)
+      const mitt = 2 + ((lvl - 1) % 4)
+      this._target = slumpIBand(mitt, 1, { heltal: true, golv: 2, tak: 5, forra: this._forraMal })
+      this._forraMal = this._target
       this._onTree = Math.min(10, this._target + 2 + (lvl % 2)) // några extra i trädet
     } else {
       this._target = grow
@@ -381,6 +495,7 @@ export default {
 
     // Rensa förra rundans frukt.
     this._appleLayer.removeChildren().forEach((o) => {
+      o._art?._fxLiv?.kill() // guppet är en proxy-tween — killTweensOf(o) når den inte
       gsap.killTweensOf(o)
       gsap.killTweensOf(o.scale)
       o.destroy({ children: true })
@@ -472,6 +587,7 @@ export default {
     a.eventMode = 'none'
     this._idle = 0
     this._breathTween?.kill()
+    this._stillaLiv(a)
     const n = ++this._count
     this._picked.push(a)
 
@@ -519,6 +635,16 @@ export default {
         if (this._alive) this._cueNext()
       })
     }
+  },
+
+  // Plockad frukt slutar gunga i grenen (guppet är en egen proxy-tween på `_art`).
+  _stillaLiv(a) {
+    const art = a?._art
+    if (!art || art.destroyed) return
+    art._fxLiv?.kill()
+    art._fxLiv = null
+    art.y = 0
+    art.rotation = 0
   },
 
   // Visa/studsa in den stora siffran vid varje plock.
@@ -691,6 +817,7 @@ export default {
     this._recountTl?.kill()
     this._sweepTl?.kill()
     ;(this._apples || []).forEach((a) => {
+      a._art?._fxLiv?.kill()
       gsap.killTweensOf(a)
       gsap.killTweensOf(a.scale)
     })

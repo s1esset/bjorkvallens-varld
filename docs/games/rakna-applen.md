@@ -96,6 +96,18 @@ ber barnet *förstå* mängd, känna igen siffran eller stanna vid rätt antal.
 
 ## 5. Status / loggar
 
+- 2026-10-02 ✅ **Högen i korgen (FYSIKPLAN P3, `lib/hog.js`).** Plockad frukt flyger (som förut) till korgens
+  mynning, men lämnas där till en `Hog`: den får en kropp (radie 24), faller på sin plats och lägger sig, och
+  puff + plums + korgstuds kommer när den SLÅR I (`paSlag` → `_landa`; en reservtimer efter 0,9 s ser till att
+  kvittot alltid kommer). Räkningen är orörd: 1 tryck = 1 frukt = 1 ord, siffra/prickar/omräkning/total som
+  förut. **Taket är 10, inte 5:** ett "räkna alla"-mål går till 10 och omräkningen studsar varje plockad frukt
+  — en frukt som tonade bort hade fått korgen att ljuga. Läsbarheten hålls av platserna (`_hogSlot`): frukten
+  släpps rakt över sin plats, rad 0 = upp till 5 bredvid varandra (vänster→höger = räkneordningen), rad 1
+  nästlad i gluggarna inifrån och ut, rad 2 ovanpå. Mätt (`_hogprobe` F): 3/5/7/10 frukter → antal = fångade,
+  minsta avstånd 47,5–48 px (inget gömmer sig bakom ett annat), störst avvikelse från platsen ≤ 4 px, 0 rymt,
+  allt sover; tryck i otakt (0,1 s) ger samma. Mål-läget (≤ 5) ligger alltid på en rad som förut. Mät:
+  `g._hog.antal` (= `g._count` upp till 10), `g._hog.rymt`, `g._hog.vilar`.
+
 - 2026-10-02 ✅ **Omgång 0 (FYSIKPLAN U2 + L1 + L2).** *Variation:* målantalet i "tryck på N"-rundor
   lottas inom nivåns band (`2 + ((lvl-1) % 4)` ± 1, golv 2, tak 5, aldrig samma som förra) och
   "räkna alla" ligger på en lottad plats per fyrarundorsblock (aldrig först i blocket, så två

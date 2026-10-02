@@ -21,6 +21,21 @@ import { COLORS, FONT } from '../../lib/theme.js'
 import { topLightFill, cylinderFill } from '../../lib/form.js'
 import { randomFrom, shuffle } from '../../lib/swedish.js'
 import { slumpIBand } from '../../lib/variation.js'
+import { Hog } from '../../lib/hog.js'
+import { Body } from '../../lib/physics.js'
+
+// Högen i korgen (FYSIKPLAN P3). Korgen står på (1000, 600); innerväggarna och golvet är måttade mot
+// dess ritning. Fruktens kropp har radie 24 — en aning mer än bilden (äpple 52·0,42 ≈ 22) så att raden ligger tätt.
+// Taket är 10 = det MEST som en runda räknar — en frukt som tonade bort skulle ljuga för omräkningen
+// ("ett, två, tre …" studsar varje plockad frukt), så ingen fångad frukt försvinner. Läsbarheten hålls av
+// PLATSERNA (_hogSlot): frukterna släpps rakt över sin plats så de ligger i rader om högst 5, nästa rad
+// nästlad i gluggarna — samma bild som den gamla staplingen, fast med riktig tyngd.
+const KORG_X = 1000
+const HOG_R = 24
+const HOG_RAD = 48 // avstånd mellan två frukter i en rad = 2·HOG_R: raden ligger tätt och nästlingen blir en regelbunden sexhörning
+const HOG_RAD_HOJD = 41.6 // nästlad rad: sqrt(48² − 24²)
+const HOG_GOLV = 624
+const HOG_Y0 = 600 // mittpunkten på första raden
 
 // Räkneorden 1–10 (rundans mål håller sig alltid inom 1–10).
 const NUM = ['ett', 'två', 'tre', 'fyra', 'fem', 'sex', 'sju', 'åtta', 'nio', 'tio']
@@ -165,6 +180,10 @@ export default {
     this._squirrel.position.set(806, 664)
     this._root.addChild(this._squirrel)
     this._squirrelIdle = breathe(this._squirrel, { scale: 1.03, duration: 1.9 })
+
+    // 9b) Högen i korgen: plockad frukt faller ner och lägger sig (sömn: en vilande hög står still).
+    this._hog = new Hog(this._hogOpt())
+    this._hog.paSlag((post) => this._landa(ctx, post))
 
     this._newRound(ctx)
 
@@ -433,14 +452,48 @@ export default {
     })
   },
 
-  // Stapelplats i korgen för det i:te plockade frukten (upp till 5 per rad).
-  _stackPos(i, total) {
-    const cols = Math.min(5, total)
-    const spacing = 52
-    const col = i % cols
-    const row = Math.floor(i / cols)
-    const baseX = 1000 - ((cols - 1) * spacing) / 2
-    return { x: baseX + col * spacing + (Math.random() * 2 - 1) * 4, y: 600 - row * 42 }
+  // Högens kanter, tak och gravitation (en ren funktion av modulens tal — `_hogprobe` bygger samma Hog).
+  _hogOpt() {
+    return {
+      kanter: { x0: KORG_X - 136, x1: KORG_X + 136, y1: HOG_GOLV },
+      postR: HOG_R, // inte en Hog-option: sonden läser radien här
+      tak: 10,
+      sova: true,
+      gravitation: 0.9,
+      // Frukten bär egna tweens (guppet, andningen, studsen vid omräkningen): döda dem före rivningen.
+      bort: (p) => {
+        const o = p.vy
+        if (!o || o.destroyed) return
+        o._art?._fxLiv?.kill()
+        gsap.killTweensOf(o)
+        gsap.killTweensOf(o.scale)
+        o.destroy({ children: true })
+      },
+    }
+  },
+
+  // Platsen för den i:te plockade frukten av `total`: x där den släpps, `restY` där den bör landa och `hoverY`
+  // dit tweenen flyger den (70 px ovanför) innan fysiken tar över. Rad 0: upp till 5 bredvid varandra, vänster
+  // till höger (barnet räknar i ordning). Rad 1: nästlad i gluggarna, inifrån och ut. Rad 2: nästlad ovanpå rad 1.
+  // Ren funktion (rör inte `this`) — `_hogprobe` kör den.
+  _hogSlot(i, total) {
+    const cols = Math.min(5, Math.max(1, total))
+    const baseX = KORG_X - ((cols - 1) * HOG_RAD) / 2
+    let x
+    let rad
+    if (i < cols) {
+      x = baseX + i * HOG_RAD
+      rad = 0
+    } else if (i < 2 * cols - 1) {
+      const par = [...Array(cols - 1).keys()].sort((p, q) => Math.abs(p + 0.5 - (cols - 1) / 2) - Math.abs(q + 0.5 - (cols - 1) / 2))
+      x = baseX + (par[i - cols] + 0.5) * HOG_RAD
+      rad = 1
+    } else {
+      x = baseX + (i - (2 * cols - 1) + 1) * HOG_RAD
+      rad = 2
+    }
+    const restY = HOG_Y0 - rad * HOG_RAD_HOJD
+    return { x, restY, hoverY: restY - 70 }
   },
 
   // --- rund-logik ---------------------------------------------------------
@@ -493,7 +546,8 @@ export default {
     this._fruit = randomFrom(pool)
     this._lastFruitId = this._fruit.id
 
-    // Rensa förra rundans frukt.
+    // Rensa förra rundans frukt (högens först: dess `bort` dödar tweens på de plockade).
+    this._hog?.tom(true)
     this._appleLayer.removeChildren().forEach((o) => {
       o._art?._fxLiv?.kill() // guppet är en proxy-tween — killTweensOf(o) når den inte
       gsap.killTweensOf(o)
@@ -599,8 +653,10 @@ export default {
     this._fillProgress(n - 1)
     ctx.services.voice.say(numWord(n))
 
-    // Flyg till korgen (kort puls -> krymp + sus), liten puff vid landning.
-    const stack = this._stackPos(n - 1, this._target)
+    // Flyg till korgens mynning (kort puls -> krymp + sus). Där tar högen över: frukten faller på sin plats
+    // och lägger sig (`_ner`), och puff + plums + korgstuds kommer när den slår i (`_landa`).
+    const slot = this._hogSlot(n - 1, this._target)
+    slot.x += (Math.random() * 2 - 1) * 2
     gsap.killTweensOf(a)
     gsap.killTweensOf(a.scale)
     gsap
@@ -608,22 +664,13 @@ export default {
       .to(a.scale, { x: 1.25, y: 1.25, duration: 0.1, ease: 'power2.out' })
       .to(a.scale, { x: 0.42, y: 0.42, duration: 0.45, ease: 'power2.in' })
     gsap.to(a, {
-      x: stack.x,
-      y: stack.y,
+      x: slot.x,
+      y: slot.hoverY,
       rotation: (Math.random() * 2 - 1) * 0.35,
       duration: 0.5,
       ease: 'power2.inOut',
       delay: 0.06,
-      onComplete: () => {
-        if (!this._alive) return
-        if (!a.destroyed) puff(ctx.fxLayer, stack.x, stack.y + 8, { count: 5, color: this._fruit.body })
-        // Taktil landning: "plums"-ljud + en studs på korgen som blir DJUPARE ju fullare
-        // korgen är (n = den här fruktens plats, inte `_count` — snabba tryck landar sent).
-        this._plums(ctx)
-        const fyll = Math.min(1, n / Math.max(1, this._target))
-        this._basketBounce(0.94 - 0.08 * fyll, 1.04 + 0.06 * fyll)
-        this._cheer(1)
-      },
+      onComplete: () => this._ner(ctx, a, n),
     })
     ctx.services.audio.sfx('whoosh')
 
@@ -635,6 +682,32 @@ export default {
         if (this._alive) this._cueNext()
       })
     }
+  },
+
+  // Frukten har flugit till korgens mynning: lämna över den till högen (kropp + länk), som släpper den.
+  // n = den här fruktens plats (inte `_count` — snabba tryck landar sent).
+  _ner(ctx, a, n) {
+    if (!this._alive || !this._hog || a.destroyed) return
+    const post = this._hog.lagg({ cirkel: HOG_R, vy: a, studs: 0.18, friktion: 0.5, luft: 0.02, label: 'frukt' }, a.x, a.y, { x: 0, y: 1.5 })
+    if (!post) return
+    post.n = n
+    post.landad = false
+    Body.setAngle(post.body, a.rotation)
+    // Reserv: slår den aldrig i hårt nog för att höras (en tät hög) kommer kvittot ändå.
+    ctx.later(0.9, () => this._landa(ctx, post))
+  },
+
+  // Taktil landning: puff + "plums"-ljud + en studs på korgen som blir DJUPARE ju fullare korgen är.
+  _landa(ctx, post) {
+    if (!this._alive || post.landad) return
+    post.landad = true
+    const a = post.vy
+    if (!a || a.destroyed) return
+    puff(ctx.fxLayer, a.x, a.y + 14, { count: 5, color: this._fruit.body })
+    this._plums(ctx)
+    const fyll = Math.min(1, post.n / Math.max(1, this._target))
+    this._basketBounce(0.94 - 0.08 * fyll, 1.04 + 0.06 * fyll)
+    this._cheer(1)
   },
 
   // Plockad frukt slutar gunga i grenen (guppet är en egen proxy-tween på `_art`).
@@ -793,7 +866,9 @@ export default {
 
   // Idle-recue: ~6s utan plock -> upprepa ledtråd + vingla en oplockad frukt.
   _update(ctx, ticker) {
-    if (!this._alive || this._resolving) return
+    if (!this._alive) return
+    this._hog?.update(ticker.deltaMS) // stegar högen också under omräkningen
+    if (this._resolving) return
     // Tomgången räknas från TYSTNAD: medan en replik talar står klockan still (V21 —
     // annars kapar påminnelsens say() en replik som redan talar).
     if (ctx.services.voice.talar) this._idle = 0
@@ -816,6 +891,8 @@ export default {
     this._shakeTween?.kill()
     this._recountTl?.kill()
     this._sweepTl?.kill()
+    this._hog?.destroy()
+    this._hog = null
     ;(this._apples || []).forEach((a) => {
       a._art?._fxLiv?.kill()
       gsap.killTweensOf(a)

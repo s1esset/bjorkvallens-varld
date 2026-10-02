@@ -89,15 +89,23 @@ inget distraherar från storleksjämförelsen.
 - **[Quick] Variera berömfraserna + lägg lugn ambient** så loopen känns mindre upprepad.
   *Berömfraserna varierar redan (`WORDS` :72, fem per storlek, alla med röstklipp). Kvar är
   ambienten, som kräver ett SFX-klipp — blockerad så länge MOSS är nere.*
+- **[Quick] Stora saker kan landa halvt utanför filten (kritiken 2026-10-02, P4).** Den stora blomman i vänsterkolumnen hamnade med skuggan på gräset; begränsa slot-x med föremålets bredd så "landar på filten" alltid stämmer.
+
 
 ## 5. Status / loggar
 
+- 2026-10-02 ✅ **Sakerna LANDAR (FYSIKPLAN P4)**: varje sak släpps från ovankanten (förskjutet 70 ms per sak) och
+  landar på filten med `lib/landa.js` i ett inre barn (`fall`; skuggan i `sk`) — containern som är
+  DragController-mål och bär träffytan står still. Stort = ETT tungt duns (djup ton G2→G1, jätten ännu djupare, klämning,
+  damm, ett milt skak av spel-lagret), mellan = två små hopp (C5→A4), litet = tre avtagande studsar med stigande
+  toner (G6 C7 E7). Skuggan växer och mörknar medan saken faller. Greppar barnet saken mitt i fallet (`pointerdown`
+  eller tap-tap-val) kör `avbryt()`: saken ligger i handen omedelbart. Allt rivs i `_destroyItems`/`destroy()`
+  (`_landaRiv`), skak-skippas medan något hålls. Landningen ÄR lektionen: tungt = stort, studsigt = litet.
 - 2026-10-02 ✅ **Sakerna ligger på marken (FYSIKPLAN §5.4 + L1)**: horisonten flyttad till y 200
   (`groundH`), en picknickfilt i perspektiv ritad under sakerna, trädlinje (`silhuett: 'skog'`) och
   strån i förgrunden (`forgrund`). `_gridSlots` ger högst två förskjutna rader på filten (y 258/316) i
   stället för tre rader i himlen (y 140–320); jitter via `slumpIBand`. Texten "Stor"/"Mellan"/"Liten"
-  under kompisarna är borta. Scenens moln är avstängda (temat som objekt med `clouds: 0`) — de slumpas ner till y ≈ 300 och drev över gräset; skuggan under sakerna dragen upp till `font * 0.38` så de LIGGER (kritiken) (P0: noll läsning — önske-spöket på magen bär ledtråden). Landa-intro (P4)
-  är INTE byggd; sakerna dyker fortfarande upp med `bounceIn`.
+  under kompisarna är borta. Scenens moln är avstängda (temat som objekt med `clouds: 0`) — de slumpas ner till y ≈ 300 och drev över gräset; skuggan under sakerna dragen upp till `font * 0.38` så de LIGGER (kritiken) (P0: noll läsning — önske-spöket på magen bär ledtråden). (Landa-intro byggd samma dag, se nedan.)
 
 - 2026-10-01 · **Barnets egna figurer (LYFTPLAN §10, v1.287.0).** Mottagarna kan vara barnets knytt/kompisar
   (eller mötta knytt): `valjEgna(…, { antal: antalMottagare })` EN gång per runda (`_valjFigurer`), figurerna

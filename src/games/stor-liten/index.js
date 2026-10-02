@@ -20,6 +20,7 @@ import { randomFrom, shuffle } from '../../lib/swedish.js'
 import { valjEgna, byggEgenFigur, presentera } from '../../lib/egnafigurer.js'
 import { slumpIBand } from '../../lib/variation.js'
 import { COLORS } from '../../lib/theme.js'
+import { landa } from '../../lib/landa.js'
 
 // Ny gullig figur varje runda (samma figur i flera storlekar) -> alltid en rent
 // STORLEKS-uppgift, men friskt och varierat: djur, frukt, fordon, leksaker.
@@ -89,6 +90,15 @@ const FIG_MATT = {
   liten: { hojd: 124, maxBredd: 134 },
 }
 
+// Landningen (FYSIKPLAN P4): sakerna SLÄPPS från ovankanten och landar på filten. Stort = DUNS
+// (en tung studs, djup ton, skak, damm), litet = STUDS (flera avtagande hopp, ljus ton). Ljuden
+// är toner ur en och samma skala (C-dur): stor D3→D2 (surfplattehögtalare rullar av under ~150 Hz), mellan C5→A4, liten G6→C7→E7.
+const LANDNING = {
+  stor: { tyngd: 'stor', ton: { freq: 150, slideTo: 75, dur: 0.28, type: 'sine', vol: 0.26 }, skak: 3, damm: 6, klam: { x: 1.14, y: 0.84, dur: 0.34 } },
+  mellan: { tyngd: 'liten', studs: 0.3, ton: { freq: 523.25, slideTo: 440, dur: 0.18, type: 'sine', vol: 0.22 }, skak: 0, damm: 0, klam: { x: 1.09, y: 0.9, dur: 0.26 } },
+  liten: { tyngd: 'liten', ton: { freq: 1567.98, dur: 0.12, type: 'triangle', vol: 0.2 }, skak: 0, damm: 0, klam: { x: 1.08, y: 0.9, dur: 0.2 } },
+}
+const STUDS_TONER = [1567.98, 2093, 2637.02] // G6 C7 E7 — varje hopp en ton högre och svagare
 const INTRO_TWO = 'Ge de stora sakerna till den stora kompisen och de små till den lilla kompisen!'
 const INTRO_THREE = 'Ge sakerna till rätt kompis: stor, mellan och liten!'
 
@@ -179,6 +189,9 @@ export default {
     this._root.addChild(this._play)
 
     this._drag = new DragController({ space: this._play, services: ctx.services })
+    // Skuggan under en fallande sak växer och mörknar ju närmare marken den kommer.
+    this._skTick = () => this._skuggor()
+    ctx.ticker.add(this._skTick)
     this._newRound(ctx)
   },
 
@@ -464,7 +477,17 @@ export default {
       const y = slot.y + slumpIBand(0, 14)
       view.position.set(slot.x + slumpIBand(0, 20), v === 'jatte' ? Math.min(y, FILT.yRad1 + 20) : y)
       this._play.addChild(view)
-      bounceIn(view, { delay: i * 0.05, duration: 0.34 })
+      // Saken faller in ovanifrån och landar på sin plats (inre barn `fall`); träffytan står still.
+      const topp = Math.min(0, ctx.view?.top ?? 0)
+      made._land = landa(made.fall, {
+        ticker: ctx.ticker,
+        fran: topp - view.y - made.halv - 30,
+        markY: 0,
+        tyngd: LANDNING[key].tyngd,
+        studs: LANDNING[key].studs,
+        fordrojning: i * 70,
+        onLand: (_t, slag) => this._vidNedslag(ctx, made, key, slag),
+      })
 
       // Egna lyft-lyssnare (DragController ger ingen "plocka upp"-hook vid drag):
       // föremålet lyfter, skuggan växer + tonar (känns högre upp). Exit-säkert —
@@ -473,6 +496,8 @@ export default {
         if (!this._alive || view.destroyed) return
         this._killHint()
         this._resetIdle(ctx)
+        made._held = true
+        this._landaAvbryt(made) // greppar man mitt i fallet ligger saken i handen direkt
         ctx.services.audio.sfx('pop')
         this._tittaPa(view)
         gsap.killTweensOf(made.body)
@@ -483,6 +508,7 @@ export default {
         gsap.to(made.shadow.scale, { x: 1.5, y: 1.3, duration: 0.14 })
       }
       const settle = () => {
+        made._held = false
         if (view.destroyed) return
         gsap.killTweensOf(made.body)
         gsap.killTweensOf(made.shadow)
@@ -499,7 +525,10 @@ export default {
       this._itemRecs.push(made)
 
       this._drag.addItem(view, { size: key }, {
-        onSelect: () => this._resetIdle(ctx),
+        onSelect: () => {
+          this._landaAvbryt(made)
+          this._resetIdle(ctx)
+        },
         onCorrect: (rec, target) => this._onCorrect(ctx, rec, target, made),
         onWrong: (rec, target) => this._onWrong(ctx, rec, target, made),
       })
@@ -558,15 +587,94 @@ export default {
     // Jätte/pytte skalar bara KONSTEN (figur + skugga) — träffytan nedan står kvar.
     const font = s.font * (VARIANT[variant]?.art ?? 1)
     const shadow = new Graphics().ellipse(0, font * 0.38, font * 0.44, font * 0.14).fill({ color: 0x000000, alpha: 0.18 })
+    // `sk` bär skuggan (storlek/mörkhet följer höjden), `fall` bär saken (landa() skriver bara
+    // fall.y). Båda är INRE barn: containern `c` är DragControllers mål och står still.
+    const sk = new Container()
+    sk.addChild(shadow)
+    const fall = new Container()
+    // `klam` klämmer saken kring FOTEN (pivot = foten), så foten stannar på skuggan; landa() rör bara fall.y.
+    const klam = new Container()
+    klam.pivot.set(0, font * 0.42)
+    klam.position.set(0, font * 0.42)
     const body = new Container()
     // P0 ASSETS: RITAD figur (var en emoji-Text). Storleken bär hela poängen.
     const e = drawIcon(emoji, font)
     body.addChild(e)
-    c.addChild(shadow, body)
+    fall.addChild(klam)
+    klam.addChild(body)
+    c.addChild(sk, fall)
     // Osynlig träffyta runt figuren (minst 96px diameter -> radie >=48) så även
     // "liten" är lätt att träffa; layout/avstånd är oförändrade.
     c.hitArea = new Circle(0, 0, Math.max(s.plate, 50))
-    return { container: c, body, shadow }
+    return { container: c, body, shadow, sk, fall, klam, halv: font * 0.55 }
+  },
+
+  // Är något föremål i barnets hand just nu? Då skakar vi inte spel-lagret vid en landning.
+  _nagonHalls() {
+    return this._itemRecs.some((m) => m._held && !m.container.destroyed)
+  },
+
+  // Skuggorna följer höjden: högt = liten och blek, nere = full. Bara medan landningen pågår.
+  _skuggor() {
+    if (!this._alive || !this._itemRecs) return
+    for (const m of this._itemRecs) {
+      if (!m._land || m.sk.destroyed || m.fall.destroyed) continue
+      const k = Math.min(1, Math.max(0, -m.fall.y) / 500)
+      m.sk.scale.set(1 - 0.5 * k)
+      m.sk.alpha = 1 - 0.6 * k
+      if (!m._land.ar) {
+        m._land = null
+        m.sk.scale.set(1)
+        m.sk.alpha = 1
+      }
+    }
+  },
+
+  // Barnet greppade mitt i fallet (eller tap-tap valde saken): saken ligger på marken OMEDELBART.
+  _landaAvbryt(made) {
+    if (!made._land) return
+    made._land.avbryt()
+    made._land = null
+    if (made.fall.destroyed) return
+    gsap.killTweensOf(made.klam.scale)
+    made.klam.scale.set(1)
+    made.sk.scale.set(1)
+    made.sk.alpha = 1
+  },
+
+  _landaRiv(made) {
+    made._land?.destroy()
+    made._land = null
+    if (made.fall && !made.fall.destroyed) {
+      gsap.killTweensOf(made.fall)
+      gsap.killTweensOf(made.klam.scale)
+    }
+  },
+
+  // Nedslag: ljud + bild på en gång. Stort: ett djupt duns, en klämning, skak och damm. Litet:
+  // ett ljust plopp per hopp, varje en ton högre och svagare. Inget av detta rör containern.
+  _vidNedslag(ctx, made, key, slag) {
+    if (!this._alive || made.fall.destroyed) return
+    const L = LANDNING[key]
+    const jatte = made.variant === 'jatte'
+    const audio = ctx.services.audio
+    if (key === 'liten') {
+      if (slag.nr < STUDS_TONER.length) audio.tone({ ...L.ton, freq: STUDS_TONER[slag.nr], vol: L.ton.vol * Math.pow(0.65, slag.nr) })
+    } else if (slag.nr === 0) {
+      audio.tone(jatte ? { ...L.ton, freq: 120, slideTo: 60, dur: 0.38, vol: 0.3 } : L.ton)
+    } else if (slag.nr === 1 && key === 'mellan') {
+      audio.tone({ ...L.ton, freq: 659.25, slideTo: 587.33, vol: 0.12 })
+    }
+    if (slag.nr < 2) {
+      const k = L.klam
+      const f = (jatte ? 1.5 : 1) / (slag.nr + 1)
+      gsap.fromTo(made.klam.scale, { x: 1 + (k.x - 1) * f, y: 1 - (1 - k.y) * f }, { x: 1, y: 1, duration: k.dur, ease: 'back.out(2.2)', overwrite: true })
+    }
+    if (slag.nr === 0 && L.skak) {
+      if (!this._nagonHalls()) this._shakePlay(jatte ? L.skak + 2 : L.skak, 0.28)
+      const v = made.container
+      puff(ctx.fxLayer, v.x, v.y + made.halv * 0.7, { count: jatte ? L.damm + 4 : L.damm, color: 0xe8dcc0 })
+    }
   },
 
   // Rätt kompis: glad röst + storleksbundet ljud/skvätt, prickraden fylls, ring +
@@ -585,6 +693,7 @@ export default {
     else if (made.variant === 'pytte') sparkle(ctx.fxLayer, target.view.x, target.view.y, { count: 8 })
     if (Math.random() < 0.4) floatText(ctx.fxLayer, rec.view.x, rec.view.y - 40, randomFrom(HAPPY))
 
+    this._landaRiv(made)
     gsap.killTweensOf(made.body)
     gsap.killTweensOf(made.shadow)
     made.shadow.alpha = 0
@@ -705,6 +814,7 @@ export default {
       return
     }
     for (const m of this._itemRecs) {
+      this._landaRiv(m)
       gsap.killTweensOf(m.body)
       gsap.killTweensOf(m.body.scale)
       gsap.killTweensOf(m.shadow)
@@ -748,8 +858,11 @@ export default {
     // DragController river sina lyssnare och dödar föremåls-view-tweens.
     this._drag?.destroy()
     // Egna sub-objekt-tweens (kropp/skugga/skala) som DragController inte känner till.
+    if (this._skTick) ctx?.ticker?.remove(this._skTick)
+    this._skTick = null
     if (this._itemRecs) {
       for (const m of this._itemRecs) {
+        this._landaRiv(m)
         gsap.killTweensOf(m.body)
         gsap.killTweensOf(m.body.scale)
         gsap.killTweensOf(m.shadow)

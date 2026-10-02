@@ -19,7 +19,7 @@
 import { Container, Graphics, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { PhysicsWorld, Body, speedToAccel } from '../../lib/physics.js'
-import { createScene } from '../../lib/scene.js'
+import { buildAutomat } from './automat.js'
 import { makeBoll } from '../../lib/foremal.js'
 import { sparkle, puff, floatText, breathe, pop } from '../../lib/feedback.js'
 import { randomFrom } from '../../lib/swedish.js'
@@ -135,9 +135,10 @@ export default {
     this._root = new Container()
     ctx.stage.addChild(this._root)
 
-    // Mjuk bakgrund.
-    this._scene = createScene('candy', { width: ctx.width, height: ctx.height })
-    this._root.addChild(this._scene)
+    // L2: brädet är planen i en spelautomat — skåp, skylt, ram med blinkande lampor (automat.js).
+    // Ren dekor bakom allt spelbart; egna tweens dödas i destroy.
+    this._automat = buildAutomat()
+    this._root.addChild(this._automat.back)
 
     // Fysik: golv + sidoväggar (myntet ramlar in uppifrån). Normal nedåtgravitation —
     // ingen konstig/förstärkt tyngdkraft, myntet faller naturligt.
@@ -177,9 +178,10 @@ export default {
       .stroke({ width: 4, color: COLORS.inkSoft, alpha: 0.2 })
     board.eventMode = 'none'
     this._root.addChild(board)
+    this._root.addChild(this._automat.decor)
 
     // Mjuk markering av toppbandet (där man drar).
-    const band = new Graphics().roundRect(72, 16, ctx.width - 144, 96, 24).fill({ color: COLORS.yellow, alpha: 0.18 })
+    const band = new Graphics().roundRect(72, 16, ctx.width - 144, 96, 24).fill({ color: COLORS.yellow, alpha: 0.26 })
     band.eventMode = 'none'
     this._root.addChild(band)
 
@@ -546,7 +548,7 @@ export default {
   _buildPegs(ctx, rows) {
     for (const b of this._pegBodies) this._phys.removeBody(b)
     this._pegBodies = []
-    for (const c of [...this._pegLayer.children]) { gsap.killTweensOf(c.scale); c.destroy() }
+    for (const c of [...this._pegLayer.children]) { gsap.killTweensOf(c.scale); c.destroy({ children: true }) }
     this._pegViews = []
 
     const top = 200
@@ -559,13 +561,7 @@ export default {
       for (let x = marginX + offset; x <= ctx.width - marginX; x += colGap) {
         const body = this._phys.circle(x, y, 10, { isStatic: true, restitution: 0.5, friction: 0.1, label: 'peg' })
         this._pegBodies.push(body)
-        const peg = new Graphics()
-          .circle(0, 0, 10)
-          .fill(COLORS.white)
-          .stroke({ width: 3, color: COLORS.inkSoft, alpha: 0.35 })
-        const dot = new Graphics().circle(-3, -3, 3).fill({ color: COLORS.white, alpha: 0.9 })
-        dot.eventMode = 'none'
-        peg.addChild(dot)
+        const peg = this._makePeg()
         peg.x = x
         peg.y = y
         peg._base = { x, y }
@@ -573,6 +569,34 @@ export default {
         this._pegViews.push(peg)
       }
     }
+  },
+
+  // Pinnarna är riktiga träknoppar som sticker upp ur brädet (L2): mörkbrun kula med ljus
+  // kupa, glans och en mjuk skugga på brädet — fristående föremål, inte en tom vit ring.
+  // Brun som tratten och avdelarna, och mörk nog att synas mot det gräddvita brädet.
+  // Fysikkroppen (radie 10) är orörd; kulan är ritad i samma storlek, skuggan sticker ut.
+  _makePeg() {
+    const c = new Container()
+    c.eventMode = 'none'
+    const skugga = new Graphics().ellipse(2.5, 7, 11, 5).fill({ color: 0x4a3526, alpha: 0.24 })
+    const body = new Graphics()
+    c.addChild(skugga, body)
+    c._body = body
+    this._drawPeg(body, false)
+    return c
+  },
+
+  _drawPeg(g, lit) {
+    if (!g || g.destroyed) return
+    g.clear()
+    if (lit) {
+      g.circle(0, 0, 10).fill(COLORS.yellow).stroke({ width: 3, color: 0xffffff, alpha: 0.9 })
+      g.circle(-3, -3.5, 3).fill({ color: 0xffffff, alpha: 0.9 })
+      return
+    }
+    g.circle(0, 0, 10).fill(0x8a5a3b).stroke({ width: 2.5, color: 0x5a3a24 })
+    g.circle(-1.5, -2, 7).fill({ color: 0xc08a58, alpha: 0.75 })
+    g.circle(-3.4, -4, 2.8).fill({ color: 0xffffff, alpha: 0.85 })
   },
 
   // Pinnen TÄNDS när myntet slår i den: en snabb ljusblixt + puls + en krusning.
@@ -590,12 +614,12 @@ export default {
     }
     if (!best) return
     gsap.killTweensOf(best.scale)
-    best.clear().circle(0, 0, 10).fill(COLORS.yellow).stroke({ width: 3, color: 0xffffff, alpha: 0.9 })
+    this._drawPeg(best._body, true)
     gsap.fromTo(best.scale, { x: 1.9, y: 1.9 }, {
       x: 1, y: 1, duration: 0.34, ease: 'power2.out',
       onComplete: () => {
         if (best.destroyed) return
-        best.clear().circle(0, 0, 10).fill(COLORS.white).stroke({ width: 3, color: COLORS.inkSoft, alpha: 0.35 })
+        this._drawPeg(best._body, false)
       },
     })
   },
@@ -695,7 +719,7 @@ export default {
   _drawMeterDot(g, filled, color) {
     g.clear().circle(0, 0, 22)
     if (filled) g.fill(color).stroke({ width: 4, color: COLORS.white, alpha: 0.9 })
-    else g.fill({ color: COLORS.white, alpha: 0.35 }).stroke({ width: 4, color: COLORS.inkSoft, alpha: 0.45 })
+    else g.fill({ color: COLORS.white, alpha: 0.3 }).stroke({ width: 4, color: 0xb7a9ff, alpha: 0.8 })
   },
 
   _refreshMeter() {
@@ -1110,6 +1134,7 @@ export default {
     })
     this._balls = []
 
+    this._automat?.destroy()
     this._phys?.destroy()
     gsap.killTweensOf(this._root)
     ctx?.services?.voice?.cancel()

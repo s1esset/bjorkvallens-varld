@@ -3,8 +3,8 @@
 
 ## 1. Nuläge (sett som spelare)
 
-Ett plinko-bräde: en stor ljus spelyta full av vita pinnar (en förskjuten triangel) och
-nederst en rad färgglada fickor. Högst upp följer ett glansigt mynt mitt finger — jag DRAR
+Ett plinko-bräde i en spelautomat: en stor ljus spelyta full av bruna träknoppar (en förskjuten
+triangel, 2026-10-02) och nederst en rad färgglada fickor. Högst upp följer ett glansigt mynt mitt finger — jag DRAR
 det i sidled (en prickad linje + kolumn-highlight visar var det "lutar åt") och SLÄPPER.
 Myntet faller helt naturligt under tyngdkraften, pingar livligt mot pinnarna och landar i
 en ficka. En ficka **LYSER** (en utropad färg, "Släpp i den gröna fickan!") och myntet har
@@ -89,6 +89,19 @@ livlös rekvisita.
 
 ## 5. Status / loggar
 
+- 2026-10-02 🎨 **L2: spelautomat i stället för vit tavla** (`automat.js`, ny fil; natt F5 B3). Brädet
+  stod mot en rosa bokehbakgrund och pinnarna var tomma vita ringar (P0 ASSETS-gränsfall). Nu:
+  planen sitter i ett lila skåp med tapetmönster, mörka sidopelare med nitar, ett fönster runt
+  mätaren, en skylt med guldkant och tindrande stjärnor där myntet hänger, och en ram runt planen
+  med ~70 glödlampor som blinkar växelvis (två lager, två tweens). Under den lätt genomskinliga
+  tavlan ligger ett ogenomskinligt gräddvitt underlag så den inte blir lila, och svaga färgklickar
+  (stjärnor, blommor, prickar — fyllda former, inga ringar) ger plankan ett mönster. **Pinnarna är
+  riktiga träknoppar** (`_makePeg`/`_drawPeg`): mörkbrun kula med ljus kupa, glans och en mjuk
+  skugga på brädet; de tänds fortfarande gula när myntet slår i. Mätpluppens tomma läge fick en
+  ljusare kant så den syns mot pelaren. Fysikkroppar (pinnar r 10, tratt, avdelare), fläkten,
+  träffytor och regler är orörda. Allt dekor (`eventMode 'none'`), noll texturbakningar (platta
+  fyllningar + skåpets cachade toning), tweens samlas i en lista och dödas i `destroy()`. Omätt
+  i webbläsare av byggaren — orkestratorn kollar skärmdumpen.
 - 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): `_levelComplete` spelade eget vinstljud,
   eget PRAISE och eget konfettiregn i samma tick som `complete()` — strukna (magin står kvar).
   "Nästa nivå!" kapade berömmet efter 1,7 s, och målfickan kom 0,2 s senare och kapade "Nästa

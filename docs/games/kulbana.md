@@ -68,9 +68,12 @@ Imponerande system, men en kräsen spelare/förälder ser tunna fläckar:
 ### Kärnloop & agens
 - ✅ ~~**[Medium] Mjuka upp auto-hjälpen.**~~ Redan byggd 2026-07-02 ("Hjälp mig?"-knappen,
   `_assistTiltRamp`, `_glideHome`) — uppdagat 2026-09-23.
-- **[Deep] Replay av den lyckade rullningen.** Vid mål: spela kort om kulans väg i slow-motion
-  (eller en spår-linje som ritas) så barnet *ser* banan de byggde fungera — belönar bygget,
-  inte bara träffen.
+- ✅ ~~**[Deep] Replay av den lyckade rullningen.**~~ *(2026-10-02, B3/F8 — se §5: sista sekunden i 0,4× med spår,
+  ett tryck hoppar över, propellern i takt.)* Kvar: bedöm i bilden om fjäderbrädans nedtryckning och klockorna
+  behöver spelas in med.
+  **[Quick] Kritikern D11:** ⓵ en kort puff/`pop` på kulan när reprisen börjar (hoppet tillbaka i banan är
+  abrupt) · ⓶ `REPRIS_FART` 0,4 → 0,5 (2,0 s) om 2,5 s visar sig långt · ⓷ ett barn som trycker överallt
+  hoppar alltid över reprisen — ignorera hopp de första ~0,6 s om det blir ett mönster.
 
 ### Variation & överraskning
 - ✅ ~~Propeller~~ *(2026-10-01, se §5; 2026-10-02 gjord till ett riktigt gångjärn med motor — kulan knuffar den och den knuffar tillbaka)*. **[Medium] Fler banelement kvar:** en kort "loop" och en
@@ -260,3 +263,23 @@ Imponerande system, men en kräsen spelare/förälder ser tunna fläckar:
   - Sond: `node scripts/_dag-kulbana.mjs` (orkestreraren kör; kontrollarm = samma sond mot HEAD: ω konstant 0,035).
     Kvar: propellerns ljud (se Ljud), och att en ny vilofas för kulan ovanpå ett blad (kulan "bärs runt") aldrig
     mätts i webbläsaren — `FALL_MAX` 22 s står kvar som skyddsnät.
+- 2026-10-02 **Repris av den lyckade rullningen** (dagkörning B3 · FYSIKPLAN F8, ägarbeslut Ä8). När kulan rullar
+  själv i hinken (inte när hjälpens glid tar den hem) visas de SISTA 60 fysiska stegen (1 s) av banan om i 0,4×
+  fart = 2,5 s, med ett varmt orange spår som tjocknar mot kulan (vitt försvann mot molnen — kritikern D11), innan firandet (`_firande` = den gamla `_win`-kroppen;
+  `_win(ctx, true)` → `_startaRepris` → `_reprisKlar`/`_hoppaRepris` → `_firande`). Firandets egen timing är orörd
+  (ljud, beröm, regn, 1,5 s till nästa bana) — reprisens längd är det enda som lagts till, aldrig över 3 s.
+  - **Byggt på `lib/inspelning.js`:** `spelaIn(phys, kula)` skriver ett läge per FAST steg (`phys.beforeStep`) från SLÄPP
+    (`_release` → `start()`), ringbuffert 900 steg (21,6 KB, fast). Uppspelningen drivs av spelets egen `_update` (efter
+    `phys.update`, annars skriver fysikens länk över kulans vy) — ingen gsap-tween, ingen extra ticker-lyssnare.
+  - **Ett tryck hoppar över** (SLÄPP eller tomt fält → `_hoppaRepris` → `hoppa()` → firandet i samma bildruta). Under
+    reprisen är `_resolving` sann, så delarna är låsta och nästa SLÄPP kan inte starta en runda — men trycket är
+    aldrig blockerat. `_loadLevel` och `destroy` river reprisen (`_rivRepris`, idempotent, kallar aldrig onKlar).
+  - **Propellern spelas in i takt:** utan det far kulan genom blad som snurrat vidare i fysiken. `_recProp` (en
+    `spelaIn` per bana på `part._prop`) spelas upp på `_blad` med `lage: false` (bara vinkeln); svisch-alfan nollas.
+    Fjäderbrädans nedtryckning och klockornas gungning spelas INTE om (de syns knappt i en sekund; kvar att bedöma i bilden).
+  - **Ingen replik i reprisen** (ett mjukt stigande `audio.tone`): en replik hade fått `complete()` att hoppa över
+    berömmet när barnet trycker. **Kortare rullning än 30 steg** (kulan föll rakt i hinken) firas direkt utan repris.
+  - Mätt i Node (`node scripts/_inspelningprobe.mjs`, 21/21): buffert == oberoende referens 0,0 px, uppspelning på helsteg
+    0,0 px, mellansteg ≤ 1e-9 px från polylinjen, taket 900 håller minnet fast. Webbläsarsond:
+    `node scripts/_dag-repris.mjs` (orkestreraren kör: kast mot hinken efter ett riktigt SLÄPP, repris mot oberoende
+    referens, fälttryck + SLÄPP-tryck mitt i, andra rundan, propeller i takt, exit mitt i reprisen).

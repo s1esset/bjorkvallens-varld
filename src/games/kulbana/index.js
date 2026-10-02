@@ -17,6 +17,7 @@ import { gsap } from 'gsap'
 import { PhysicsWorld, Body, Bodies, nudge } from '../../lib/physics.js'
 import { bage } from '../../lib/form.js'
 import { Fjaderbrada } from '../../lib/fjader.js'
+import { spelaIn } from '../../lib/inspelning.js'
 import { createScene } from '../../lib/scene.js'
 import { makeKaraktar } from '../../lib/karaktarer.js'
 import { pop, wiggle, breathe, bounceIn, puff, sparkle, burst, floatText, shake , kvittera} from '../../lib/feedback.js'
@@ -100,6 +101,12 @@ const PROP_ARM = 75 // halva bladlängden (px)
 const KAT_KULA = 0x0005
 const KAT_PROP = 0x0002
 const MASK_PROP = 0x0004
+// REPRISEN av den lyckade rullningen (FYSIKPLAN F8): de sista 60 fysiska stegen (1 s) av banan in i hinken,
+// i 0,4x fart = 2,5 s, med ett mjukt spår bakom kulan. Aldrig längre än 3 s, och ETT tryck hoppar över den.
+// Kortare rullning än REPRIS_MIN steg (kulan föll rakt i hinken) har inget att visa - då firas det direkt.
+const REPRIS_FART = 0.4
+const REPRIS_STEG = 60
+const REPRIS_MIN = 30
 const FALL_MAX = 22 // s: längsta ett enda släpp får pågå innan kulan går hem (ingen fastna-för-alltid)
 
 export default {
@@ -124,6 +131,9 @@ export default {
     this._falling = false
     this._resolving = false
     this._gliding = false
+    this._repris = null // pågående repris av kulan (inspelning.js) - null = ingen
+    this._reprisProp = null // propellerns repris i takt med kulans (annars far kulan genom stillastående blad)
+    this._recProp = null
     this._parts = []
     this._obstacles = []
     this._bells = []
@@ -204,6 +214,7 @@ export default {
       collisionFilter: { category: KAT_KULA, mask: 0xffffffff, group: 0 },
     })
     this._phys.link(this._ballBody, this._ball) // synkar position + rull-rotation
+    this._rec = spelaIn(this._phys, this._ballBody, { max: 900 }) // tar ett läge per fysiksteg från SLÄPP (start() i _release)
 
     this._loadLevel(ctx, this._level)
 
@@ -556,6 +567,11 @@ export default {
 
   _loadLevel(ctx, level) {
     if (!this._alive) return
+    this._rivRepris() // en repris får aldrig överleva ett rundbyte
+    this._rec?.stopp()
+    this._rec?.rensa()
+    this._recProp?.ta()
+    this._recProp = null
     this._clearParts()
     this._clearObstacles()
     this._clearBells()
@@ -584,6 +600,10 @@ export default {
       const x = 160 + (i + 0.5) * (950 / n)
       this._makePart(ctx, kind, x, SHELF_Y)
     })
+
+    // Propellern (om banan har en) spelas in i takt med kulan så reprisen visar bladen där de VAR.
+    const propDel = this._parts.find((p) => p && !p.destroyed && p._prop)
+    if (propDel) this._recProp = spelaIn(this._phys, propDel._prop, { max: 900 })
 
     // Frys kulan på utsläppet.
     this._freezeBall()
@@ -1171,6 +1191,7 @@ export default {
   // Tap i tomrummet: flytta vald del dit (tap-tap-flytt) eller glad puff.
   _fieldTap(ctx, e) {
     if (!this._alive) return
+    if (this._repris) return this._hoppaRepris()
     if (this._falling || this._resolving || this._gliding) return this._kvitto(ctx, e)
     const p = this._root.toLocal(e.global)
     this._idle = 0
@@ -1214,11 +1235,14 @@ export default {
 
   _release(ctx) {
     if (!this._alive) return
+    if (this._repris) return this._hoppaRepris() // tryck = fortsätt: reprisen hoppas över, firandet tar vid direkt
     if (this._falling || this._resolving || this._gliding) {
       if (this._releaseBtn && !this._releaseBtn.destroyed) wiggle(this._releaseBtn)
       return
     }
     this._falling = true
+    this._rec?.start()
+    this._recProp?.start()
     this._restT = 0
     this._fallT = 0
     this._startle = 1.6 // fåglarna skräms upp av SLÄPP
@@ -1244,6 +1268,12 @@ export default {
     const dt = ticker.deltaMS / 1000
     this._tnow += dt
     this._phys.update(ticker.deltaMS)
+    // Reprisen skriver kulans vy EFTER att fysikens länk gjort det (annars vinner fysiken). Propellern först:
+    // kulans slut kallar firandet, som river allt.
+    if (this._repris) {
+      this._reprisProp?.tick(ticker.deltaMS)
+      this._repris?.tick(ticker.deltaMS)
+    }
 
     // Skuggan följer kulan (utan att rotera).
     if (this._ballShadow && !this._ballShadow.destroyed && this._ball && !this._ball.destroyed) {
@@ -1258,9 +1288,12 @@ export default {
       if (part && !part.destroyed && part._blad && !part._blad.destroyed) {
         const pb = part._prop
         if (pb) {
-          part._blad.rotation = pb.angle
+          // Under reprisen äger uppspelningen bladens vinkel (vy = _blad) - fysikens propeller har snurrat vidare.
+          if (!this._reprisProp) part._blad.rotation = pb.angle
           // Svisch: tonas in när farten avviker från takten (kulan gav den en puff), vänds med riktningen.
-          if (part._svisch && !part._svisch.destroyed) {
+          if (this._reprisProp) {
+            if (part._svisch && !part._svisch.destroyed) part._svisch.alpha = 0
+          } else if (part._svisch && !part._svisch.destroyed) {
             const w = pb.angle - pb.anglePrev
             part._svisch.alpha = part._led ? clamp((Math.abs(w - PROP_OMEGA) - 0.012) / 0.05, 0, 1) : 0
             part._svisch.scale.y = w < 0 ? -1 : 1
@@ -1295,7 +1328,7 @@ export default {
         this._bucketGlowTween.timeScale(1 + near * 2.2)
       }
       if (this._inBucket(b.position.x, b.position.y)) {
-        this._win(ctx)
+        this._win(ctx, true)
         return
       }
       const spd = Math.hypot(b.velocity.x, b.velocity.y)
@@ -1350,7 +1383,8 @@ export default {
 
   // ---- Mål: firande + ny bana ---------------------------------------------
 
-  _win(ctx) {
+  // naturlig = kulan rullade själv i hinken (inte auto-hjälpens glid hem) -> reprisen visar vägen den tog.
+  _win(ctx, naturlig = false) {
     if (this._resolving) return
     this._resolving = true
     this._gliding = false
@@ -1359,11 +1393,62 @@ export default {
     this._stopButtonPulse()
     this._hideHelpButton()
     this._idle = 0
+    if (naturlig && this._startaRepris(ctx)) return
+    this._firande(ctx)
+  },
 
+  // ---- Repris: kulans väg in i hinken i slow-motion (inspelning.js) --------
+
+  // Sant om en repris startade (då kallar _reprisKlar firandet när den är slut eller hoppad över).
+  _startaRepris(ctx) {
+    const rec = this._rec
+    if (!rec || !this._ball || this._ball.destroyed) return false
+    rec.fanga() // sista läget = där kulan är NU (beforeStep ligger ett steg efter)
+    this._recProp?.fanga()
+    rec.stopp()
+    this._recProp?.stopp()
+    if (rec.langd < REPRIS_MIN) return false
+    const b = this._ballBody
+    Body.setStatic(b, true) // kulan står still i fysiken medan reprisen rullar om den
+    nudge(b, 0, 0)
+    this._repris = rec.spelaUpp(this._ball, { fart: REPRIS_FART, sista: REPRIS_STEG, spar: { farg: 0xffa63d, bredd: 16, alpha: 0.85 }, onKlar: () => this._reprisKlar(ctx) })
+    if (!this._repris) return false
+    const blad = this._parts.find((p) => p && !p.destroyed && p._prop)?._blad
+    if (this._recProp && blad && !blad.destroyed) {
+      this._reprisProp = this._recProp.spelaUpp(blad, { fart: REPRIS_FART, sista: REPRIS_STEG, lage: false })
+    }
+    // Ett mjukt stigande ljud - ingen replik (en replik skulle få complete() att hoppa över berömmet vid ett tryck).
+    ctx.services.audio.tone({ freq: 420, slideTo: 640, dur: 0.28, type: 'sine', vol: 0.1 })
+    return true
+  },
+
+  _reprisKlar(ctx) {
+    if (!this._alive || !this._repris) return
+    this._rivRepris()
+    this._firande(ctx)
+  },
+
+  // Ett tryck under reprisen: hoppa till slutet -> onKlar -> firande (feedback inom samma bildruta).
+  _hoppaRepris() {
+    this._repris?.hoppa()
+  },
+
+  // Rivs vid rundbyte, destroy och när reprisen är slut. Idempotent, kallar aldrig onKlar.
+  _rivRepris() {
+    const r = this._repris
+    const p = this._reprisProp
+    this._repris = null
+    this._reprisProp = null
+    p?.ta()
+    r?.ta()
+  },
+
+  _firande(ctx) {
+    if (!this._alive) return
     const bx = this._bucketPos.x
     const by = this._bucketPos.y
     const b = this._ballBody
-    Body.setStatic(b, true)
+    if (!b.isStatic) Body.setStatic(b, true) // (matter sparar originalen EN gång - en andra setStatic är onödig)
     nudge(b, 0, 0)
     Body.setPosition(b, { x: bx, y: by - 16 })
 
@@ -1435,6 +1520,8 @@ export default {
   _returnBall(ctx) {
     if (!this._alive || this._resolving || this._gliding) return
     this._falling = false
+    this._rec?.stopp()
+    this._recProp?.stopp()
     this._restT = 0
     this._attempts++
 
@@ -1723,6 +1810,10 @@ export default {
 
   destroy(ctx) {
     this._alive = false
+    this._rivRepris()
+    this._rec?.ta()
+    this._recProp?.ta()
+    this._rec = this._recProp = null
     if (this._tick) ctx?.ticker?.remove(this._tick)
     this._unbind?.()
     this._unbindStep?.()

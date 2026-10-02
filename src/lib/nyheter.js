@@ -10,6 +10,16 @@
 
 export const NYHETER = [
   {
+    version: '1.364',
+    fran: '1.361',
+    datum: '2026-10-02',
+    titel: 'Jämnare fysik och lättare att klä på',
+    punkter: [
+      'Bollarna i gropen i Studsbollar, glitterregnet i Enhörningens Glitterbajs och glasskulorna som sätter sig i Glasstornet rör sig nu likadant på en långsam platta som på en snabb.',
+      'I Klä efter Vädret fastnar plagget på Elvira även om man släpper det en bit vid sidan om henne.',
+    ],
+  },
+  {
     version: '1.360',
     datum: '2026-10-02',
     titel: 'Spelbiblioteket visar vad som är nytt',

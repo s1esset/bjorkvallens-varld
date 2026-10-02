@@ -79,6 +79,9 @@ const SPOUT_Y = 188 // trattens spout-höjd (strax ovanför första pinnraden vi
 const FUNNEL_DX = 87.5 // sido-offset från trattmitten till varje sluttande väggs mitt
 const FUNNEL_CY = 160.8 // väggarnas mitt-y
 const FUNNEL_ANG = 0.47 // väggarnas lutning (rad, ~27°)
+const FUNNEL_FART = 16 // px/steg (960 px/s): trattens kinematiska maxfart — knuffar, tunnlar aldrig
+const FUNNEL_KAST = 16 // px/steg: högsta fart ett mynt i trattens zon får medan tratten rör sig (HEAD: 14)
+const TRATT_UPP = 5 // px/steg: högsta fart UPPÅT i trattens zon (brädet har inget tak)
 
 // Stigande pentaton-skala: varje pinn-träff spelar nästa ton medan myntet rasslar ner
 // — ett litet "plink-plink-plong" som klättrar. Jackpott-flärp när det når målet.
@@ -205,6 +208,15 @@ export default {
     this._funnelR = this._phys.rectangle(this._dropX + FUNNEL_DX, FUNNEL_CY, 120, 12, {
       isStatic: true, angle: -FUNNEL_ANG, restitution: 0.1, friction: 0.1, label: 'funnel',
     })
+    // R2: väggarna flyttas av kinematiska handtag — de går mot sikt-x i fysiksteget med högst
+    // FUNNEL_FART px/steg (förflyttningen ÄR farten), så en tratt som dras genom ett mynt knuffar
+    // det med rörelsemängd och tunnlar aldrig. `_funnelL/_funnelR` är fortfarande matter-kropparna.
+    this._kFunL = this._phys.kinematisk(this._funnelL, { maxFart: FUNNEL_FART })
+    this._kFunR = this._phys.kinematisk(this._funnelR, { maxFart: FUNNEL_FART })
+    // Ett mynt har restitution 0,72: en vägg som går 16 px/steg ger det upp till ~27 px/steg. Medan
+    // tratten RÖR sig tas den överskjutande farten bort för mynt i trattens zon (tratten vilar vid
+    // ett släpp, så fläkten och det vanliga fallet rörs inte) — knuffen märks, men inget kastas ur bild.
+    this._avTratt = this._phys.beforeStep(() => this._trattTak())
     this._funnel = new Container()
     this._funnel.eventMode = 'none'
     const fg = new Graphics()
@@ -670,13 +682,40 @@ export default {
     return (this._targetIdx + 0.5) * this._binW
   },
 
-  // Flytta tratten (grafik + båda väggarna) till sikt-x. Statiska kroppar flyttas med
-  // setPosition; vinkeln är oförändrad, så ∨:et behåller formen.
-  _positionFunnel(fx) {
+  _trattTak() {
+    if (!this._alive || !this._kFunL) return
+    const ror = !this._kFunL.vilar
+    for (const ball of this._balls) {
+      if (ball.settled || !ball.body) continue
+      const p = ball.body.position
+      if (p.y > FUNNEL_CY + 100) continue
+      const v = ball.body.velocity
+      let vx = v.x
+      let vy = v.y
+      const s = Math.hypot(vx, vy)
+      if (ror && s > FUNNEL_KAST) { vx = (vx / s) * FUNNEL_KAST; vy = (vy / s) * FUNNEL_KAST }
+      // Brädet har inget tak: ett mynt som tratten slår UPPÅT får bara ett litet skutt (≈ 45 px),
+      // aldrig ut genom skärmens överkant (uppmätt utan spärren: 21 av 60 mynt ur bild).
+      if (vy < -TRATT_UPP) vy = -TRATT_UPP
+      if (vx !== v.x || vy !== v.y) Body.setVelocity(ball.body, { x: vx, y: vy })
+    }
+  },
+
+  // Sätt tratten (båda väggarna) mot sikt-x. Vinkeln är oförändrad, så ∨:et behåller formen.
+  //   bar = false (under drag): väggarna får x som MÅL och går dit i fysiksteget (kinematisk) —
+  //     grafiken följer väggarna i `_update`, så den som syns är den som knuffar.
+  //   bar = true (släpp): väggarna BÄRS dit direkt utan kastkraft, så att myntet som skapas i
+  //     samma bildruta alltid faller in i tratten — även om den hann efter fingret.
+  _positionFunnel(fx, bar = false) {
     if (!this._alive) return
-    if (this._funnel && !this._funnel.destroyed) this._funnel.x = fx
-    if (this._funnelL) Body.setPosition(this._funnelL, { x: fx - FUNNEL_DX, y: FUNNEL_CY })
-    if (this._funnelR) Body.setPosition(this._funnelR, { x: fx + FUNNEL_DX, y: FUNNEL_CY })
+    if (bar) {
+      this._kFunL?.flytta(fx - FUNNEL_DX, FUNNEL_CY)
+      this._kFunR?.flytta(fx + FUNNEL_DX, FUNNEL_CY)
+      if (this._funnel && !this._funnel.destroyed) this._funnel.x = fx
+    } else {
+      this._kFunL?.till(fx - FUNNEL_DX, FUNNEL_CY)
+      this._kFunR?.till(fx + FUNNEL_DX, FUNNEL_CY)
+    }
   },
 
   _positionGlow() {
@@ -817,7 +856,7 @@ export default {
     const r = BALL_R
     x = clamp(x, AIM_EDGE, ctx.width - AIM_EDGE)
     // Rikta tratten mot släpp-punkten (även vid demo/hjälp-släpp) så myntet faller in.
-    this._positionFunnel(x)
+    this._positionFunnel(x, true)
 
     const color = this._targetColor
     const view = makeBall(r, color)
@@ -867,6 +906,8 @@ export default {
     if (!this._alive) return
     // Fläktens kraft ligger i phys.beforeStep (_fanForce) — en gång per fysiksteg, inte per bildruta.
     this._phys.update(t.deltaMS)
+    // Trattens grafik följer väggarnas faktiska (kinematiska) läge, aldrig fingret rakt av.
+    if (this._kFunL && this._funnel && !this._funnel.destroyed) this._funnel.x = this._kFunL.bas.x + FUNNEL_DX
     this._fanDraw(t.deltaMS)
 
     for (const ball of this._balls) {
@@ -1134,6 +1175,11 @@ export default {
     })
     this._balls = []
 
+    this._avTratt?.()
+    this._avTratt = null
+    this._kFunL?.destroy()
+    this._kFunR?.destroy()
+    this._kFunL = this._kFunR = null
     this._automat?.destroy()
     this._phys?.destroy()
     gsap.killTweensOf(this._root)

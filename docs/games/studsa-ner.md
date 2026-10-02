@@ -89,6 +89,20 @@ livlös rekvisita.
 
 ## 5. Status / loggar
 
+- 2026-10-02 ⚙️ **R2: tratten är kinematisk** (D7 B1). `_funnelL/_funnelR` är kvar som matter-kroppar
+  men flyttas av `phys.kinematisk` (`_kFunL/_kFunR`, `FUNNEL_FART` 16 px/steg). `_positionFunnel(fx, bar)`:
+  under drag får väggarna x som MÅL (`till`), vid släpp BÄRS de dit direkt (`flytta`, ingen kastkraft) så
+  myntet som skapas samma bildruta alltid faller in i tratten. Trägrafiken följer väggarnas faktiska
+  läge (`_kFunL.bas`), inte fingret. Förut teleporterades väggarna: vid 40 px/bildruta gick 42 av 48
+  möten IGENOM. Ett mynt har restitution 0,72, så en vägg på 16 px/steg ger upp till ~27 — medan
+  tratten rör sig tas farten över `FUNNEL_KAST` 16 bort för mynt i trattens zon (`_trattTak`, i
+  `beforeStep`; tratten vilar vid släpp, så fläkten rörs inte). Fläkten orörd.
+  Brädet har inget tak: utan spärr slog tratten 21 av 60 mynt ut genom överkanten — därför får ett mynt
+  i trattens zon högst `TRATT_UPP` 5 px/steg uppåt (ett litet skutt). Mätt (`_dag-r2drag.mjs studsa-ner`,
+  40 px/bildruta, släpp där tratten står): HEAD igenom 32/40 → nu 0/34, ur bild 0.
+  `_flaktprobe` orört i koden men brusigt: HEAD 153 px / 0,48 fickor (6 släpp); fix 1,59 (6) och
+  232 px / 0,72 (10 släpp).
+
 - 2026-10-02 🎨 **L2: spelautomat i stället för vit tavla** (`automat.js`, ny fil; natt F5 B3). Brädet
   stod mot en rosa bokehbakgrund och pinnarna var tomma vita ringar (P0 ASSETS-gränsfall). Nu:
   planen sitter i ett lila skåp med tapetmönster, mörka sidopelare med nitar, ett fönster runt

@@ -10,6 +10,16 @@
 
 export const NYHETER = [
   {
+    version: '1.405',
+    fran: '1.404',
+    datum: '2026-10-02',
+    titel: 'Maskiner som tar emot',
+    punkter: [
+      'I Kugghjulen känns det i veven att karusellen hänger på maskinen: en stor maskin tar en stund att få upp i fart och stannar lite fortare när man släpper. Veven går alltid runt, och ett tryck vevar fortfarande av sig själv.',
+      'Propellern i Kulbanan snurrar på riktigt nu. Kulan som träffar den knuffar den fortare, saktare eller baklänges, och kulan studsar olika varje gång. Sedan hittar propellern tillbaka till sin egen takt.',
+    ],
+  },
+  {
     version: '1.403',
     fran: '1.396',
     datum: '2026-10-02',

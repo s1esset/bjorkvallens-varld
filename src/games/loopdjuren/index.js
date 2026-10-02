@@ -18,6 +18,7 @@ import { DragController } from '../../lib/DragController.js'
 import { bounceIn, pop, wiggle, puff, sparkle, floatText, liv } from '../../lib/feedback.js'
 import { createScene } from '../../lib/scene.js'
 import { COLORS } from '../../lib/theme.js'
+import { nastaVariant } from '../../lib/variation.js'
 
 // Djur som har riktiga förinspelade läten (djur_<id> i sfx-manifestet).
 const ANIMALS = [
@@ -49,6 +50,23 @@ const INSTRUMENTS = {
   katt: { base: 523, type: 'triangle' }, // ljus marimba (C5)
   gris: { base: 196, type: 'sine' }, // (G3)
 }
+
+// Scen per nivå (U2): nivå 1 dag på ängen, nivå 2 kväll, nivå 3 natt — och inom nivån lottas en
+// av två, aldrig samma som sist. Samma djur och block; bara världen runt dem byts.
+const SCENER = [
+  [
+    { id: 'meadow', tema: 'meadow', silhuett: 'skog', forgrund: true },
+    { id: 'sky', tema: 'sky', silhuett: 'skog', forgrund: true },
+  ],
+  [
+    { id: 'sunset', tema: 'sunset', silhuett: 'stad' },
+    { id: 'warm', tema: 'warm', silhuett: 'stad', forgrund: true },
+  ],
+  [
+    { id: 'night', tema: 'night', silhuett: 'stad' },
+    { id: 'candy', tema: 'candy' },
+  ],
+]
 
 // Loop-banans x-utbredning (slot-mitt) och playhead-svep.
 const TRACK_X0 = 280
@@ -88,7 +106,10 @@ export default {
     ctx.stage.addChild(this._root)
 
     // Lager-ordning: bakgrund < radpaneler < playhead < djur/slots(+block) < bricka < stämplar.
-    this._root.addChild(createScene('candy', { width: ctx.width, height: ctx.height }))
+    const sc = (this._scen = nastaVariant(SCENER[Math.min(level, 3) - 1], this._scen?.id))
+    this._root.addChild(
+      createScene(sc.tema, { width: ctx.width, height: ctx.height, silhuett: sc.silhuett || false, forgrund: !!sc.forgrund, fro: 1 + ((Math.random() * 900) | 0) }),
+    )
     this._panelLayer = new Container()
     this._panelLayer.eventMode = 'none'
     this._root.addChild(this._panelLayer)
@@ -132,11 +153,11 @@ export default {
     for (let r = 0; r < this._nAnimals; r++) {
       const animal = ANIMALS[r]
       const yc = ys[r]
-      // Radpanel (dekor).
+      // Banan (dekor): ett mjukt färgat band bakom slotsen — ingen ram, och djuret står
+      // FRITT utanför det (P0 ASSETS: inga paneler eller ringar runt spelobjekt).
       const panel = new Graphics()
-        .roundRect(70, yc - 66, 1140, 132, 28)
+        .roundRect(200, yc - 58, 1018, 116, 30)
         .fill({ color: animal.color, alpha: 0.16 })
-        .stroke({ width: 4, color: animal.color, alpha: 0.5 })
       panel.eventMode = 'none'
       this._panelLayer.addChild(panel)
 

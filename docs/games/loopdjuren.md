@@ -72,8 +72,8 @@ djuren är utbytbara emoji snarare än ett band med var sin röst.
   Klar 2026-09-23 (v1.251.0): Samma pointerdown som DragController lyfter på spelar blockets
   eget ljud ur `_perform` på en neutral marimba-ton (`_stampLjud` :286). Röst-blocket låter som
   djuren i tur och ordning, via sample och aldrig via berättarrösten.
-- **[Medium] Nya block/teman per nivå.** Lägg till t.ex. ett "studsa"-block, ett shaker/maracas,
-  eller ett "eko"-block på högre nivåer, och byt scenfärg per nivå så varje besök känns nytt.
+- **[Medium] Nya block per nivå.** Lägg till t.ex. ett "studsa"-block, ett shaker/maracas,
+  eller ett "eko"-block på högre nivåer. *(Scenbytet per nivå är byggt 2026-10-02 — se §5.)*
 
 ### Juice
 - ✅ ~~**[Quick] Beat-puls på rutnätet.**~~ Redan byggd (kolumnens slots studsar på slaget,
@@ -99,6 +99,17 @@ djuren är utbytbara emoji snarare än ett band med var sin röst.
   diskret så djurens egna ljud hörs.
 
 ## 5. Status / loggar
+
+- 2026-10-02 ✅ **Scen per nivå + djuren ur ramen** (natt F3 · B3 · U2 · P0 ASSETS):
+  - **Scen per nivå (U2):** förut alltid `candy`. Nu `SCENER`: nivå 1 dag (`meadow` | `sky`, trädlinje
+    + strån), nivå 2 kväll (`sunset` | `warm`, stadssiluett), nivå 3 natt (`night` | `candy`) —
+    inom nivån lottas en av två med `nastaVariant`, aldrig samma som sist (`this._scen`), och
+    `fro` slumpas per montering. Samma djur, block och rutnät; bara världen byts.
+  - **Ramen bort:** radpanelen (`roundRect(70…)` + 4 px `stroke`) låg bakom både djuret och
+    slotsen. Nu ett mjukt färgat band bakom slotsen enbart (x 200–1218, ingen ram) och djuret
+    står fritt utanför det på scenen med sin markskugga. Slotsens och djurens träffytor är orörda.
+  - **Kvar (U3):** blocken är fortfarande samma fem. Grind: `check --game loopdjuren` 0/0; ej
+    webbläsartestad av byggaren.
 
 - 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): Dubbelfirandet fanns inte:
   `complete()` står ensamt, utan egna kopior och utan replik efter. Snabbvinster: ⓵ barnets låt

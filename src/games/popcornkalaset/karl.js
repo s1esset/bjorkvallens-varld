@@ -40,13 +40,14 @@
 // r²·m/I = 3,0 (bygeln 177 px ut, tröghetsradien 102 px), tre gånger för mycket per varv,
 // och det växer. Punktgreppet i `steg()` löser 2×2-systemet med rätt effektiv massa.
 import Matter from 'matter-js'
+// Punktgreppet (och handens två konstanter) bor sedan G1 i lib/grepp.js; `index.js` importerar
+// `drivPunkt` härifrån, så den re-exporteras.
+import { drivPunkt, GREPP_K, HAND_ACC } from '../../lib/grepp.js'
+
+export { drivPunkt }
 
 const { Bodies, Body } = Matter
 
-// Hur stor del av glappet mellan hand och greppunkt som stängs per steg.
-const GREPP_K = 0.35
-// Handens accelerationstak (px/steg²).
-const HAND_ACC = 0.8
 // Vippningen: fingrets tryck UNDER hyllan → kärlets vinkel (VIPPA_PX px per radian). Taket ±120°:
 // över det vänder mynningen nedåt, strålen blir 170 px bred och spills över skålens kant
 // (upp och ned går, runt går inte). VIPPA_K = rad/steg per rad glapp, VIPPA_GREPP = hur hårt
@@ -109,43 +110,6 @@ const rot = (x, y, a) => {
   const c = Math.cos(a)
   const s = Math.sin(a)
   return { x: x * c - y * s, y: x * s + y * c }
-}
-
-// PUNKTGREPPET: ge kroppen den impuls i punkten `r` (världsriktad förskjutning från
-// tyngdpunkten) som får punkten att följa handen `h` = { x, y, vx, vy } — handens fart plus en
-// andel av glappet. Löser 2×2-systemet Δv_punkt = K·J med K = (1/m)·I₂ + (1/I)·r⊥r⊥ᵀ, alltså
-// rätt effektiv massa (se huvudet om varför det inte är ett matter-Constraint). Exporterad så
-// att locket greppas med samma fysik som kärlen.
-//
-// `tak` = { dv, v } (valfritt): greppet blir en fjäder med KRAFTTAK. Punktens fartändring per
-// steg högst `dv`, och den fart den dras mot högst `v`. Utan tak är greppet stelt: ett kärl som
-// hålls mot bordet får då hur stor impuls som helst, och grytan trycktes genom bordet och golvet
-// eller sköts iväg i 56 px/steg (`_popcorngast`, ägarens "flyger iväg utanför skärmen").
-export function drivPunkt(b, r, h, k = GREPP_K, tak = null) {
-  const w = b.angularVelocity
-  let mx = h.vx + (h.x - (b.position.x + r.x)) * k
-  let my = h.vy + (h.y - (b.position.y + r.y)) * k
-  if (tak?.v) {
-    const m = Math.hypot(mx, my)
-    if (m > tak.v) { mx *= tak.v / m; my *= tak.v / m }
-  }
-  let dvx = mx - (b.velocity.x - w * r.y)
-  let dvy = my - (b.velocity.y + w * r.x)
-  if (tak?.dv) {
-    const d = Math.hypot(dvx, dvy)
-    if (d > tak.dv) { dvx *= tak.dv / d; dvy *= tak.dv / d }
-  }
-  const im = b.inverseMass
-  const ii = b.inverseInertia
-  const k11 = im + ii * r.y * r.y
-  const k12 = -ii * r.x * r.y
-  const k22 = im + ii * r.x * r.x
-  const det = k11 * k22 - k12 * k12
-  if (det <= 1e-12) return
-  const jx = (k22 * dvx - k12 * dvy) / det
-  const jy = (-k12 * dvx + k11 * dvy) / det
-  Body.setVelocity(b, { x: b.velocity.x + jx * im, y: b.velocity.y + jy * im })
-  Body.setAngularVelocity(b, w + ii * (r.x * jy - r.y * jx))
 }
 
 export class Karl {

@@ -10,6 +10,14 @@
 
 export const NYHETER = [
   {
+    version: '1.360',
+    datum: '2026-10-02',
+    titel: 'Spelbiblioteket visar vad som är nytt',
+    punkter: [
+      'Sorteringsknappen uppe till höger i spelbiblioteket har fått ett tredje läge: 🔄 visar de spel som senast fått nya saker först. Ett tryck till ger A–Ö, och ett till tillbaka till de nyaste spelen. Biblioteket minns läget.',
+    ],
+  },
+  {
     version: '1.359',
     fran: '1.289',
     datum: '2026-10-02',

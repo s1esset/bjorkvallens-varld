@@ -2,7 +2,7 @@
 // Lära), storbarnsspelen (6–12 år) i en femte, Utmaning. Flikarna är stora "riktiga" flikar över hela bredden och sitter ovanpå en
 // innehållspanel vars ram får den aktiva flikens färg. Byt flik genom att trycka på
 // fliken ELLER svepa vågrätt på spelytan (axellåst mot den lodräta skrollen).
-// En liten ikon-knapp växlar sortering "Nyast" (🆕) <-> "A–Ö" (🔤). Ingen läsning
+// En liten ikon-knapp stegar sortering "Nyast" (🆕) → "Senast uppdaterade" (🔄) → "A–Ö" (🔤). Ingen läsning
 // krävs — rösten säger "Välj ett spel!". Rutnätet skrollas lodrätt om det blir högre
 // än panelen (mjukt drag). Vald flik + sortering minns mellan besök.
 import { Container, Graphics, Text, Rectangle } from 'pixi.js'
@@ -10,6 +10,7 @@ import { gsap } from 'gsap'
 import { Button } from '../../lib/Button.js'
 import { bounceIn } from '../../lib/feedback.js'
 import { GAMES } from '../../games/registry.js'
+import UPPDATERAD from 'virtual:spel-uppdaterad'
 import { CATEGORIES, COLORS, FONT, DESIGN_W, DESIGN_H, TAB_GROUPS, SPACING, RADIUS, ANIM, shade, tint, bandFor, iFlik } from '../../lib/theme.js'
 
 // Säkerhet: varje spel-kategori MÅSTE ingå i någon fliks `cats`, annars göms de spelen
@@ -29,13 +30,17 @@ if (import.meta.env?.DEV) {
 const FLIKAR = TAB_GROUPS.filter((g) => GAMES.some((s) => iFlik(g, s)))
 
 // Bibliotekets UI-läge (vald flik + sortering) minns över besök/omladdning.
+// Sorteringarna i knappens ordning: nyast tillagda · senast uppdaterade · A–Ö.
+const SORTER = ['added', 'updated', 'alpha']
+const SORT_IKON = { added: '🆕', updated: '🔄', alpha: '🔤' }
+const SORT_ROST = { added: 'Nyast först', updated: 'Senast uppdaterade först', alpha: 'A till Ö' }
 const UI_KEY = 'pwagames.library.ui'
 function loadUI() {
   try {
     const v = JSON.parse(localStorage.getItem(UI_KEY) || '{}')
     return {
       tab: Number.isInteger(v.tab) && v.tab >= 0 && v.tab < FLIKAR.length ? v.tab : 0,
-      sort: v.sort === 'alpha' ? 'alpha' : 'added',
+      sort: SORTER.includes(v.sort) ? v.sort : 'added',
     }
   } catch {
     return { tab: 0, sort: 'added' }
@@ -98,23 +103,23 @@ export async function createLibraryScreen(services) {
   speaker.position.set(DESIGN_W - SPACING.edge - 52, SPACING.edge + 52)
   view.addChild(speaker)
 
-  // Liten ikon-knapp som växlar sortering (Nyast <-> A–Ö). Ikonen visar AKTUELLT läge,
+  // Liten ikon-knapp som stegar runt sorteringarna (SORTER). Ikonen visar AKTUELLT läge,
   // rösten bekräftar bytet.
   const sortBtn = new Button({
     icon: '🆕', width: 96, height: 96, color: COLORS.teal, services, sound: 'flip',
     onTap: () => {
-      ui.sort = ui.sort === 'added' ? 'alpha' : 'added'
+      ui.sort = SORTER[(SORTER.indexOf(ui.sort) + 1) % SORTER.length]
       saveUI(ui)
       updateSortIcon()
       rebuildGrid(true)
-      voice.say(ui.sort === 'alpha' ? 'A till Ö' : 'Nyast först', true)
+      voice.say(SORT_ROST[ui.sort], true)
     },
   })
   sortBtn.position.set(DESIGN_W - SPACING.edge - 104 - SPACING.md - 48, SPACING.edge + 52)
   view.addChild(sortBtn)
   const sortIcon = sortBtn.children.find((ch) => ch instanceof Text)
   function updateSortIcon() {
-    if (sortIcon) sortIcon.text = ui.sort === 'alpha' ? '🔤' : '🆕'
+    if (sortIcon) sortIcon.text = SORT_IKON[ui.sort]
   }
   updateSortIcon()
 
@@ -176,7 +181,15 @@ export async function createLibraryScreen(services) {
     if (ui.sort === 'alpha') {
       return [...list].sort((a, b) => a.titleSv.localeCompare(b.titleSv, 'sv'))
     }
-    return [...list].reverse() // 'added' = senast tillagda först
+    const nyast = [...list].reverse() // 'added' = senast tillagda först
+    if (ui.sort === 'updated') {
+      // Senaste commit som rörde spelets katalog (scripts/vite-uppdaterad.mjs). Saknas
+      // tiden — ett spel som inte är committat än, eller ett bygge utan git — räknas det
+      // som nyast; lika tider behåller "nyast först"-ordningen (sort är stabil).
+      const tid = (g) => UPPDATERAD[g.id] ?? Infinity
+      return nyast.sort((a, b) => tid(b) - tid(a))
+    }
+    return nyast
   }
 
   function clearGrid() {

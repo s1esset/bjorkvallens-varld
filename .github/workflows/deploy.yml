@@ -25,6 +25,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          # Hela historiken: bibliotekets "senast uppdaterade" räknas ur git log vid
+          # bygget (scripts/vite-uppdaterad.mjs). En grund kloning ger alla spel samma tid.
+          fetch-depth: 0
 
       - uses: actions/setup-node@v7
         with:

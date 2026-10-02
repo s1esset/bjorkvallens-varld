@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { defineConfig } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
+import { spelUppdaterad } from './scripts/vite-uppdaterad.mjs'
 
 // Version + bygg-id stämplas in vid byggtid så en förälder kan se VILKEN version som
 // körs (och bekräfta att "Hämta senaste" faktiskt hämtade en nyare). Bygg-id = tidsstämpel.
@@ -28,6 +29,7 @@ export default defineConfig({
     sourcemap: true,
   },
   plugins: [
+    spelUppdaterad(), // bibliotekets "senast uppdaterade" (🔄), ur git-historiken
     VitePWA({
       registerType: 'prompt',
       injectRegister: false, // vi registrerar själva i src/lib/pwa.js

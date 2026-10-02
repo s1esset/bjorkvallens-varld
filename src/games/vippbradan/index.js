@@ -18,6 +18,7 @@ import { puff, sparkle, floatText, pop, wiggle, bounceIn , kvittera} from '../..
 import { COLORS, FONT } from '../../lib/theme.js'
 import { randomFrom } from '../../lib/swedish.js'
 import { slumpIBand } from '../../lib/variation.js'
+import { fjader1d } from '../../lib/takt.js'
 
 const { Constraint, Composite, Body } = Matter
 
@@ -54,6 +55,15 @@ const TILT_SOFT = 0.30 // här börjar brädan ta emot (≈17°)
 const TILT_MAX = 0.5 // hård gräns — ska i praktiken aldrig nås
 const TILT_SPRING = 0.055 // returkraft per steg och radian över STOPP
 const TILT_DAMP = 0.1 // extra dämpning i ändläget (per steg)
+
+// PLANKANS BÖJ (FYSIKPLAN P1, bara silhuetten): kroppen är orörd (stel matter-rektangel, `_tame`, studsen), men
+// BRÄDAN man SER böjs när vikten slår i — armarna sviktar som en trampolinbräda och fjädrar tillbaka. En dämpad fjäder
+// (fjader1d, egna fasta delsteg → samma gungning vid alla bildfrekvenser) per ände ger spetsens utslag; profilen längs
+// armen är kvadratisk (fastsatt vid navet, störst vid spetsen). Vid utskjutningen slår grodänden UPP (grodan lättar).
+const BOJ_PX = 44 // spetsens utslag (px) vid full stöt — toppen blir ~0,7 av det (dämpning). 34 gav äpplet 11,7 px: för snålt att se (D7-kritiken)
+const BOJ_W = 2 * Math.PI * 4.6 // 4,6 Hz: en bräda, inte en gummisnodd
+const BOJ_ZETA = 0.2 // ringer ~3 svängar på ~0,7 s
+const BOJ_SEG = 26 // segment längs plankan
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
 
@@ -241,6 +251,7 @@ export default {
     this._plankView.interactiveChildren = false
     this._root.addChild(this._plankView)
     this._phys.link(this._plankBody, this._plankView)
+    this._nollaBoj()
 
     // Lager för vikt (under grodan).
     this._weightLayer = new Container()
@@ -390,7 +401,8 @@ export default {
     }
     this._removeWeight()
 
-    // Plankan jämn igen.
+    // Plankan jämn igen (och rak).
+    this._nollaBoj()
     Body.setAngle(this._plankBody, 0)
     Body.setAngularVelocity(this._plankBody, 0)
     Body.setVelocity(this._plankBody, { x: 0, y: 0 })
@@ -423,7 +435,69 @@ export default {
     const a = this._plankBody.angle
     const tipX = CX + -PLANK_HALF * Math.cos(a)
     const tipY = PIVOT_Y + -PLANK_HALF * Math.sin(a)
-    this._frog.position.set(tipX, tipY - (PLANK_H / 2 + FROG_R * 0.72))
+    const upp = PLANK_H / 2 + FROG_R * 0.72
+    // Den STELA platsen (kroppens) är den utskjutningen räknar på — oförändrad av böjen. Grodan SYNS dock på den
+    // böjda spetsen, så hon sitter på brädan även när den sviktar.
+    this._restX = tipX
+    this._restY = tipY - upp
+    const b = Number.isFinite(this._bojTipL) ? this._bojTipL : 0 // spetsens lokala utslag (+ = ned), ur senaste _stegaBoj
+    this._frog.position.set(tipX - b * Math.sin(a), tipY + b * Math.cos(a) - upp)
+  },
+
+  // ---- Plankans böj (bara silhuetten) --------------------------------------
+
+  _nollaBoj() {
+    this._bojL = fjader1d(BOJ_W, BOJ_ZETA)
+    this._bojR = fjader1d(BOJ_W, BOJ_ZETA)
+    this._bojTipL = NaN
+    this._bojTipR = NaN
+    this._bojAt = 0
+    this._ritaBoj(0, 0)
+  },
+
+  // En stöt: kR 0…1 böjer högra armen (där vikten slår), kL = grodänden sviktar med lite. Negativt = slår UPP.
+  _stotBoj(kR, kL) {
+    this._bojR?.stot(kR)
+    this._bojL?.stot(kL)
+  },
+
+  _stegaBoj(dt) {
+    if (!this._bojR) return
+    const r = -this._bojR.steg(dt) * BOJ_PX
+    const l = -this._bojL.steg(dt) * BOJ_PX
+    if (Math.abs(r - this._bojTipR) < 0.04 && Math.abs(l - this._bojTipL) < 0.04) return // står still: ingen omritning
+    this._ritaBoj(l, r)
+  },
+
+  // Vikten ligger på den STELA kroppen men brädan man ser sviktar under den — så vikten SÄNKS med brädan (bara bilden;
+  // kroppen och studsen är orörda). Gäller bara medan vikten vilar PÅ brädan, och tonar ut när den lyfter.
+  _foljBoj(v, b) {
+    const pb = this._plankBody
+    if (!pb || (!this._bojTipR && !this._bojTipL)) return
+    const a = pb.angle
+    const c = Math.cos(a)
+    const sn = Math.sin(a)
+    const dx = b.position.x - CX
+    const dy = b.position.y - PIVOT_Y
+    const xl = dx * c + dy * sn // läge längs brädan
+    const yl = -dx * sn + dy * c // höjd över brädan (negativt = ovanför)
+    const r = b.circleRadius || 38
+    const over = -yl - (PLANK_H / 2 + r) // px ovanför brädytan (0 = vilar på den)
+    if (Math.abs(xl) > PLANK_HALF || over > 40 || over < -20) return
+    const tip = xl < 0 ? this._bojTipL : this._bojTipR
+    if (!Number.isFinite(tip)) return
+    const u = Math.abs(xl) / PLANK_HALF
+    const k = clamp(1 - Math.max(0, over) / 40, 0, 1)
+    const d = tip * u * u * k
+    v.x -= d * sn
+    v.y += d * c
+  },
+
+  _ritaBoj(l, r) {
+    this._bojTipL = l
+    this._bojTipR = r
+    const g = this._plankView?.destroyed ? null : this._plankView?._bord
+    if (g && !g.destroyed) ritaBord(g, l, r)
   },
 
   // ---- Kontroller ----------------------------------------------------------
@@ -602,7 +676,7 @@ export default {
     gsap.to(view.scale, { x: 1, y: 1, duration: 0.22, ease: 'back.out(2)' })
 
     const body = this._phys.circle(x, y, size.r, { ...size.mat, mat: size.rost, label: 'weight' })
-    this._phys.link(body, view)
+    this._phys.link(body, view, (v, b) => this._foljBoj(v, b))
     this._weight = { body, view }
 
     ctx.services.audio.sfx('pop')
@@ -642,6 +716,14 @@ export default {
         // Ljudet kommer ur `impactAudio` (fart -> volym + tonhöjd, material -> röst);
         // ett fast `plopp` här hade lagt samma smäll ovanpå alla tre vikterna igen.
         if (now - this._lastHit > 80) this._lastHit = now
+        // Brädan SVIKTAR (bara det man ser): stötens storlek = viktens fart i anslaget × dess tyngd (fjäder lätt, städ hårt).
+        if (now - (this._bojAt || 0) > 200) {
+          this._bojAt = now
+          const wb = this._weight.body
+          const sz = this._sizes[this._sizeIdx]
+          const k = clamp((Math.hypot(wb.velocity.x, wb.velocity.y) / 12) * (sz?.damm ?? 1) * 1.3, 0.22, 1)
+          this._stotBoj(k, k * 0.5)
+        }
         if (!this._launchPending) {
           this._launchPending = true
           this._addTimer(0.16, () => {
@@ -679,8 +761,11 @@ export default {
     this._launchWatchdog?.kill()
     this._frogBreathe?.kill()
 
-    const fx = this._frog.x
-    const fy = this._frog.y
+    // Den STELA platsen (som `_positionFrogOnPlank` räknade före böjen fanns) — böjen får aldrig flytta skottet.
+    const fx = this._restX ?? this._frog.x
+    const fy = this._restY ?? this._frog.y
+    // Grodänden slår UPP när grodan lättar (bara brädans silhuett).
+    this._stotBoj(0, -0.8)
 
     // Hjälp efter ett par missar: garanterad mjuk båge rakt i korgen.
     if (this._assistNext) {
@@ -902,6 +987,7 @@ export default {
 
   _update(ctx, t) {
     if (!this._alive) return
+    this._stegaBoj(t.deltaMS / 1000) // brädans böj FÖRE fysiken: viktens länk (nedan) läser samma böj som brädan ritas med
     this._phys.update(t.deltaMS) // `_tame` körs inifrån, per fast steg
     // Tomgången räknas från TYSTNAD — annars kapar om-cuen en replik som talar.
     if (ctx.services.voice.talar) this._idle = 0
@@ -1038,15 +1124,64 @@ export default {
 function makePlank() {
   const c = new Container()
   const board = new Graphics()
-    .roundRect(-PLANK_HALF, -PLANK_H / 2, PLANK_W, PLANK_H, PLANK_H / 2)
-    .fill(COLORS.brown)
-    .stroke({ width: 4, color: shade(COLORS.brown, 0.25) })
-  // Små "sitt-dynor" i ändarna.
-  board.roundRect(-PLANK_HALF + 8, -PLANK_H / 2 - 6, 70, 8, 4).fill({ color: COLORS.green, alpha: 0.9 })
-  board.roundRect(PLANK_HALF - 78, -PLANK_H / 2 - 6, 70, 8, 4).fill({ color: COLORS.red, alpha: 0.9 })
+  ritaBord(board, 0, 0)
   const bolt = new Graphics().circle(0, 0, 9).fill(COLORS.yellow).stroke({ width: 3, color: COLORS.orangeDark })
   c.addChild(board, bolt)
+  c._bord = board // ritas om medan brädan sviktar (ritaBord)
   return c
+}
+
+// Brädan som en kurva: lokal x −230…230, mittlinjen böjs ned `l`/`r` px i vänster/höger spets (kvadratisk profil, fast
+// vid navet). Samma utseende som förut när l = r = 0 (rundad trästav, två dynor), annars en bräda som sviktar.
+function ritaBord(g, l, r) {
+  const yAt = (x) => {
+    const u = Math.abs(x) / PLANK_HALF
+    return (x < 0 ? l : r) * u * u
+  }
+  const h = PLANK_H / 2
+  const cap = h // rundade ändar, radie = halva tjockleken
+  const xs0 = -PLANK_HALF + cap
+  const xs1 = PLANK_HALF - cap
+  const N = BOJ_SEG
+  const top = []
+  const bot = []
+  for (let i = 0; i <= N; i++) {
+    const x = xs0 + ((xs1 - xs0) * i) / N
+    const y = yAt(x)
+    top.push(x, y - h)
+    bot.push(x, y + h)
+  }
+  const pts = [...top]
+  // höger kappa (halvcirkel från överkant till underkant), runt spetsens mitt
+  const cy1 = yAt(xs1)
+  for (let i = 1; i < 8; i++) {
+    const a = -Math.PI / 2 + (Math.PI * i) / 8
+    pts.push(xs1 + Math.cos(a) * cap, cy1 + Math.sin(a) * cap)
+  }
+  for (let i = N; i >= 0; i--) pts.push(bot[i * 2], bot[i * 2 + 1])
+  const cy0 = yAt(xs0)
+  for (let i = 1; i < 8; i++) {
+    const a = Math.PI / 2 + (Math.PI * i) / 8
+    pts.push(xs0 + Math.cos(a) * cap, cy0 + Math.sin(a) * cap)
+  }
+  g.clear()
+  g.poly(pts).fill(COLORS.brown).stroke({ width: 4, color: shade(COLORS.brown, 0.25), join: 'round' })
+  // Små "sitt-dynor" i ändarna — följer brädans överkant.
+  const dyna = (xa, xb, color) => {
+    const seg = 8
+    const p = []
+    for (let i = 0; i <= seg; i++) {
+      const x = xa + ((xb - xa) * i) / seg
+      p.push(x, yAt(x) - h - 6)
+    }
+    for (let i = seg; i >= 0; i--) {
+      const x = xa + ((xb - xa) * i) / seg
+      p.push(x, yAt(x) - h + 2)
+    }
+    g.poly(p).fill({ color, alpha: 0.9 }).stroke({ width: 3, color, alpha: 0.9, join: 'round' })
+  }
+  dyna(-PLANK_HALF + 10, -PLANK_HALF + 68, COLORS.green)
+  dyna(PLANK_HALF - 76, PLANK_HALF - 10, COLORS.red)
 }
 
 // RITAD vikt (P0 ASSETS): fjäder, äpple eller städ — egen silhuett, aldrig en emoji

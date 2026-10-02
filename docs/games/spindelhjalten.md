@@ -10,8 +10,10 @@ webb-band spänns, en prickad bana visar flygvägen — och släpper: han skjuts
 studsig matter.js-kropp, faller under gravitation, **studsar (boing!)** mot väggar och en
 flytande studsknopp, och samlar ⭐-stjärnor (och från nivå 2 en instängd 🐱-kattunge på en
 moln-ledge) uppe i skyn. En stor **Vind**-knapp växlar av → blås höger → blås vänster;
-vinden kröker tydligt banan (matter-vind + matchande prick-förhandsvisning, kalibrerad till
-~2px) och flaggan + drivande pilar visar riktningen.
+vinden är ett **vindband** på himlen (en ljus remsa med streck och virvlande löv som blåser åt
+vindens håll, höjd slumpad per bana) som böjer banan bara medan hjälten flyger genom det — ett lågt
+skott under bandet påverkas inte. Prickbanan följer med (en approximation, se §4) och flaggan visar
+riktningen.
 
 Missar är roliga: puff + vingel, hjälten zippar tillbaka till slangbellan. Efter 2 missar
 får han ett nästan-perfekt **hjälp-skott** (löst via `_solveShot` som söker bästa
@@ -68,6 +70,11 @@ licens/igenkänning. No-fail via hjälp-skott → glid-båge.
 ## 4. Förbättringar & förhöjningar (plan)
 
 ### Kärnloop & agens
+- **[Medium] G3b: förhandsbanan genom fält.** Vindbandet böjer banan, men `AimLauncher` bär bara ETT
+  vind-tal. Spelet räknar det ur bandet längs det aktuella siktet (`vindband.js:forhandsAcc`, viktad
+  medelacceleration så slutpunkten stämmer): mätt fel vid steg 64 ≈ 15 px mot 95 px utan vind
+  (`node scripts/_spindelvindprobe.mjs --bara A`), men kurvans MITT är rakare än verkligheten och talet
+  ligger ett sikte efter (launchern ritar före `onAim`). Exakt kurva kräver G3b (banan genom `Vindfalt`).
 - **[Medium] Gör studsknoppen till ett *aktivt* val.** Låt den röra sig långsamt
   (sin-bana), eller bli en knapp som barnet kan **dra för att placera** innan skottet — då
   blir den ett verktyg som ändrar utfallet (som molnen i `enhorningen-elvira`), inte pynt.
@@ -120,6 +127,15 @@ licens/igenkänning. No-fail via hjälp-skott → glid-båge.
 - [Enkel] Busken längst till höger ligger nästan helt bakom Vind-knappen (kritiken 2026-10-02) — flytta den eller byt plats med staketets högra sektion.
 
 ## 5. Status / loggar
+
+- 2026-10-03 ✅ **Vindbandet (FYSIKPLAN F4, kluster B2)**: global `setWind` + sex pilar ersatta av ett `Vindfalt`-band
+  (`vindband.js`, bild i `vindbild.js`). Vind-knappen är barnets val som förr (av → höger → vänster), men luften är nu
+  en PLATS: remsa + streck + nio löv med egen silhuett som tumlar med strömmen, hjältens gnistsvans blåser med i bandet.
+  Bandets höjd slumpas per bana (y 255–345), styrkan växer med nivån (luft 30 → 52 px/steg = 0,12–0,21 px/steg² på
+  hjälten, gravitationen är 0,28). Skjutningen mot dagens globala vind (HEAD) i `_spindelvindprobe` A: nivå 0 medel
+  108 px (max 257) mot HEAD 281 (max 679); nivå 4 164 (441) mot 233 (536); HEAD blåste hjälten ur bild i 4 av 80
+  skott, bandet i 0. Hjälp-skottets bana (`_solveShot`) läser nu vinden ur bandet i varje punkt och räknas om när
+  barnet slår på/av vinden medan Skjut!-erbjudandet står uppe (förr kunde den ljuga). Studsknopp/moln/hjälpen i övrigt orörda.
 
 - 2026-10-02 ✅ **Förgrundsdekor + L1 (FYSIKPLAN §5.4)**: `createScene('meadow', { silhuett: 'skog',
   forgrund: true })` ger trädlinje på kullarna och strån längst fram; `makeForgrundsdekor()` lägger ett

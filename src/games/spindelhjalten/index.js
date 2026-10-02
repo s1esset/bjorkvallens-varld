@@ -3,9 +3,10 @@
 // riktning + kraft (prickad bana visar flygvägen) och släpper — hjälten skjuts iväg
 // som en studsig matter.js-kropp under gravitation, studsar mot väggar och en
 // flytande studsknopp (boing!) och samlar alla stjärnorna (och en instängd kattunge
-// på högre nivåer) uppe i skyn. EXTRA KONTROLL: en stor vind-fläkt-knapp växlar
-// vind av → blås höger → blås vänster; vinden kröker tydligt flygbanan (matter-vind
-// + matchande prick-förhandsvisning) och en flagga visar riktningen. INGET
+// på högre nivåer) uppe i skyn. EXTRA KONTROLL: en stor vind-knapp växlar vind av →
+// blås höger → blås vänster. Vinden är ett VINDBAND på himlen (lib/vind.js, Vindfalt) som
+// SYNS — löv och streck blåser längs en ljus remsa — och bara knuffar hjälten medan han flyger
+// genom det; prickbanan följer med och en flagga visar riktningen. INGET
 // misslyckande: missar är roliga (puff + vingel), hjälten zippar tillbaka till
 // slangbellan, och efter ett par missar får han en nästan-perfekt hjälp-skott så en
 // stjärna ALLTID samlas. Allt ritas programmatiskt (Pixi Graphics + emoji).
@@ -14,12 +15,14 @@
 // vänliga vita ögon, en liten webb-symbol) — inte Marvels Spindelmannen.
 import { Container, Graphics, Text } from 'pixi.js'
 import { gsap } from 'gsap'
-import { PhysicsWorld, MATERIALS, Body, predictTrajectory } from '../../lib/physics.js'
+import { PhysicsWorld, MATERIALS, Body } from '../../lib/physics.js'
 import { AimLauncher } from '../../lib/launcher.js'
 import { createScene } from '../../lib/scene.js'
 import { makeStjarna } from '../../lib/foremal.js'
 import { sphereFill, bage } from '../../lib/form.js'
 import { Button } from '../../lib/Button.js'
+import { nyttVindband, stallBand, forutsagBana, forhandsAcc, luftForNiva, BAND_HALV } from './vindband.js'
+import { Vindbild } from './vindbild.js'
 import { puff, sparkle, burst, floatText, pop, wiggle, ripple } from '../../lib/feedback.js'
 import { FONT, COLORS } from '../../lib/theme.js'
 
@@ -34,9 +37,6 @@ const GRAVITY = 1.0
 // använda samma värden annars pekar den åt fel håll (tidigare gy=0.5 utan dämpning -> ~380px fel).
 const PREVIEW_G = 0.2778 * GRAVITY // verklig per-steg-gravitation i px
 const PREVIEW_DAMP = 1 - 0.004 // matchar hjältens frictionAir (MATERIALS.bouncy)
-// matter-vindens acceleration -> px/steg²-faktor (≈ stegtid² = (1000/60)²). Att dela vind med
-// detta gör att verklig krökning matchar pricklinjen exakt (tidigare /500 -> bara ~0.56×).
-const WIND_DIV = (1000 / 60) ** 2
 const REST_SPEED = 1.2 // matter-fart under detta = "landat"
 const MAX_FLIGHT = 5 // s i luften innan han zippar hem (no-fail)
 const IDLE_DELAY = 6 // s utan handling innan röst-recue
@@ -77,9 +77,9 @@ export default {
     this._heroBody = null
     this._targets = []
     this._bumpers = [] // studsknopp + passiva studsmoln (statiska matter-kroppar)
-    this._chevrons = []
     this._windDir = 0
-    this._windMag = 0.16
+    this._vindDef = { y: 300, halv: BAND_HALV, luft: luftForNiva(0) } // nivåns vindband (_layoutFor slumpar höjden)
+    this._senasteAim = null // fingrets senaste sikte — prickbanans vind räknas på det
     this._combo = 0 // stjärnor tagna i SAMMA skott (driver kombo-plinget)
     this._trailT = 0 // gnistsvans-timer under flykt
 
@@ -100,12 +100,8 @@ export default {
     )
     this._root.addChild(makeForgrundsdekor())
 
-    // Dekor-lager (vind-pilar som driver) — under allt spel-grafik.
-    this._chevronLayer = new Container()
-    this._chevronLayer.eventMode = 'none'
-    this._chevronLayer.interactiveChildren = false
-    this._root.addChild(this._chevronLayer)
-    this._buildChevrons()
+    // Vindbandets bild (remsa, streck, löv) — ovanför bakgrunden, under allt spel-grafik.
+    this._vindbild = new Vindbild(this._root)
 
     // Vindflagga uppe i skyn.
     this._buildFlag()
@@ -147,6 +143,8 @@ export default {
     // Fysik: gravitation + väggar (golv/vänster/höger). Hjälten skapas vid skott.
     this._phys = new PhysicsWorld({ gravityY: GRAVITY, walls: ['floor', 'left', 'right'] })
     this._unbind = this._phys.onCollision((e) => this._onCollision(ctx, e))
+    // Vindbandet: luft i en remsa på himlen som bara tar i hjälten. Avstängt tills barnet trycker på Vind.
+    this._vind = nyttVindband(this._phys, { luft: this._vindDef.luft, y: this._vindDef.y, halv: this._vindDef.halv })
 
     // Slangbella-kontroll (slingshot: dra bakåt → skjut framåt).
     this._launcher = new AimLauncher({
@@ -173,6 +171,7 @@ export default {
       onAim: (v) => {
         this._idle = 0
         this._tension(v, ctx)
+        this._forhandsVind(v)
       },
       onLaunch: (v) => {
         this._assisting = false
@@ -272,9 +271,9 @@ export default {
       if (krockar(cl)) cl = mk()
       clouds.push(cl)
     }
-    // Vindstyrka växer med nivån.
-    const windMag = 0.15 + Math.min(level, 4) * 0.035
-    return { stars, kitten, bumper, clouds, windMag }
+    // Vindbandet: höjden slumpas per nivå (ett annat band varje runda), styrkan växer med nivån.
+    const band = { y: Math.round(rnd(255, 345)), halv: BAND_HALV, luft: luftForNiva(level) }
+    return { stars, kitten, bumper, clouds, band }
   },
 
   _loadLevel(ctx, level) {
@@ -294,7 +293,7 @@ export default {
     this._idle = 0
 
     const lay = this._layoutFor(level)
-    this._windMag = lay.windMag
+    this._vindDef = lay.band
 
     // Stjärnor + ev. kattunge.
     this._targets = []
@@ -315,7 +314,8 @@ export default {
     this._hero.visible = true
     this._drawBand(SLING.x, SLING.y)
 
-    // Vind av vid varje ny nivå.
+    // Vind av vid varje ny nivå (bandet flyttas till nivåns höjd medan det är avstängt).
+    this._senasteAim = null
     this._applyWind(0)
 
     this._launcher.setEnabled(true)
@@ -561,10 +561,15 @@ export default {
     g.position.set(this._hero.x, this._hero.y)
     g.eventMode = 'none'
     ctx.fxLayer.addChild(g)
-    const st = { s: 1, a: 0.85 }
+    // Inne i vindbandet blåser svansen med: gnistan driver åt vindens håll, så vinden syns på hjälten.
+    const lv = this._vind?.luftVid(g.x, g.y)
+    const drift = lv ? Math.sign(lv.vx) * Math.min(1, lv.s) * 90 : 0
+    const x0 = g.x
+    const st = { s: 1, a: 0.85, d: 0 }
     const tw = gsap.to(st, {
       s: 0.2,
       a: 0,
+      d: 1,
       duration: 0.5,
       ease: 'power1.out',
       onUpdate: () => {
@@ -574,6 +579,7 @@ export default {
         }
         g.scale.set(st.s)
         g.alpha = st.a
+        g.x = x0 + st.d * drift
       },
       onComplete: () => {
         if (!g.destroyed) g.destroy()
@@ -788,10 +794,9 @@ export default {
   // Sök en slangbella-fart (vinkel+kraft) vars förutsagda bana passerar närmast målet.
   // Söker bästa vinkel+kraft mot målet OCH behåller den vinnande bandes punkter, så att
   // prickbanan vi bjuder in med är EXAKT den bana skottet kommer att flyga (samma
-  // predictTrajectory-kalibrering som slangbellans egen förhandsvisning). Ritar vi en egen
-  // linje i stället ljuger inbjudan så fort PREVIEW_G/WIND_DIV ändras.
+  // kalibrering (PREVIEW_G/DAMP) som slangbellans egen förhandsvisning). Ritar vi en egen
+  // linje i stället ljuger inbjudan så fort PREVIEW_G/DAMP ändras.
   _solveShot(tgt) {
-    const wx = this._windDir * this._windMag
     let best = { vx: 14, vy: -16, pts: null }
     let bestD = Infinity
     for (let power = 12; power <= 28; power += 3) {
@@ -799,22 +804,9 @@ export default {
         const a = (deg * Math.PI) / 180
         const vx = Math.cos(a) * power
         const vy = Math.sin(a) * power
-        const pts = predictTrajectory({
-          x: SLING.x,
-          y: SLING.y,
-          vx,
-          vy,
-          gy: PREVIEW_G,
-          wx,
-          steps: 130,
-          every: 1,
-          floorY: BOUNDS.floorY,
-          leftX: BOUNDS.leftX,
-          rightX: BOUNDS.rightX,
-          restitution: BOUNDS.restitution,
-          damp: PREVIEW_DAMP,
-        })
-        // predictTrajectory känner bara golv/väggar — INTE studsknopp/studsmoln. En bana som
+        // Vinden läses ur bandet i varje punkt (inte som ett tal), så inbjudans bana ÄR flygvägen.
+        const { pts } = forutsagBana({ vind: this._vind, vx, vy, gy: PREVIEW_G, damp: PREVIEW_DAMP, steps: 130, bounds: BOUNDS })
+        // Förutsägelsen känner bara golv/väggar och vinden — INTE studsknopp/studsmoln. En bana som
         // ser perfekt ut på pappret kan därför studsa bort i verkligheten, och då ljuger
         // inbjudan i exakt det ögonblick den ska bygga tillit. Vi slutar därför läsa en
         // kandidatbana vid första studskontakten: allt efter den punkten är ändå osant.
@@ -1062,12 +1054,34 @@ export default {
     this._windDir = dir
     this._windIdx = this._windDirs ? this._windDirs.indexOf(dir) : 0
     if (this._windIdx < 0) this._windIdx = 0
-    const pv = dir * this._windMag
-    // matter-vind är accelerations-baserad; dela med stegtid²-faktorn så VERKLIG krökning
-    // matchar pricklinjen (annars driver bollen bara ~hälften så långt som linjen visar).
-    this._phys?.setWind(pv / WIND_DIV, 0)
-    this._launcher?.setPreview({ wind: pv })
+    // Bandet flyttas/riktas om (källan sitter där vinden kommer ifrån) och bilden följer med.
+    stallBand(this._vind, { dir, y: this._vindDef.y, halv: this._vindDef.halv, luft: this._vindDef.luft })
+    this._vindbild?.stall({ dir, y: this._vindDef.y, halv: this._vindDef.halv, luft: this._vindDef.luft })
+    this._forhandsVind()
+    this._refreshOffer()
     this._updateWindUI()
+  },
+
+  // Pricklinjen kan bara bära ETT vind-tal (AimLauncher.setPreview). Det räknas ur bandet längs just det
+  // här siktet (vindband.js: viktad medelacceleration, så slutpunkten hamnar där hjälten landar). Utan sikte
+  // än: förra siktet, annars ett medelskott. Bandets exakta kurva väntar på G3b (banan genom fält).
+  _forhandsVind(v) {
+    if (v) this._senasteAim = { vx: v.vx, vy: v.vy }
+    if (!this._launcher || !this._vind) return
+    const a = this._senasteAim || { vx: 14, vy: -16 }
+    const wind = forhandsAcc({ vind: this._vind, vx: a.vx, vy: a.vy, gy: PREVIEW_G, damp: PREVIEW_DAMP, bounds: BOUNDS })
+    this._launcher.setPreview({ wind })
+  },
+
+  // Slogs vinden på/av medan Skjut!-erbjudandet står uppe räknas dess bana om (tyst) — annars flyger
+  // hjälten en annan väg än den prickade.
+  _refreshOffer() {
+    if (!this._offer || this._mode !== 'aim') return
+    const tgt = this._nearestTarget()
+    const sol = tgt && this._solveShot(tgt)
+    if (!sol?.pts?.length) return
+    this._offer = sol
+    this._drawOfferPath(sol.pts)
   },
 
   _updateWindUI() {
@@ -1101,18 +1115,6 @@ export default {
     this._root.addChild(c)
   },
 
-  _buildChevrons() {
-    for (let i = 0; i < 6; i++) {
-      const g = new Graphics()
-      g.moveTo(-16, -12).lineTo(0, 0).lineTo(-16, 12).stroke({ width: 6, color: 0xffffff, alpha: 0.6, cap: 'round' })
-      g.position.set(Math.random() * 1280, 120 + Math.random() * 340)
-      g.eventMode = 'none'
-      g.visible = false
-      this._chevronLayer.addChild(g)
-      this._chevrons.push({ g, y: g.y, speed: 90 + Math.random() * 70 })
-    }
-  },
-
   _animateDecor(ctx, dt) {
     // Stjärnor guppar mjukt.
     for (const t of this._targets) {
@@ -1123,20 +1125,8 @@ export default {
     if (this._flagCloth && !this._flagCloth.destroyed) {
       this._flagCloth.rotation = Math.sin(this._t * 4) * (this._windDir === 0 ? 0.03 : 0.1)
     }
-    // Vind-pilar driver i vindens riktning (annars dolda).
-    for (const c of this._chevrons) {
-      if (!c.g || c.g.destroyed) continue
-      if (this._windDir === 0) {
-        c.g.visible = false
-        continue
-      }
-      c.g.visible = true
-      c.g.scale.x = this._windDir
-      c.g.x += this._windDir * c.speed * dt
-      // Wrappa mot synliga ytan (ctx.view) — wrap vid 1340/-60 gav synliga hopp på telefon.
-      if (this._windDir > 0 && c.g.x > ctx.view.right + 60) c.g.x = ctx.view.left - 60
-      else if (this._windDir < 0 && c.g.x < ctx.view.left - 60) c.g.x = ctx.view.right + 60
-    }
+    // Vindbandet: remsa, streck och löv som blåser längs strömmen (dolt när vinden är av).
+    this._vindbild?.uppdatera(dt, this._vind)
   },
 
   // ---- Städning (exit-säkert) --------------------------------------------
@@ -1176,6 +1166,10 @@ export default {
     if (this._offerPath) gsap.killTweensOf(this._offerPath)
 
     this._launcher?.destroy()
+    this._vind?.destroy()
+    this._vind = null
+    this._vindbild?.destroy()
+    this._vindbild = null
     this._phys?.destroy()
     gsap.killTweensOf(this._root)
     ctx?.services?.voice?.cancel()

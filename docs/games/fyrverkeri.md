@@ -3,13 +3,14 @@
 
 ## 1. Nuläge (sett som spelare)
 
-En vacker natthimmel (mörkblå→indigo-gradient) med tindrande stjärnor. Uppe i skyn lyser
-några tomma stjärnringar (✨ i en svag ring) — målen. Längst ner sitter en söt liten raket
+En vacker natthimmel (mörkblå→indigo-gradient) med tindrande stjärnor över en stad med tak och
+fönster i två led (en dimmig fjärran rad och en nära rad). Uppe i skyn sover några dämpade
+stjärnor (slutna ögon, ingen ring) — målen. Längst ner sitter en söt liten raket
 på en ramp. Jag GREPPAR raketen och drar ÅT DET HÅLL den ska flyga (direkt sikte, inte
 slangbella) — en prickad bana följer fingret i samma riktning och raketen lutar mot
 skjutriktningen, draglängden = kraft. Jag släpper → raketen bågar uppåt under gravitation
 (och mild vind på högre nivåer, visad med flagga + drivande pilar), lämnar en glödsvans, och
-SMÄLLER vid en stjärna så den tänds till ett lysande ⭐ med starkt sken + "pling" + ett
+SMÄLLER vid en stjärna så den vaknar och tänds till en leende, lysande stjärna med starkt sken (och några fönster i staden tänds) + "pling" + ett
 uppflytande stjärn-emoji. Smällen är 18–30 additivt blandade gnistor som bågar nedåt och
 tonar ut. Tänd ALLA stjärnor → stort final-firande (bigCelebration + en salva av sju
 fyrverkerier över skyn) + nästa nivå (fler/högre stjärnor, lite vind).
@@ -110,8 +111,24 @@ inget ljud-"bom" och ingen som tittar på.
 
 - **[Quick] Gnistorna bleknar när de hänger (kritiken 2026-10-02).** Med luften hänger gnistorna längst i det skede där alfan är lägst (`Math.min(1, k*1.6)`) — ringen läser som gråa prickar vid ~0,7 s. Pröva full alfa längre (t.ex. `k*2.4`) och fota vid 0,3/0,7 s.
 
+- [Quick] `stad.js`: de ~150–200 tändbara fönstren är egna `Graphics` med alpha 0 som skrivs varje bildruta — sätt `visible = false` när `f.a < 0.004` (kritiken F5, 2026-10-02; inget mätt fel, bara billigare).
+
 ## 5. Status / loggar
 
+- 2026-10-02 ✅ **L2: en stad med tak, fönster som tänds och fria stjärnor** (nattkörning F5 B4,
+  bara det som ritas — regler, träffytor, siktet och nivåerna orörda). `makeHorizon` (fem
+  rektanglar med slumpade fönster) ersatt av `stad.js:byggStad`: **två led** — en fjärran rad i
+  dis (sadeltak, platta tak med skorstenar, mansardtak, små fönster) och en nära rad, mörkare och
+  större, med sadeltak, skorstenar, ett kyrktorn och ljuskant på taken mot månen; en lucka i mitten
+  där raketen skjuts. **Fönstren tänds:** staden somnar vid varje ny nivå (20 % lyser) och några
+  fönster tänds för varje stjärna som tänds, alla vid finalen (`_stad.tand/tandAlla/aterstall`,
+  tickern easar, tänds fort och släcks sakta). Gatan har gatlyktor som andas och de två granarna
+  står framför staden. Husen slumpas om varje gång spelet startas (`slump(Math.random)`), månen och
+  stjärnornas undvikarzon (1076,150) är oförändrade. **Stjärnorna står fritt:** ringen
+  (`stroke` r 34) och den platta alfaskivan bakom är borta; otänd = sovande stjärna med slutna
+  ögon och ett svagt lagrat sken, tänd = vaken med leende, kinder, gnistkors och ett mjukt lagrat
+  sken; en `anim` i ett barn tindrar och vaggar dem (rotorn guppar redan, och `pop` tweenar rotorn).
+  Noll gradienter och noll texturbakningar; allt i tickern, inga nya tweens.
 - 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): `_win` spelade eget vinstljud och
   konfettiregn i samma tick som `complete()`, som gör båda själv — de egna kopiorna är strukna, och
   "Hurra! Alla stjärnor lyser!" sägs före `complete()` så berömmet utgår i stället för att kapa den.

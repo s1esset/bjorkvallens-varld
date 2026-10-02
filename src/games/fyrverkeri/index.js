@@ -22,7 +22,9 @@ import { AimLauncher } from '../../lib/launcher.js'
 import { predictTrajectory } from '../../lib/physics.js'
 import { sparkle, pop, puff, floatText, liv } from '../../lib/feedback.js'
 import { luftbana } from '../../lib/partiklar.js'
-import { verticalFill } from '../../lib/form.js'
+import { verticalFill, bage } from '../../lib/form.js'
+import { slump } from '../../lib/scene.js'
+import { byggStad } from './stad.js'
 import { randomFrom } from '../../lib/swedish.js'
 import { PLAYFUL } from '../../lib/theme.js'
 import { BLEED_X, BLEED_Y } from '../../lib/view.js'
@@ -113,8 +115,10 @@ export default {
       this._stars.push({ g, base: 0.35 + Math.random() * 0.4, amp: 0.25 + Math.random() * 0.35, speed: 0.6 + Math.random() * 1.4, phase: Math.random() * Math.PI * 2 })
     }
 
-    // 1b) Horisont: måne, stadssiluett och granar. Utan dem var hela nedre halvan tom.
-    this._horizon = makeHorizon(ORIGIN.y + 26)
+    // 1b) Staden (L2): fjärran rad i dis + nära rad med tak, fönster som tänds när stjärnorna
+    //     tänds, gata med lyktor, granar och månen. Husen slumpas om varje gång spelet startas.
+    this._stad = byggStad(ORIGIN.y + 26, slump(1 + Math.floor(Math.random() * 1e9)))
+    this._horizon = this._stad.rot
     this._root.addChild(this._horizon)
 
     // 1c) Publik som tittar upp — Bobo och Elvira står på marken och ropar "Oooh!"
@@ -326,6 +330,7 @@ export default {
     const lay = this._layoutFor(level)
     for (const s of lay.stars) this._addTarget(s)
     this._applyWind(lay.windX, lay.windDir)
+    this._stad?.aterstall(0.2) // staden sover nästan — fönstren tänds en och en med stjärnorna
 
     // Raketen tillbaka på rampen, upprätt, full storlek, synlig.
     gsap.killTweensOf(this._rocket)
@@ -616,6 +621,8 @@ export default {
     ctx.services.audio.sfx('pling')
     sparkle(ctx.fxLayer, t.x, t.y, { count: 8 })
     floatText(ctx.fxLayer, t.x, t.y - 14, '⭐', { fontSize: 56 })
+    // Staden vaknar: några fönster tänds för varje stjärna (alla vid finalen i `_win`).
+    if (this._stad) this._stad.tand(Math.ceil((this._stad.antal * 0.8) / Math.max(1, this._targets.length)))
     const v = t.view
     if (v && !v.destroyed) {
       v.setLit?.()
@@ -708,6 +715,7 @@ export default {
     // sägs FÖRE complete() i samma tick, så berömmet utgår i stället för att kapa den.
     ctx.services.audio.sfx('correct')
     this._say(ctx, 'Hurra! Alla stjärnor lyser!', true)
+    this._stad?.tandAlla() // hela staden lyser upp för finalen
 
     // En glad final-salva av fyrverkerier över hela skyn.
     for (let i = 0; i < 7; i++) {
@@ -765,7 +773,9 @@ export default {
     for (const t of this._targets) {
       if (!t.view || t.view.destroyed) continue
       t.view.y = t.baseY + Math.sin(this._t * 2 + t.phase) * 5
+      t.view.anim?.(this._t + t.phase) // stjärnan tindrar och vaggar i ett barn (rotorn guppar ovan)
     }
+    this._stad?.uppdatera(this._t, dt)
     this._animateChevrons(ctx, dt)
     if (this._flagCloth && !this._flagCloth.destroyed) {
       this._flagCloth.rotation = Math.sin(this._t * 4) * (this._windDir === 0 ? 0.03 : 0.12)
@@ -944,6 +954,7 @@ export default {
     this._stars = []
     this._chevrons = []
     this._flight = null
+    this._stad = null
 
     if (this._rocket && !this._rocket.destroyed) {
       gsap.killTweensOf(this._rocket)
@@ -998,46 +1009,56 @@ function makeLaunchPad() {
   return c
 }
 
-// En mål-stjärna: otänd = svag ring + blek RITAD stjärna; tänd = stark glöd + lysande
-// femuddig stjärna med gnistkors. Förut var stjärnan en ✨/⭐-emoji (P0 ASSETS).
+// En mål-stjärna som står FRITT på himlen (ingen ring): otänd = en sovande, dämpad stjärna med
+// slutna ögon och ett svagt sken; tänd = en vaken, lysande stjärna med gnistkors, leende och
+// ett mjukt lagrat sken. Stjärnan tindrar och vaggar i ett barn (`anim`), så tweenen `pop` på
+// roten aldrig slåss med vilolivet. Förut var stjärnan en ✨/⭐-emoji (P0 ASSETS), sedan en
+// stjärna i en ring.
 function makeTarget(r = 34, hue = 0xffe27a) {
   const c = new Container()
-  const glow = new Graphics().circle(0, 0, r * 1.6).fill({ color: hue, alpha: 0.12 })
+  const glow = new Graphics()
   glow.blendMode = 'add'
   glow.eventMode = 'none'
-  const ring = new Graphics().circle(0, 0, r).stroke({ width: 5, color: 0xffe27a, alpha: 0.6 })
-  ring.eventMode = 'none'
+  const ritaGlow = (lit) => {
+    glow.clear()
+    // Otänd stjärna sover UTAN sken — ett par hårdkantade lager läses som en skiva bakom
+    // den (P0: inga ringar). Tänd: många tunna lager med små steg, så skenet tonar ut.
+    if (!lit) return
+    for (let i = 0; i < 9; i++) glow.circle(0, 0, r * (2.2 - i * 0.14)).fill({ color: hue, alpha: 0.045 })
+  }
+  ritaGlow(false)
   const star = new Graphics()
   star.eventMode = 'none'
   // Otänd stjärna är alltid samma dova blågrå — annars ser en otänd stjärna redan
   // "färgad" ut och tändningen blir ingen synlig förändring.
-  drawStar(star, r * 0.78, 0x8e9ac0, false)
-  star.alpha = 0.5
-  c.addChild(glow, ring, star)
+  drawStar(star, r * 0.95, 0x8e9ac0, false)
+  star.alpha = 0.7
+  c.addChild(glow, star)
+  let lit = false
   // Tänd-läge: full stjärna med gnistkors och starkt sken.
   c.setLit = () => {
     if (star.destroyed) return
-    drawStar(star, r * 0.9, hue, true)
+    lit = true
+    drawStar(star, r * 1.1, hue, true)
     star.alpha = 1
-    if (!glow.destroyed) {
-      glow.clear().circle(0, 0, r * 1.9).fill({ color: hue, alpha: 0.4 })
-    }
-    if (!ring.destroyed) {
-      ring.clear().circle(0, 0, r).stroke({ width: 6, color: hue, alpha: 0.95 })
-    }
+    if (!glow.destroyed) ritaGlow(true)
+  }
+  c.anim = (T) => {
+    if (star.destroyed || glow.destroyed) return
+    star.rotation = Math.sin(T * 1.1) * (lit ? 0.09 : 0.05)
+    star.scale.set(1 + Math.sin(T * 2.2) * (lit ? 0.06 : 0.03))
+    glow.alpha = lit ? 0.8 + 0.2 * Math.sin(T * 3) : 0.7 + 0.3 * Math.sin(T * 1.6)
   }
   return c
 }
 
-// Femuddig stjärna; tänd får dessutom ett gnistkors och en ljus kärna.
+// Femuddig stjärna med ansikte; tänd får dessutom ett gnistkors och är vaken och glad.
 function drawStar(g, R, hue, lit) {
   g.clear()
   if (lit) {
-    for (const [len, w] of [[R * 2.2, 3.5], [R * 1.5, 2.5]]) {
-      g.moveTo(-len, 0).lineTo(len, 0).stroke({ width: w, color: 0xfffdf0, alpha: 0.5 })
-      g.moveTo(0, -len).lineTo(0, len).stroke({ width: w, color: 0xfffdf0, alpha: 0.5 })
-      break
-    }
+    const len = R * 2.2
+    g.moveTo(-len, 0).lineTo(len, 0).stroke({ width: 3.5, color: 0xfffdf0, alpha: 0.5 })
+    g.moveTo(0, -len).lineTo(0, len).stroke({ width: 3.5, color: 0xfffdf0, alpha: 0.5 })
   }
   const pts = []
   for (let i = 0; i < 10; i++) {
@@ -1046,45 +1067,19 @@ function drawStar(g, R, hue, lit) {
     pts.push(Math.cos(a) * rr, Math.sin(a) * rr)
   }
   g.poly(pts).fill(lit ? 0xfff3b0 : hue).stroke({ width: 2.5, color: lit ? 0xffc94d : 0xbfa860, alpha: lit ? 0.95 : 0.6 })
-  if (lit) g.circle(0, -R * 0.12, R * 0.26).fill({ color: 0xffffff, alpha: 0.85 })
-}
-
-// Horisont: måne, stadssiluett och två träd — himlen var helt tom under stjärnorna.
-function makeHorizon(groundY) {
-  const c = new Container()
-  c.eventMode = 'none'
-  // Måne med skuggkrater.
-  c.addChild(new Graphics()
-    .circle(1076, 150, 74).fill({ color: 0xfff3d0, alpha: 0.1 })
-    .circle(1076, 150, 52).fill(0xf7edcf)
-    .circle(1060, 138, 10).fill({ color: 0xe2d6b4, alpha: 0.8 })
-    .circle(1092, 162, 7).fill({ color: 0xe2d6b4, alpha: 0.7 })
-    .circle(1084, 130, 5).fill({ color: 0xe2d6b4, alpha: 0.6 }))
-  // Stadssiluett med lysande fönster.
-  const city = new Graphics()
-  const houses = [[70, 120, 92], [176, 86, 128], [274, 104, 74], [366, 140, 110], [512, 78, 62]]
-  for (const [x, w, h] of houses) {
-    city.roundRect(x, groundY - h, w, h + 30, 6).fill(0x141a38)
-    for (let wy = 0; wy < Math.floor(h / 34); wy++) {
-      for (let wx = 0; wx < Math.floor(w / 30); wx++) {
-        if (Math.random() < 0.55) {
-          city.roundRect(x + 10 + wx * 30, groundY - h + 16 + wy * 34, 13, 16, 3)
-            .fill({ color: 0xffd979, alpha: 0.55 + Math.random() * 0.4 })
-        }
-      }
-    }
+  if (lit) {
+    g.circle(-R * 0.22, -R * 0.08, R * 0.075).fill(0x5a3a10)
+    g.circle(R * 0.22, -R * 0.08, R * 0.075).fill(0x5a3a10)
+    g.circle(-R * 0.2, -R * 0.11, R * 0.025).fill(0xffffff)
+    g.circle(R * 0.24, -R * 0.11, R * 0.025).fill(0xffffff)
+    g.circle(-R * 0.4, R * 0.1, R * 0.1).fill({ color: 0xff9ec4, alpha: 0.5 })
+    g.circle(R * 0.4, R * 0.1, R * 0.1).fill({ color: 0xff9ec4, alpha: 0.5 })
+    bage(g, 0, R * 0.02, R * 0.22, 0.2 * Math.PI, 0.8 * Math.PI).stroke({ width: 2.6, color: 0x8a4a10, cap: 'round' })
+  } else {
+    // slutna ögon: små nedåtböjda bågar (sover)
+    bage(g, -R * 0.22, -R * 0.1, R * 0.1, 0.1 * Math.PI, 0.9 * Math.PI).stroke({ width: 2.2, color: 0x5a6690, cap: 'round' })
+    bage(g, R * 0.22, -R * 0.1, R * 0.1, 0.1 * Math.PI, 0.9 * Math.PI).stroke({ width: 2.2, color: 0x5a6690, cap: 'round' })
   }
-  // Två granar till höger.
-  for (const [tx, s] of [[880, 1], [962, 0.72]]) {
-    city.roundRect(tx - 7 * s, groundY - 26 * s, 14 * s, 40 * s, 5).fill(0x2a1f14)
-    for (let i = 0; i < 3; i++) {
-      const w = (62 - i * 14) * s
-      const yy = groundY - 30 * s - i * 38 * s
-      city.moveTo(tx, yy - 70 * s).lineTo(tx + w, yy).lineTo(tx - w, yy).closePath().fill(0x16351f)
-    }
-  }
-  c.addChild(city)
-  return c
 }
 
 // Natthimmel: lodrät gradient mörkblå (topp) -> indigo (botten).

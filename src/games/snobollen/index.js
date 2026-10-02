@@ -78,6 +78,17 @@ const CAT_BALL = 0x0002
 const CAT_DEBRIS = 0x0004
 const MASK_DEBRIS = 0x0001
 
+// Snögubben går sönder i RUNDADE snöklumpar (`phys.brytbar`, F3 / ägarbeslut Ä7) — aldrig skärvor. Fyra klumpar
+// inskrivna i hindrets yta (64×86, mitt i origo): en stor, ett huvud och två små. Högst 12 klumpar i världen.
+const KLUMPAR = [
+  { dx: 0, dy: 17, r: 25, art: 'kropp' },
+  { dx: 0, dy: -26, r: 17, art: 'huvud' },
+  { dx: -25, dy: -8, r: 7, art: 'liten' },
+  { dx: 25, dy: -8, r: 7, art: 'liten' },
+]
+const KLUMP_TAK = 12
+const KLUMP_LIVSTID = 2.4
+
 // --- Banvariation ------------------------------------------------------------
 // Tidigare var varje bana samma mall: samma himmel, samma vita snö, samma jämnt
 // utspridda hinder — bara lite längre för varje nivå. Nu lottas ett VÄDER och en
@@ -180,6 +191,7 @@ export default {
     this._ramps = []
     this._flags = []
     this._debris = []
+    this._klumpar = [] // { body, view } — snöklumparna efter en krossad snögubbe
     this._snowParts = []
     this._swirls = []
     this._flakes = []
@@ -900,6 +912,11 @@ export default {
       if (d.view && !d.view.destroyed) d.view.destroy()
     }
     this._debris = []
+    for (const k of this._klumpar || []) {
+      this._phys.removeBody(k.body)
+      if (k.view && !k.view.destroyed) k.view.destroy({ children: true })
+    }
+    this._klumpar = []
     for (const p of this._snowParts) {
       gsap.killTweensOf(p)
       gsap.killTweensOf(p.scale)
@@ -1437,7 +1454,13 @@ export default {
     const view = t.view
     const vx = smash ? 7 + Math.random() * 4 : 2.4 + Math.random() * 1.6
     const vy = smash ? -8 - Math.random() * 3 : -2.6 - Math.random()
-    if (view && !view.destroyed) {
+    if (view && !view.destroyed && t.type === 'snoman') {
+      // Snögubben: INGEN skriptad fart. Spillran-kroppen föds med bollens egen fart (momentum delas, aldrig
+      // slumpat) och `phys.brytbar` byter den mot snöklumpar som ärver `v + ω × r` + ett litet utkast.
+      this._brytSnoman(ctx, t, view, smash, incoming)
+      puff(ctx.fxLayer, this._fx(view.x), this._fy(view.y), { count: smash ? 14 : 8, color: t.color })
+      floatText(ctx.fxLayer, this._fx(view.x), this._fy(view.y - 46), randomFrom(t.spec.words), { fontSize: smash ? 54 : 44 })
+    } else if (view && !view.destroyed) {
       const body = this._phys.rectangle(view.x, view.y, t.spec.halfW * 2, t.spec.h, {
         ...MATERIALS.light,
         frictionAir: 0.02,
@@ -1487,6 +1510,86 @@ export default {
     }
     this._idle = 0
     this._stillT = 0
+  },
+
+  // Snögubben går sönder i fyra rundade snöklumpar. Föräldern är en dynamisk spillra-kropp med hindrets mått och
+  // bollens fart; `brytbar` delar den i NÄSTA fysiksteg (aldrig inne i en händelse). Klumparna lever `KLUMP_LIVSTID`
+  // s och tonar bort; deras vyer skapas i `onBryt`, tonas av `onTona` och rivs av `onBort`.
+  _brytSnoman(ctx, t, view, smash, incoming) {
+    const b = this._ballBody
+    const vb = incoming != null ? incoming : b.velocity.x
+    const body = this._phys.rectangle(view.x, view.y, t.spec.halfW * 2, t.spec.h, {
+      ...MATERIALS.light,
+      frictionAir: 0.02,
+      angle: view.rotation,
+      label: 'debris',
+      collisionFilter: { category: CAT_DEBRIS, mask: MASK_DEBRIS },
+    })
+    // Bollens fart bär klumparna med sig: ett hårt plöj kastar dem fram och upp, ett försiktigt tryck välter dem.
+    Body.setVelocity(body, { x: smash ? Math.max(6, vb * 0.85) : Math.max(2.2, vb * 0.7 + 1), y: smash ? -(2.5 + vb * 0.3) : -2.2 })
+    Body.setAngularVelocity(body, smash ? 0.08 : 0.05)
+    this._phys.link(body, view)
+    this._debrisLayer.addChild(view)
+    const h = this._phys.brytbar(body, {
+      bitar: () => KLUMPAR,
+      utkast: smash ? 1.6 : 1,
+      livstid: KLUMP_LIVSTID,
+      tona: 0.7,
+      tak: KLUMP_TAK,
+      onBryt: (info) => this._onKlumpar(info, view),
+      onTona: (bit, alfa) => {
+        const k = this._klumpar.find((x) => x.body === bit)
+        if (k && k.view && !k.view.destroyed) k.view.alpha = alfa
+      },
+      onBort: (bit) => {
+        const i = this._klumpar.findIndex((x) => x.body === bit)
+        if (i < 0) return
+        const k = this._klumpar[i]
+        this._klumpar.splice(i, 1)
+        if (k.view && !k.view.destroyed) k.view.destroy({ children: true })
+      },
+    })
+    h.bryt()
+  },
+
+  _onKlumpar(info, hindretsVy) {
+    if (!this._alive) return
+    info.bitar.forEach((bit, i) => {
+      const k = this._makeKlump(bit.circleRadius, KLUMPAR[i]?.art || 'liten')
+      k.position.set(bit.position.x, bit.position.y)
+      k.rotation = bit.angle
+      this._debrisLayer.addChild(k)
+      this._phys.link(bit, k)
+      this._klumpar.push({ body: bit, view: k })
+    })
+    // Snögubbens egen bild har gjort sitt: klumparna tar över (kroppen är redan borta ur världen).
+    if (hindretsVy && !hindretsVy.destroyed) {
+      gsap.killTweensOf(hindretsVy)
+      gsap.killTweensOf(hindretsVy.scale)
+      hindretsVy.destroy({ children: true })
+    }
+  },
+
+  // En snöklump: rund, vit, med egen blänk — huvudet har fortfarande ett glatt ansikte och en morot, kroppen knappar
+  // (de är KLUMPAR av snögubben, inte skräp). Ritas i en container så att `phys.link` flyttar containern.
+  _makeKlump(r, art) {
+    const c = new Container()
+    const g = new Graphics().circle(0, 0, r).fill(0xffffff).stroke({ width: Math.max(2, r * 0.12), color: 0xdfeaf4 })
+    const hi = new Graphics().circle(-r * 0.34, -r * 0.36, r * 0.3).fill({ color: 0xf2f8ff, alpha: 0.95 })
+    c.addChild(g, hi)
+    if (art === 'huvud') {
+      const f = new Graphics()
+      f.circle(-r * 0.32, -r * 0.1, 3.4).fill(0x333333).circle(r * 0.32, -r * 0.1, 3.4).fill(0x333333)
+      f.moveTo(-3, r * 0.22).lineTo(r * 0.78, r * 0.3).lineTo(-3, r * 0.42).closePath().fill(0xef7c2e) // morot
+      c.addChild(f)
+    } else if (art === 'kropp') {
+      const f = new Graphics().circle(0, -r * 0.1, 4.6).fill(0x333333).circle(0, r * 0.38, 4.6).fill(0x333333)
+      c.addChild(f)
+    }
+    for (const o of c.children) o.eventMode = 'none'
+    c.eventMode = 'none'
+    c.interactiveChildren = false
+    return c
   },
 
   // Spillror: tumlar med fysiken, snöar sedan igen (tick-drivet = alltid exit-säkert).

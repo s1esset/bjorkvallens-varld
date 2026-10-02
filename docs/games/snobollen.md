@@ -90,8 +90,8 @@ auto-hjälpen kan spela banan åt barnet**.
   litet gupp/hoppbacke som kastar bollen i en glad båge. Tar bort tom-ramp-känslan.~~ Redan
   byggd 2026-07-01 (`_buildDecor` :420) + hoppkullar 2026-07-25 — uppdagat 2026-09-23.
 - **[Medium] Mål med personlighet + förväntan.** ✅ ~~Ge pingviner ögon som tittar mot
-  bollen~~ (2026-10-02, `_updateBlickar`). Kvar: lådor/pingviner som hoppar undan i sista stund (eller vinkar). Lägg till varianter: en snögubbe att
-  krocka i bitar, en hög lösa lådor som rasar, en flock pingviner som sprids.
+  bollen~~ (2026-10-02, `_updateBlickar`). Kvar: lådor/pingviner som hoppar undan i sista stund (eller vinkar). Lägg till varianter: ✅ ~~en snögubbe att
+  krocka i bitar~~ (2026-10-02, `_brytSnoman`), en hög lösa lådor som rasar, en flock pingviner som sprids.
 - **[Deep] Hemliga snö-överraskningar:** ett snöfält gömmer ibland en morot/hatt/halsduk som
   bollen plockar upp och *bär med sig till snögubben* (kopplar till samlaren nedan).
 
@@ -129,6 +129,13 @@ auto-hjälpen kan spela banan åt barnet**.
 
 ## 5. Status / loggar
 
+- 2026-10-02 · **Snögubben går sönder i snöklumpar (F3 / Ä7)** (FYSIKPLAN omgång 0, fas D12, kluster B1). Ett krossat/vält
+  snögubbehinder slungas inte längre med skriptad slumpfart: spillran föds med BOLLENS egen fart och `phys.brytbar` byter
+  den mot fyra rundade snöklumpar (kropp, huvud med ansikte + morot, två små) som ärver `v + ω × r` + ett litet utkast,
+  rullar nerför backen, tonar bort efter 2,4 s och aldrig blir fler än 12 i världen. Klumparna krockar bara med backen (som
+  den gamla spillran). Pingviner och lådor är oförändrade (egna, skriptade välter). Ingen ny replik (befintliga `Pang!`/
+  `Bra jobbat!`/svävtexter). Mätning: `node scripts/_fysikbank.mjs --bara S9` (rad "snögubben på backen": inträngning 0,000 px,
+  rörelsemängd 0,0000 %). Bilden: plöj en snögubbe (stor, snabb boll) och titta på klumparna.
 - 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0):
   - **Firandet:** `_buildSnowman` spelade eget vinstljud och konfettiregn i samma tick som
     `complete()` (strukna; snögubbe-repliken sägs före `complete()` och står kvar). Krossens

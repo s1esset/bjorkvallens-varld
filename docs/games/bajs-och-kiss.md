@@ -69,9 +69,11 @@ Kort sagt: *mekaniskt rikt, scenografiskt och karaktärsmässigt fattigt*. Humor
   uppdagat 2026-09-23.
 - ✅ ~~**[Medium] Gör pruttvinden till ett aktivt val igen.**~~ Redan byggd (`_maybeInviteWind`,
   index.js:529; auto-assist kvar) — uppdagat 2026-09-23.
-- **[Deep] Fler siktemål & lekfulla hinder.** Variera vad man siktar på per nivå: en gungande
-  potta på hjul, en pall i vägen att studsa över, två pottor (välj vilken). Allt fortfarande
-  no-fail — hinder gör bara bågen roligare att lista ut.
+- ✅ ~~pall i vägen~~ Klar 2026-10-02 (nivå 3+, `_setStool`). **[Deep] kvar:** en gungande potta på
+  hjul (väntar på F1:s `phys.gangjarn`) och två pottor (välj vilken). Allt fortfarande no-fail.
+- **Kanternas `restitution`** (`_setToilet`, 0,5 på två statiska cirklar) är död (V10) och lämnas
+  med flit: studsen är korvens egen (lätt 0,5 / mellan 0,45 / stor 0,18), vilket är skillnaden som
+  barnet ska höra. `studs` på kanterna hade jämnat ut storlekarna. Pallen har ingen `studs` av samma skäl.
 
 ### Variation & överraskning
 - ✅ ~~**[Quick] Olika bajs-typer per kast/nivå.**~~ Redan byggd (`TURD_TYPES` vanlig/glitter/
@@ -101,8 +103,23 @@ Kort sagt: *mekaniskt rikt, scenografiskt och karaktärsmässigt fattigt*. Humor
   *Delvis byggd (2026-09-23):* spol-svischen finns i `_flushCelebrate` (:950) och den
   droppande kranen i `_scheduleDrip` (:1046). ⛔ Kvar är att variera `plopp.mp3`/`fart.mp3`.
   Det kräver nya SFX-klipp (MOSS nere). Kombo-tonen varierar redan varje plopp.
+- [Polish] Pallens fysikkropp finns direkt men bilden skalar in först efter ~0,75 s (`_setStool`) — ett snabbt kast kan studsa mot en osynlig pall. Skapa kroppen när bilden landar. (F3-kritik 2026-10-02; flygtidstaket 7 s byggt samtidigt mot mjuklåset på pallen.)
 
 ## 5. Status / loggar
+
+- 2026-10-02 ✅ **Anslag, variation och pall** (F3 B2, FYSIKPLAN §5.4 + U2): ⓵ `phys.onImpact` +
+  `impactAudio` (filter: bara korvens kontakter, aldrig skålens sensor). Korven är nu `makeTurdBody`
+  (yttre = fysiken, `sqF` = squash-ram vars x-axel vänds mot kontaktpunkten, korven vrids tillbaka) och
+  plattas 10–40 % efter anslagsfart (`_anslag`, `g._squashN` räknar). Materialet ger rösten:
+  liten = gummi (boing-glid), mellan = trä, stor = sten (dov duns) — flygningen är orörd (`mat` är
+  bara en etikett ovanpå MATERIALS). Gamla `pop` på kanten ersatt. Hårda anslag ger en liten puff.
+  ⓶ **U2:** pottans x (±40 px) och storlek (±0,06) lottas inom nivåns band med `slumpIBand`; från nivå 5
+  tar kurvan slut och en `rundprofil` ger ny plats varje runda inom slutbandet (x 1080–1150, skala
+  0,72–0,80 — aldrig lättare än nivå 5). Från nivå 3 står en **pall** (44 px hög, 94–126 px bred, x
+  540–700, aldrig närmare skålkanten än 170 px) som korven studsar mot; låg nog för tap-skottet och
+  en normal båge. Pallen fjädrar när den träffas. ⓷ Kanternas restitution: se §4, lämnad med flit.
+  Ny replik: "Hoppsan, en pall i vägen!" (en gång, nivå 3).
+  Verifiering: `g._toilet.x|0`, `g._toilet.scale.toFixed(2)`, `g._stool?.x|0`, `g._stool?.w|0`.
 
 - 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): Vid full potta spelades
   `celebrate`/`bigCelebration` en gång till, fast `complete()` redan firar. De raderna är strukna.

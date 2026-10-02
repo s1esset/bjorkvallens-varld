@@ -22,6 +22,7 @@ import { Button } from '../../lib/Button.js'
 import { COLORS } from '../../lib/theme.js'
 import { groundFill } from '../../lib/form.js'
 import { randomFrom } from '../../lib/swedish.js'
+import { slumpIBand, rundprofil } from '../../lib/variation.js'
 
 const FLOOR_Y = 600 // golvets ovansida (design-y)
 const PED_H = 156 // toalettens höjd från skålöppning ner till fot (lokala px)
@@ -98,9 +99,10 @@ export default {
 
     // Bajs-storlekar -> massa/studs via MATERIALS (utfallet beror på valet).
     this._sizes = [
-      { key: 'liten', label: 'Liten', r: 24, mat: MATERIALS.light }, // lätt -> flyger långt
-      { key: 'mellan', label: 'Mellan', r: 34, mat: MATERIALS.normal },
-      { key: 'stor', label: 'Stor', r: 46, mat: MATERIALS.heavy }, // tung -> kort tung båge
+      // `ljud` = materialet i lib/physics.js MATERIAL som ger anslaget sin röst (flygningen rörs inte).
+      { key: 'liten', label: 'Liten', r: 24, mat: MATERIALS.light, ljud: 'gummi' }, // lätt -> flyger långt, studsar "boing"
+      { key: 'mellan', label: 'Mellan', r: 34, mat: MATERIALS.normal, ljud: 'tra' },
+      { key: 'stor', label: 'Stor', r: 46, mat: MATERIALS.heavy, ljud: 'sten' }, // tung -> kort tung båge, dov duns
     ]
     this._sizeIdx = 1
 
@@ -123,6 +125,15 @@ export default {
       label: 'floor',
     })
     this._unbindCollision = this._phys.onCollision((e) => this._onCollision(ctx, e))
+    // Anslag: korven plattas mot det den slår i (squash) och låter efter sin storlek/material
+    // (liten = gummi, mellan = trä, stor = sten). Sensorn i skålen räknas inte — där är det ploppet.
+    const barKorv = (a, b) => !a.isSensor && !b.isSensor && (a.label === 'turd' || b.label === 'turd')
+    this._unbindLjud = this._phys.impactAudio(ctx.services.audio, { vol: 0.2, hardSpeed: 14, maxPerFrame: 2, filter: barKorv })
+    this._unbindAnslag = this._phys.onImpact((h) => this._anslag(ctx, h), { minSpeed: 1.8, hardSpeed: 14, maxPerFrame: 2, filter: barKorv })
+    this._squashN = 0 // antal squash-anslag (syns i g._squashN)
+    this._lastDust = 0
+    this._stool = null // { x, w, body, view } — pallen från nivå 3
+    this._profil = null
 
     this._buildScene(ctx)
 
@@ -173,6 +184,11 @@ export default {
       { x: 204, y: 514 },
       { x: 344, y: 514 },
     ]
+
+    // Pallen (nivå 3+) står bakom de flygande korvarna men framför väggen.
+    this._stoolLayer = new Container()
+    this._stoolLayer.eventMode = 'none'
+    this._root.addChild(this._stoolLayer)
 
     // Lager för flygande korvar (ovanför barnen).
     this._playLayer = new Container()
@@ -293,9 +309,33 @@ export default {
     this._flying = false
     this._windInvited = false
 
-    const toiletX = clamp(900 + level * 48, 900, 1150)
-    const scale = clamp(1.0 - level * 0.05, 0.72, 1.0)
+    // U2: pottans plats och storlek lottas INOM nivåns band (avstånd och storlek är det som
+    // bär svårigheten). Nivå 0–4 följer kurvan ±40 px / ±0,06; från nivå 5 tar kurvan slut, och
+    // då ger en rundprofil en ny plats varje runda inom det svåra slutbandet (aldrig lättare).
+    let toiletX
+    let scale
+    let stoolX = null
+    let stoolW = 110
+    if (level < 5) {
+      const mittX = clamp(900 + level * 48, 900, 1150)
+      const mittS = clamp(1.0 - level * 0.05, 0.72, 1.0)
+      toiletX = slumpIBand(mittX, 40, { golv: 860, tak: 1150 })
+      scale = slumpIBand(mittS, 0.06, { golv: 0.72, tak: 1.0 })
+      if (level >= 3) {
+        stoolX = slumpIBand(600, 80, { steg: 20 })
+        stoolW = slumpIBand(110, 16, { steg: 8 })
+      }
+    } else {
+      const p = (this._profil = rundprofil(level, this._profil))
+      toiletX = 1080 + p.a * 70
+      scale = 0.72 + p.b * 0.08
+      stoolX = 540 + p.c * 180
+      stoolW = 94 + p.b * 36
+    }
     this._setToilet(toiletX, scale, animate)
+    // Pallen ska aldrig stå så nära pottan att den blockerar skålkanten.
+    if (stoolX !== null) stoolX = Math.min(stoolX, toiletX - 80 * scale - 170)
+    this._setStool(ctx, stoolX, stoolW, animate)
     this._tintWall(level, animate)
 
     // Pruttvinden finns från nivå 1 och är ALLTID barnets val — den slås aldrig på
@@ -309,6 +349,41 @@ export default {
 
     this._activeKid = level % 2
     this._readyThrow(ctx)
+    // Pallen dyker upp första gången på nivå 3: en kort rad, bara om kastet inte hunnit gå.
+    if (level === 3 && animate) {
+      ctx.narTyst(() => {
+        if (this._alive && this._level === 3 && this._ready && !this._flying) ctx.services.voice.say('Hoppsan, en pall i vägen!')
+      })
+    }
+  },
+
+  // Pallen: en låg stegpall i vägen. Korven studsar mot den (och plattas) — den som siktar högre
+  // klarar den. Låg nog (44 px) för att ett tap-skott och en normal båge går över.
+  _setStool(ctx, x, w, animate) {
+    if (!this._alive) return
+    const gammal = this._stool
+    if (gammal) {
+      this._phys.removeBody(gammal.body)
+      if (gammal.view && !gammal.view.destroyed) {
+        gsap.killTweensOf(gammal.view)
+        gsap.killTweensOf(gammal.view.scale)
+        gsap.killTweensOf(gammal.view.inre)
+        gsap.killTweensOf(gammal.view.inre.scale)
+        gammal.view.destroy({ children: true })
+      }
+      this._stool = null
+    }
+    if (x === null || x === undefined) return
+    const H = 44
+    const body = this._phys.rectangle(x, this._floorY - H / 2, w, H, { isStatic: true, label: 'pall' })
+    const view = makeStool(w, H)
+    view.position.set(x, this._floorY)
+    this._stoolLayer.addChild(view)
+    this._stool = { x, w, body, view }
+    if (animate) {
+      view.scale.set(0.01)
+      gsap.to(view.scale, { x: 1, y: 1, duration: 0.45, delay: 0.3, ease: 'back.out(2.2)' })
+    }
   },
 
   _setToilet(x, scale, animate = false) {
@@ -327,7 +402,9 @@ export default {
       }
     }
 
-    // Fysik-kroppar: en sensor i skålöppningen + två studskanter.
+    // Fysik-kroppar: en sensor i skålöppningen + två studskanter. (restitution på de statiska
+    // kanterna är nollad av PhysicsWorld — studsen är korvens egen, och det är rätt: den lätta
+    // hoppar, den stora dunsar. `studs` hade jämnat ut skillnaden mellan storlekarna.)
     const { sensor, rimL, rimR } = this._toilet
     if (sensor) this._phys.removeBody(sensor)
     if (rimL) this._phys.removeBody(rimL)
@@ -637,7 +714,7 @@ export default {
 
     const start = { x: this._held.x, y: this._held.y }
     const size = this._sizes[this._sizeIdx]
-    const view = makeTurd(size.r, this._turdType)
+    const view = makeTurdBody(size.r, this._turdType)
     view.position.set(start.x, start.y)
     this._playLayer.addChild(view)
     this._held.visible = false
@@ -653,7 +730,7 @@ export default {
       return
     }
 
-    const body = this._phys.circle(start.x, start.y, size.r, { ...size.mat, label: 'turd' })
+    const body = this._phys.circle(start.x, start.y, size.r, { ...size.mat, mat: size.ljud, label: 'turd' })
     Body.setVelocity(body, { x: v.vx, y: v.vy })
     this._phys.link(body, view)
     this._turd = { body, view }
@@ -697,13 +774,40 @@ export default {
         this._score(ctx)
         return
       }
-      if (other.label === 'rim') {
-        const now = performance.now()
-        if (now - this._lastBounce > 140) {
-          this._lastBounce = now
-          ctx.services.audio.sfx('pop')
-        }
-      }
+    }
+  },
+
+  // Korven slår i något (kant, golv, pall): den plattas längs kontaktnormalen och fjädrar tillbaka.
+  _anslag(ctx, h) {
+    if (!this._alive || !this._flying) return
+    const tb = this._turd?.body
+    const view = this._turd?.view
+    if (!tb || (h.a !== tb && h.b !== tb)) return
+    if (!view || view.destroyed || !view.sqF || view.sqF.destroyed) return
+    const andra = h.a === tb ? h.b : h.a
+    const dx = h.x - tb.position.x
+    const dy = h.y - tb.position.y
+    const ang = Math.hypot(dx, dy) > 0.5 ? Math.atan2(dy, dx) : Math.PI / 2
+    const f = view.sqF
+    gsap.killTweensOf(f.scale)
+    f.scale.set(1)
+    f.rotation = ang - view.rotation // ramens x-axel pekar mot kontakten ...
+    f.inre.rotation = -f.rotation // ... medan korven själv behåller sin vridning
+    const m = 0.1 + 0.3 * h.styrka
+    gsap.to(f.scale, { x: 1 - m, y: 1 + m * 0.8, duration: 0.06, ease: 'power2.out' })
+    gsap.to(f.scale, { x: 1, y: 1, duration: 0.34, delay: 0.06, ease: 'elastic.out(1, 0.4)' })
+    this._squashN++
+    if (andra.label === 'pall' && this._stool?.view && !this._stool.view.destroyed) {
+      const inre = this._stool.view.inre
+      gsap.killTweensOf(inre.scale)
+      inre.scale.set(1)
+      gsap.to(inre.scale, { x: 1.05 + 0.05 * h.styrka, y: 0.9 - 0.06 * h.styrka, duration: 0.07, ease: 'power2.out' })
+      gsap.to(inre.scale, { x: 1, y: 1, duration: 0.4, delay: 0.07, ease: 'elastic.out(1, 0.35)' })
+    }
+    const nu = performance.now()
+    if (h.styrka > 0.4 && nu - this._lastDust > 130) {
+      this._lastDust = nu
+      puff(ctx.fxLayer, h.x, h.y, { count: 4, color: andra.label === 'pall' ? 0xb7e3ea : 0xd8c4a8 })
     }
   },
 
@@ -717,6 +821,7 @@ export default {
     this._turd = null
     if (turd?.body) this._phys.removeBody(turd.body)
     const v = turd?.view
+    if (v && !v.destroyed && v.sqF) gsap.killTweensOf(v.sqF.scale)
     const bx = this._toilet.x
     const by = this._toilet.bowlY
     const type = TURD_TYPES[this._turdType] || TURD_TYPES.vanlig
@@ -795,6 +900,7 @@ export default {
       ly = turd.view.y
     }
     const v = turd?.view
+    if (v && !v.destroyed && v.sqF) gsap.killTweensOf(v.sqF.scale)
 
     ctx.services.audio.sfx('soft')
     this._ploppCombo = 0
@@ -1082,7 +1188,9 @@ export default {
     if (this._flying && this._turd?.body) {
       this._flightTime += dt
       const b = this._turd.body
-      if (b.position.y > 840) {
+      // Golvvakten nedan kräver y under skålen — en korv som lagt sig på pallen (eller kanten)
+      // når aldrig dit. Ett tak på flygtiden så att barnet aldrig blir stående utan nytt kast.
+      if (b.position.y > 840 || this._flightTime > 7) {
         this._miss(ctx)
         return
       }
@@ -1111,6 +1219,8 @@ export default {
     this._alive = false
     ctx?.ticker?.remove(this._tick)
     this._unbindCollision?.()
+    this._unbindLjud?.()
+    this._unbindAnslag?.()
     this._launcher?.destroy()
 
     this._afterShotTimer?.kill()
@@ -1182,6 +1292,50 @@ function pickTurdType() {
     if (r <= 0) return key
   }
   return 'vanlig'
+}
+
+// Flygande korv: en yttre behållare som fysiken styr (position + vridning), och därinne en
+// squash-ram (`sqF`) vars x-axel vänds mot kontakten, och korven (`inre`) som vrids tillbaka.
+function makeTurdBody(r, type) {
+  const yttre = new Container()
+  const ram = new Container()
+  const inre = new Container()
+  inre.addChild(makeTurd(r, type))
+  ram.addChild(inre)
+  ram.inre = inre
+  yttre.addChild(ram)
+  yttre.sqF = ram
+  return yttre
+}
+
+// En låg stegpall: ovansida med kant, en låda med välvd öppning, skugga på golvet. Ritad med
+// origo vid golvet, centrerad i x. `inre` är det som fjädrar vid en träff (skuggan står still).
+function makeStool(w, h) {
+  const v = new Container()
+  const skugga = new Graphics().ellipse(0, 2, w * 0.58, 8).fill({ color: 0x000000, alpha: 0.14 })
+  skugga.eventMode = 'none'
+  v.addChild(skugga)
+  const inre = new Container()
+  const g = new Graphics()
+  const topH = 15
+  g.roundRect(-w / 2 + 4, -h + topH - 2, w - 8, h - topH + 2, 8).fill(0x3fb6c4)
+  g.roundRect(-w / 2 + 4, -h + topH - 2, w - 8, h - topH + 2, 8).stroke({ width: 3, color: 0x2a8794 })
+  const ow = w * 0.44
+  g.moveTo(-ow / 2, 0)
+    .lineTo(-ow / 2, -10)
+    .quadraticCurveTo(0, -h + topH + 2, ow / 2, -10)
+    .lineTo(ow / 2, 0)
+    .closePath()
+    .fill(0x1f6c78)
+  g.roundRect(-w / 2, -h, w, topH, 7).fill(0xffd35c)
+  g.roundRect(-w / 2, -h, w, topH, 7).stroke({ width: 3, color: 0xc99a1f })
+  g.roundRect(-w / 2 + 8, -h + 3, w * 0.35, 4, 2).fill({ color: 0xffffff, alpha: 0.5 })
+  g.eventMode = 'none'
+  inre.addChild(g)
+  v.addChild(inre)
+  v.inre = inre
+  v.eventMode = 'none'
+  return v
 }
 
 // Ritad bajskorv med egen silhuett och eget ansikte: tre mjuka lager som smalnar av

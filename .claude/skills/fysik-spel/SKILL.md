@@ -308,3 +308,12 @@ vid `GY` och har därför en exakt förhandsvisning per konstruktion.
 - `avbryt()` ur pekhanteraren lägger noden på `markY` direkt; `destroy()` gör samma på en levande nod och rör inte en riven.
   `klar` resolvas alltid ('landad' | 'avbruten' | 'riven'). Efter landning: exakt `markY`, lyssnaren lossad.
 - Ljud och skak är kundens: `onLand(tyngd, { nr, fart })` vid varje nedslag. Mät: `node scripts/_landaprobe.mjs`.
+
+## Fysiköverlägg (`lib/fysikdebug.js`, F9) — DEV, bara med `?fysik`
+
+- Öppna `http://localhost:5173/?fysik` (eller :5174): kroppskonturer (cyan vaken · blågrå sovande · grå statisk · magenta sensor),
+  leder (gul + ankare), kontaktpunkter (röda), fartpilar (gröna), **röd ring = `statisk-fart`** (R1), orange ring = `snurr`,
+  bärnsten = `hitArea` på synliga static/dynamic-noder. Ritas i varje kropps EGET rum (länkad vys förälder → kamera följer med).
+- Räknare att läsa: `window.__fysikdebug` → `konturer === kroppar` (kroppar = `Composite.allBodies`, oberoende av ritningen).
+  Inga levande världar → inget ritas. Hakar på `PhysicsWorld.prototype` utifrån (physics.js orörd); bygget har noll spår (markör `fysikdebug-markor-q7x3`).
+- Mät utan webbläsare: `node scripts/_fysikdebugprobe.mjs`. Bra första spel: `vippbradan` (led + sensor) och `grodan-slurp` (ragdoll, sensorer).

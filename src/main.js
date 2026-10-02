@@ -83,6 +83,10 @@ async function boot() {
     window.__barnspel = services
     const { attach } = await import('./lib/gamelog.js')
     attach(services) // diagnostiklogg — se window.__gamelog
+    // Fysiköverlägg (FYSIKPLAN F9): laddas bara med ?fysik, och aldrig i bygget.
+    if (new URLSearchParams(location.search).has('fysik')) {
+      import('./lib/fysikdebug.js').then((m) => m.attach(services))
+    }
   }
 }
 

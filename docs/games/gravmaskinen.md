@@ -83,8 +83,9 @@ rekvisita, och auto-hjälp + tap-fusk kan kringgå själva grävandet**.
   last, begravd skatt `_maybeFynd` :669) — uppdagat 2026-09-23.
 - ✅ ~~**[Medium] Olika laster per nivå.**~~ Redan byggd (`CARGOS` :51: sand · grus · snö · småsten ·
   godis, egen palett och rasvinkel, 2026-08-06) — uppdagat 2026-09-23.
-- **[Quick] Befolka bygget:** trafikkoner, en skylt, en kompis-maskin (hjullastare), en
-  liten fågel på sandhögen — fyll det tomma mittfältet.
+- ✅ ~~**[Quick] Befolka bygget:** trafikkoner, en skylt, en kompis-maskin (hjullastare), en
+  liten fågel på sandhögen — fyll det tomma mittfältet.~~ Byggd 2026-10-02 (L2, `bygge.js`):
+  alla fyra plus tornkran, husstomme, byggstaket och grushögar. Se §5.
 
 ### Juice
 - ✅ ~~**[Quick] Kornigt sand-ljud.**~~ Redan byggd som stämda toner (rassel ∝ rörliga korn :948,
@@ -116,6 +117,30 @@ rekvisita, och auto-hjälp + tap-fusk kan kringgå själva grävandet**.
   "Tuut tuut!" är ersatt av den stämda tutan.
 
 ## 5. Status / loggar
+
+- 2026-10-02 🎨 **L2: en byggarbetsplats** (FYSIKPLAN L2 + "befolka bygget", bara det som ritas).
+  Beige platta med tom himmel → en plats i flera djup (`bygge.js`, ny fil i spelet). Kornautomaten,
+  laster, nivåer, kontroller, träffytor, rutnät och repliker är orörda.
+  - **Himmel med djup:** egen palett (ljus himmel → dammigt varm horisont, sandmark), stadssiluett
+    på kullarna (`createScene({ silhuett: 'stad' })`), sol och moln som förut.
+  - **Långt bort:** en tornkran vars krok (med en pall tegel) svajar i sin vagn, och en husstomme
+    under uppbyggnad längst till höger (pelare, bjälklag, armeringsjärn, ställning, orange
+    skyddsnät). **Mitten:** ett grönt byggstaket med gul-svart varningsrand (grönt med flit — sandbruna
+    plankor smälte ihop med sandhögens fot), en varningsskylt med spade, och en kompis-hjullastare
+    på tomgång (kroppen guppar, blinkljuset blinkar). **Förgrund:** fyra trafikkoner (två med
+    avspärrningsband) och två grushögar (grå, sand).
+  - **Fågeln:** en liten blåmes sitter på sandhögens topp (guppar, pickar). Medan barnet gräver
+    (`_pulsePile`) flyger den undan och kommer tillbaka ~3,6 s efter sista grävtaget — orsak och
+    verkan i bakgrunden, utan att påverka spelet.
+  - **Full last (`_onFull`):** hjullastaren lyfter skopan i två vink, konerna vaggar i tur, fågeln
+    hoppar om den är hemma.
+  - **Zackes eget jubel** vid full last står kvar öppet i §4 (rörde inte figuren).
+  - **Exit/återspel:** all dekor `eventMode 'none'`, `bygge.destroy()` dödar liv-tweens, blinkljus,
+    fågelns flyg- och återkomsttimer, nickandet och stegrade vaggningar före rotens `destroy`.
+    Mätt i Node: 0 texturbakningar i `byggBygge` (bara platta fyllningar), `createScene` bakar bara
+    första gången (cachat), inga kvarlevande tweens med mål i bygget efter `destroy`.
+  - **Inte provkörd i webbläsare** (nattkörningens regel) — kontrollera skärmdumpen: staketets färg
+    mot högen, att kranen inte tar blicken från skopan, och foten på höger grushög mot dumpern.
 
 - 2026-09-23 ✅ **Leveranskedjan följer orden** (ägarens beslut, samma dag): lastraden →
   "Bobo kör iväg med lasten!" → nästa lasts intro. Dumpern står kvar full medan lastraden

@@ -24,7 +24,12 @@ import { gsap } from 'gsap'
 import { createScene } from '../../lib/scene.js'
 import { pop, wiggle, puff, burst, floatText, sparkle, shake, kvittera, liv } from '../../lib/feedback.js'
 import { makeMascot } from '../../lib/mascot.js'
+import { byggBygge } from './bygge.js'
 import { COLORS } from '../../lib/theme.js'
+
+// Byggarbetsplatsens himmel och sandfärgade mark (L2). Egen palett: ljus himmel som blir dammigt
+// varm mot horisonten, torr sandmark. Stadssiluetten ligger på kullarna längst bort.
+const BYGGPLATS = { top: 0xa4daf4, bottom: 0xfbe9c6, ground: 0xdcb883, groundDark: 0xb98f58, sun: true, clouds: 3, gras: true }
 
 // --- Rutnät (designkoordinater) ---
 const CELL = 10 // cellstorlek
@@ -208,8 +213,11 @@ export default {
   // ---- Scen (byggs en gång) ----------------------------------------------
 
   _buildScene(ctx) {
-    // Varm bygg-/sandton som FÖRSTA barn (dekorativ, exit-säker).
-    this._root.addChild(createScene('warm', { width: ctx.width, height: ctx.height, ground: true }))
+    // Byggarbetsplatsen som FÖRSTA barn (dekorativ, exit-säker): himmel med stadssiluett, sandmark,
+    // och bakom spelytan tornkran, husstomme, staket, kompis-hjullastare, koner och grushögar.
+    this._root.addChild(createScene(BYGGPLATS, { width: ctx.width, height: ctx.height, ground: true, silhuett: 'stad', fro: 5 }))
+    this._bygge = byggBygge()
+    this._root.addChild(this._bygge.bak, this._bygge.fram)
 
     // Osynlig tryckyta för tap-tap-fallback (under skopan, ovanpå dekoren).
     this._tapCatcher = new Graphics().rect(0, 0, ctx.width, ctx.height).fill({ color: 0x000000, alpha: 0 })
@@ -225,6 +233,7 @@ export default {
     this._pile.position.set(240, 520)
     this._pile.eventMode = 'none'
     this._root.addChild(this._pile)
+    this._root.addChild(this._bygge.fagel) // en liten fågel på högens topp
 
     // Grävmaskin + hytt + förar-Zacke.
     this._root.addChild(this._makeMachine())
@@ -790,6 +799,7 @@ export default {
   },
 
   _pulsePile() {
+    this._bygge?.skramma() // fågeln på högen flyger undan medan det grävs
     const s = this._pile
     if (this._pilePulsing || !s || s.destroyed) return
     this._pilePulsing = true
@@ -1061,6 +1071,7 @@ export default {
     // Vinstljud, beröm och konfettiregn kommer från progress.complete() nedan. Lastens
     // egen rad sägs FÖRE complete(), så den står kvar och det slumpade berömmet utgår.
     ctx.services.audio.sfx('correct')
+    this._bygge?.fira() // hjullastaren lyfter skopan, konerna vaggar
     // Riktig två-tons lastbils-tuta.
     ctx.services.audio.tone({ freq: 320, dur: 0.3, type: 'square', vol: 0.22 })
     ctx.services.audio.tone({ freq: 250, dur: 0.45, type: 'square', vol: 0.22, delay: 0.28 })
@@ -1170,6 +1181,8 @@ export default {
     if (this._tick) ctx?.ticker?.remove(this._tick)
     this._deliverTl?.kill()
     this._tapTl?.kill()
+    this._bygge?.destroy()
+    this._bygge = null
 
     if (this._bucket && !this._bucket.destroyed) {
       this._bucket.off('pointerdown', this._onDownH)

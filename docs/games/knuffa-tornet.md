@@ -115,6 +115,14 @@ Kort sagt: fysiken är äkta och kontrollerna rika, men **slaget är ljudlöst, 
 
 ## 5. Status / loggar
 
+- 2026-10-02 · **Glaset går sönder i godisbitar (F3 / Ä7)** (FYSIKPLAN omgång 0, fas D12, kluster B1). Glasklossen
+  spricker inte längre bort i gnistor: `phys.brytbar` (grans 5 normalfart, kulan ensam utlöser) byter den i NÄSTA
+  fysiksteg mot sex RUNDADE godisbitar (5 färger, ritade med rand + blänk) som ärver klossens fart + vridning, tonar
+  bort efter 3 s och aldrig blir fler än 12 i världen. Glitter (`burst` i godisfärger + `sparkle`), samma klirr-ton, och
+  glasklossen räknas nedknuffad som förut. Kön `_shatter` finns kvar (ljud, glitter och mätare köas till tickern; kroppen rörs
+  aldrig i matters händelse). **Ny replik:** "Titta! Glasklossen blev godis!" (ersätter "Pang! Glasklossen sprack!", säges bara
+  om inget annat talar). Mätning: `node scripts/_fysikbank.mjs --bara S9` (rörelsemängd 0,0000 %, inträngning 0,000 px, tak 12) ·
+  `_tornprobe` oförändrad (kroppens tal rörs inte; brytbar registreras bara på glaskloss). Bilden: kör nivå ≥ 3 (glas finns då).
 - 2026-10-02 · **Variation (U2)** (FYSIKPLAN omgång 0, nattkörning B4). `_layoutFor` gick `SHAPES[level
   % 5]` — torn → trappa → port → pyramid → dubbel i samma ordning varje gång — och sätte
   specialklossarna på fasta celler (sten = `byRow[0]`, glas = första låga, gummi = översta). Nu: formen

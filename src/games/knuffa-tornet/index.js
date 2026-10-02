@@ -127,7 +127,7 @@ const SHAPES = [
 // Specialklossar gör VALET av tyngd och rep till ett pussel i stället för smak:
 //   sten  tung sockel — en liten kula studsar bara av, en stor välter den
 //   studs gummi — flyger långt, särskilt med elastiskt rep
-//   glas  spricker i gnistror vid en hård träff (räknas som nedknuffad)
+//   glas  går sönder i rundade godisbitar med glitter vid en hård träff (`phys.brytbar`, räknas som nedknuffad)
 // Friktionen var 0,7/1,4 på ALLA klossar — så hög att stapeln betedde sig som ett enda
 // limmat block och sköts åt sidan i stället för att rasa. Låg friktion mellan klossar gör
 // att de skvätter isär av ett slag; stenen behåller sitt grepp och är fortfarande ankaret.
@@ -144,9 +144,15 @@ const KINDS = {
   studs: { dens: 0.7, rest: 0.72, fric: 0.3, fricS: 0.5, rost: 'gummi' },
   glas: { dens: 0.6, rest: 0.05, fric: 0.35, fricS: 0.6, rost: 'glas' },
 }
-// Slagfart som spräcker en glaskloss. Var 9 — men världens uppmätta toppfart ÄR 9, så
-// tröskeln nåddes aldrig och glaset ramlade bara av som vilken kloss som helst.
-const GLAS_SPEED = 6
+// Normalfart (px/steg, före lösaren) som får en glaskloss att gå sönder i godisbitar (`phys.brytbar`, F3).
+// Var 9 — men världens uppmätta toppfart ÄR 9, så tröskeln nåddes aldrig och glaset ramlade bara av som
+// vilken kloss som helst. Var 6 som SUMMA av två farter; normalfarten är alltid ≤ farten, därför 5.
+const GLAS_GRANS = 5
+// Glaset går sönder i RUNDADE godisbitar (ägarbeslut Ä7) — aldrig skärvor. Högst 12 i världen, borta efter 3 s.
+const GODIS_BITAR = 4 // fyra stora bitar läses som godis på en surfplatta; sex blev ~14 px små (kritik D12)
+const GODIS_TAK = 12
+const GODIS_LIVSTID = 3
+const GODIS = [0xff8fc1, 0xffd54a, 0x7fe3b0, 0x8fd3ff, 0xc9a2ff] // jordgubb, citron, mynta, bär, druva
 
 export default {
   id: 'knuffa-tornet',
@@ -175,7 +181,9 @@ export default {
     this._blocks = [] // { body, view, cleared, isCrown, kind }
     this._formId = null // förra tornets form (nastaVariant undviker att upprepa den)
     this._specialer = '' // specialklossarnas plats i tornet (för mätning)
-    this._shatter = [] // glasklossar som ska spricka i nästa tick
+    this._shatter = [] // glasklossar som gått sönder (libbet delade dem) — ljud, glitter och mätare i nästa tick
+    this._godis = [] // { body, view } — godisbitarna efter en glaskloss (lever högst `GODIS_LIVSTID` s)
+    this._godisN = 0
     this._invited = false // hjälpen har ställt kulan i läge och väntar på barnet
     this._inviteT = 0
     this._finishCalls = [] // fördröjda steg i finishen (måste dö med spelet)
@@ -676,7 +684,22 @@ export default {
         label: 'block',
       }))
       this._phys.link(body, view)
-      this._blocks.push({ body, view, cleared: false, isCrown: false, nervous: false, kind: cell.kind })
+      const rec = { body, view, cleared: false, isCrown: false, nervous: false, kind: cell.kind }
+      this._blocks.push(rec)
+      // Glaset går sönder i godisbitar när KULAN slår i hårt nog (F3). Delningen köas av libbet till nästa
+      // fysiksteg — aldrig inne i matters kollisionshändelse.
+      if (cell.kind === 'glas') {
+        this._phys.brytbar(body, {
+          grans: GLAS_GRANS,
+          bitar: GODIS_BITAR,
+          livstid: GODIS_LIVSTID,
+          tak: GODIS_TAK,
+          filter: (annan) => annan.label === 'ball' && !rec.cleared,
+          onBryt: (info) => this._onGlasBryt(rec, info),
+          onTona: (bit, alfa) => this._godisTona(bit, alfa),
+          onBort: (bit) => this._godisBort(bit),
+        })
+      }
       bounceIn(view, { delay: cell.row * 0.04 })
     })
 
@@ -702,6 +725,11 @@ export default {
   },
 
   _clearTower() {
+    for (const g of this._godis) {
+      this._phys.removeBody(g.body)
+      if (g.view && !g.view.destroyed) g.view.destroy({ children: true })
+    }
+    this._godis = []
     for (const b of this._blocks) {
       this._phys.removeBody(b.body)
       if (b.view && !b.view.destroyed) {
@@ -1397,15 +1425,8 @@ export default {
         hitSpeed = sp
         hitMat = other.mat || null // den HÅRDASTE träffen i bildrutan bestämmer rösten
       }
-      // Glaskloss + hård träff = den spricker. Kroppen tas INTE bort här (mitt i matter:s
-      // eget kollisionsevent) utan köas till nästa tick.
-      if (sp > GLAS_SPEED) {
-        const rec = this._blocks.find((x) => x.body === other)
-        if (rec && rec.kind === 'glas' && !rec.cleared && !rec.shattering) {
-          rec.shattering = true
-          this._shatter.push(rec)
-        }
-      }
+      // (Glaskloss + hård träff = godisbitar: det sköter `phys.brytbar` som köar delningen till nästa
+      // fysiksteg — här inne i matters kollisionshändelse rörs ingen kropp.)
     }
     // En rivningskula som krossar ett torn SKA få sitt "duns" — men snällt: mjukt och
     // rundat (ingen buzzer) och med kraft som växer med slagfarten. Behåll strypningen
@@ -1429,8 +1450,44 @@ export default {
     }
   },
 
-  // Glaskloss som spruckit: den räknas som nedknuffad (mätaren rör sig), kroppen lämnar
-  // världen och vyn tonar bort i gnistror. Körs i tickern, aldrig i matter:s event.
+  // Glasklossen gick sönder i godisbitar (libbet byter kroppen i fysikens beforeUpdate; här görs bara bitarnas
+  // VYER — allt annat köas till tickern, `_doShatter`). Bitarna är inskrivna i klossens yta och ärver dess fart.
+  _onGlasBryt(rec, info) {
+    if (!this._alive) return
+    rec.shattering = true
+    for (const bit of info.bitar) {
+      const view = makeGodis(bit.circleRadius, GODIS[this._godisN++ % GODIS.length])
+      view.position.set(bit.position.x, bit.position.y)
+      view.rotation = bit.angle
+      this._blockLayer.addChild(view)
+      this._phys.link(bit, view)
+      this._godis.push({ body: bit, view })
+    }
+    // Själva glasklossens bild lämnar scenen direkt (kroppen är redan borta).
+    const v = rec.view
+    if (v && !v.destroyed) {
+      gsap.killTweensOf(v)
+      gsap.killTweensOf(v.scale)
+      v.visible = false
+    }
+    this._shatter.push(rec)
+  },
+
+  _godisTona(bit, alfa) {
+    const g = this._godis.find((x) => x.body === bit)
+    if (g && g.view && !g.view.destroyed) g.view.alpha = alfa
+  },
+
+  _godisBort(bit) {
+    const i = this._godis.findIndex((x) => x.body === bit)
+    if (i < 0) return
+    const g = this._godis[i]
+    this._godis.splice(i, 1)
+    if (g.view && !g.view.destroyed) g.view.destroy({ children: true })
+  },
+
+  // Glasklossen som gått sönder räknas som nedknuffad (mätaren rör sig), och godisbitarna får sitt glitter
+  // och sin klirrande ton. Körs i tickern, aldrig i matter:s event.
   _doShatter(ctx) {
     const list = this._shatter
     this._shatter = []
@@ -1440,12 +1497,11 @@ export default {
       const x = v && !v.destroyed ? v.x : this._pivot.x
       const y = v && !v.destroyed ? v.y : this._pivot.y
       ctx.services.audio.tone({ freq: 1500, slideTo: 2600, dur: 0.16, type: 'triangle', vol: 0.26 })
-      ctx.services.voice.say('Pang! Glasklossen sprack!')
-      burst(ctx.fxLayer, x, y, { count: 12 })
+      // Ett utrop på ett ögonblick: hoppas över om något redan talar (köat kommer det för sent).
+      if (!ctx.services.voice.talar) ctx.services.voice.say('Titta! Glasklossen blev godis!')
+      burst(ctx.fxLayer, x, y, { count: 12, colors: GODIS })
       sparkle(ctx.fxLayer, x, y, { count: 8 })
       this._onClear(ctx, b)
-      this._phys.removeBody(b.body)
-      if (v && !v.destroyed) gsap.to(v, { alpha: 0, duration: 0.2 })
     }
   },
 
@@ -1657,6 +1713,22 @@ function makeCrown() {
   e.circle(0, 14, 3.4).fill(0xfffdf7)
   e.eventMode = 'none'
   c.addChild(glow, e)
+  c.eventMode = 'none'
+  c.interactiveChildren = false
+  return c
+}
+
+// En godisbit: rund, blank och randig — egen silhuett, ritad (P0 ASSETS), aldrig en ikon i en ruta. Lever i en
+// container så att `phys.link` flyttar containern (en naken Graphics ritad kring origo och flyttad långt bort
+// kan rendera som en skärmbred stapel).
+function makeGodis(r, color) {
+  const c = new Container()
+  const g = new Graphics().circle(0, 0, r).fill(color).stroke({ width: Math.max(2, r * 0.16), color: shade(color, 0.22), alpha: 0.8 })
+  const rand = new Graphics()
+  bage(rand, 0, 0, r * 0.58, 0.15 * Math.PI, 1.05 * Math.PI).stroke({ width: Math.max(2, r * 0.2), color: COLORS.white, alpha: 0.55 })
+  const hi = new Graphics().circle(-r * 0.36, -r * 0.4, r * 0.26).fill({ color: COLORS.white, alpha: 0.75 })
+  for (const o of [g, rand, hi]) o.eventMode = 'none'
+  c.addChild(g, rand, hi)
   c.eventMode = 'none'
   c.interactiveChildren = false
   return c

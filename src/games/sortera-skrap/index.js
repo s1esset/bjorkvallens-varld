@@ -256,7 +256,9 @@ export default {
     this._root = new Container()
     ctx.stage.addChild(this._root)
     // Bakgrundsscen (utomhus-äng) FÖRST så allt innehåll renderas ovanpå.
-    this._root.addChild(createScene('meadow'))
+    // Hög horisont (groundH 450 → gräset börjar på y 270): skräphögen LIGGER på gräsmattan i
+    // stället för att sväva i himlen, och tunnorna står på samma gräs. Trädlinje + strån för djup.
+    this._root.addChild(createScene('meadow', { groundH: 450, silhuett: 'skog', forgrund: true, fro: 1 + ((Math.random() * 900) | 0) }))
 
     // Spel-lager (tunnor + föremål) och ett fx-lager ovanpå för partiklar/ringar/text.
     this._play = new Container()
@@ -869,19 +871,21 @@ export default {
     shadow.eventMode = 'none'
     // Innehåll (lyfts uppåt vid grepp).
     const content = new Container()
-    // P0 ASSETS: föremålet står FRITT. Den opaka cream-skivan bakom var precis
-    // den bricka regeln förbjuder; kvar är ett svagt sken så saken syns mot både
-    // himmel och gräs.
-    const disc = new Graphics().circle(0, 0, r * 0.9).fill({ color: 0xffffff, alpha: 0.25 })
+    // P0 ASSETS: föremålet står FRITT på gräset — ingen skiva, ring eller bricka bakom,
+    // bara markskuggan under. (Vita skivan alfa 0,25 är borta; gräset bär saken.)
     const emoji = drawTrash(data.emoji)
     emoji.scale.set(r / 50)
-    content.addChild(disc, emoji)
+    content.addChild(emoji)
     if (data.guld) {
-      // Guldskräp: ett varmt sken + en guldring bakom saken och fyra ritade glitterstjärnor
-      // runt den. Stjärnorna tindrar via `_update` (alfa varje bildruta, inga tweens).
-      disc.clear()
-        .circle(0, 0, r * 1.02).fill({ color: 0xffd35c, alpha: 0.38 })
-        .circle(0, 0, r * 0.95).stroke({ width: 5, color: 0xffc233, alpha: 0.9 })
+      // Guldskräp: ett mjukt varmt sken (tre avtagande ljusfläckar, ingen kant eller ring)
+      // bakom saken och fyra ritade glitterstjärnor runt den. Stjärnorna tindrar via
+      // `_update` (alfa varje bildruta, inga tweens).
+      const sken = new Graphics()
+        .circle(0, 0, r * 1.1).fill({ color: 0xffd35c, alpha: 0.12 })
+        .circle(0, 0, r * 0.86).fill({ color: 0xffd35c, alpha: 0.16 })
+        .circle(0, 0, r * 0.6).fill({ color: 0xfff0a8, alpha: 0.2 })
+      sken.eventMode = 'none'
+      content.addChildAt(sken, 0)
       const glitter = new Graphics()
       for (const [sx, sy, s] of [[-0.74, -0.66, 12], [0.8, -0.42, 9], [0.64, 0.72, 11], [-0.82, 0.5, 8]]) {
         const x = sx * r
@@ -959,11 +963,14 @@ function binFill(b) {
 // Lägg ut föremålen i en lätt klustrad, "slängd" hög (1–2 rader, centrerade) ovanför
 // tunnorna, med jitter i x/y så det ser ut som riktigt skräp — inte en prydlig tabell.
 function layoutItems(ctx, n) {
+  // Skräphögen ligger på gräset (horisonten y 270) ovanför tunnorna (överkant ≈ y 429): en rad
+  // på y ≈ 310, två rader på y ≈ 244 / 356 — den övre längst bak, med skuggan i gräset.
+  // Radavstånd 112 + ett halvt stegs förskjutning (84 px) = 140 px diagonalt = 2r + 24.
   const perRow = n <= 5 ? n : Math.ceil(n / 2)
   const rows = Math.ceil(n / perRow)
   const spacingX = 168
-  const spacingY = 150
-  const centerY = 255
+  const spacingY = 112
+  const centerY = rows === 1 ? 310 : 300
   const yTop = centerY - ((rows - 1) * spacingY) / 2
   const jit = (m) => (Math.random() * 2 - 1) * m
   const spots = []
@@ -972,7 +979,11 @@ function layoutItems(ctx, n) {
     const cols = row < rows - 1 ? perRow : n - perRow * (rows - 1)
     const idx = i - row * perRow
     const rowW = (cols - 1) * spacingX
-    spots.push({ x: ctx.width / 2 - rowW / 2 + idx * spacingX + jit(30), y: yTop + row * spacingY + jit(22) })
+    // Är andra raden lika full som den första skjuts den ett halvt steg (en slängd hög, inte ett
+    // rutnät); en kortare andra rad (9 saker = 5 + 4) hamnar redan mellan den första radens.
+    const stagger = row === 1 && cols === perRow ? spacingX / 2 : 0
+    const x = Math.max(90, Math.min(ctx.width - 90, ctx.width / 2 - rowW / 2 + idx * spacingX + stagger + jit(14)))
+    spots.push({ x, y: yTop + row * spacingY + jit(8) })
   }
   return spots
 }

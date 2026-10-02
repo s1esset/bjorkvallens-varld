@@ -3,8 +3,8 @@
 
 ## 1. Nuläge (sett som spelare)
 
-En solig äng. Högst upp ligger en prydlig hög med skräp på gräddvita "brickor" (📄📰🍌🍞🥤
-🥫…), nedanför står 2–4 färgkodade tunnor med stor ikon i mitten (📄 papper / 🍎 mat / 🧴 plast
+En solig äng. På gräsmattan ligger en slängd hög med skräp (📄📰🍌🍞🥤
+🥫…; sedan 2026-10-02 fritt, utan bricka), nedanför står 2–4 färgkodade tunnor med stor ikon i mitten (📄 papper / 🍎 mat / 🧴 plast
 / 🥫 glas&metall) — ingen läsning krävs. Jag tar en sak; den lyfts och skuggan växer (känns
 högre). Drar jag den till rätt tunna → locket poppar, en mörk "mun" gapar, gnistor + ring +
 "pling", och saken ploppar ner *bakom* tunnan. Fel tunna → mjuk studs hem + vänlig vingel +
@@ -104,9 +104,23 @@ kategorierna är medvetet lätta att skilja (papper vs mat). Strikt felfritt.
   *Variationen triggas (verifierat i koden 2026-09-23): spelet firar bara via `complete()`, som
   spelar `sfx('celebrate')` → `AudioService._celebrate` (:166) med slumpad tonhöjd/tempo och
   variant. Kvar är ambienten, som kräver ett SFX-klipp — blockerad så länge MOSS är nere.*
+- [Polish] Gröna tunnan har låg kontrast mot gräset (läses bara tack vare glaskanten) — mörkare kant eller en ljus markplätt under tunnorna. (F3-kritik 2026-10-02)
 
 ## 5. Status / loggar
 
+- 2026-10-02 ✅ **Skräphögen ligger på gräset, skivan borta** (natt F3 · B3 · U2/L1/P0 ASSETS):
+  - **Skivan bort:** `_makeItem` ritade en vit skiva (alfa 0,25) bakom varje sak — den bricka P0
+    ASSETS förbjuder. Nu står sakerna fria med bara markskuggan under. Guldskräpets guldring
+    (`stroke`) är också borta; kvar är ett mjukt sken (tre avtagande ljusfläckar, ingen kant) och
+    de fyra tindrande stjärnorna.
+  - **Högen på marken:** scenen är `createScene('meadow', { groundH: 450, silhuett: 'skog',
+    forgrund: true, fro })` — horisonten ligger på y 270, så högen ligger på gräsmattan i stället
+    för i himlen (trädlinje + strån för djup, `fro` lottas per montering). `layoutItems` lägger en
+    rad på y ≈ 310 eller två rader på y ≈ 231 / 355 (radavstånd 124, full andra rad förskjuten ett
+    halvt steg, jitter ±14/±8), x klämt till 90..1190. Markskuggan når y ≈ 429 = tunnornas överkant.
+  - **Orört:** tunnorna (x/y, storlek, `addTarget`-radier, hitArea) och DragController-flödet.
+    Landa-intro (P4) ingår inte. Grind: `check --game sortera-skrap` 0/0; ej webbläsartestad av
+    byggaren.
 - 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0):
   - **Firandet:** spelet firade bara via `complete()` (rent), men nästa rundas instruktion sades
     1,4 s efter `complete()`, mitt i berömmet, och kapade det. Den köar nu i `ctx.narTyst` och

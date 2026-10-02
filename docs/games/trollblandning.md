@@ -12,7 +12,7 @@ droppar i kitteln → ~0,4s omrörning → de **reagerar**: eld+vatten blir 💨
 draggbar resultat-droppe dyker upp på hyllan. Är paret ett bok-mål fylls den raden (❓→emoji).
 Finns inget recept blir det en mjuk grå puff + "Hmm... prova en annan!" och ingredienserna
 studsar ut igen (inget förbrukas). En 🌀-knapp tömmer kitteln. Fyll alla bok-rader → kitteln
-kokar över i en 🧪 Trolldryck + firande + stjärna, sedan en rikare runda. Idle ~6s → trollkarlen
+kokar över (en ritad flaska stiger och skvätter) + firande + stjärna, sedan en rikare runda. Idle ~6s → trollkarlen
 lyser upp de två droppar som hör ihop + prick-linje + "Prova Eld och Vatten!"; efter några
 ledtrådar gör han kombon själv.
 
@@ -110,8 +110,20 @@ inte spelar någon roll, och vars hjälp gärna fyller boken åt barnet.**
   låg bubblande ambient, plus korta element-läten (eld-spräck, vatten-plask, is-knäpp, magisk
   shimmer) per reaktion så örat hör skillnad på upptäckterna. *(Blockerad 2026-09-23: kräver
   nya SFX-klipp — MOSS nere.)*
+- [Polish] Hyllan är 880 px bred men elementen sitter på högra halvan — centrera dem eller korta hyllan. (F3-kritik 2026-10-02)
 
 ## 5. Status / loggar
+
+- 2026-10-02 ✅ **Ringen bort, finalens flaska ritad** (natt F3 · B3 · P0 ASSETS):
+  - **Ringen bort:** källdropparnas bakgrund (`_makeDrop`) var en fylld cirkel + en `stroke`-ring
+    i elementets färg. Nu bara ett mjukt sken (två avtagande ljusfläckar, ingen kant) — elementet
+    står fritt. Träffytan (Circle 80), vilo-guppet i `krop` och skuggan på `c` oförändrade.
+  - **Finalen:** `floatText('🧪')` i `_checkComplete` är ersatt av `_flaskaFinal` — en ritad
+    glasflaska (kant, glas, kork, glans, bubblor) fylld med rundans egen brygdfärg (`_brewColor`)
+    som stiger ur kitteln, tippar och skvätter (burst + puff i brygdens färg, mjukt plopp) och
+    tonar ut. Lever i fxLayer via en {}-proxy som bara rör noden om den lever (exit-säker).
+  - **Kvar:** överkokningen som FluidWorld (§4) — ej byggd; flaskan är den billiga delen.
+    Grind: `check --game trollblandning` 0/0; ej webbläsartestad av byggaren.
 
 - 2026-09-23 ✅ **Dubbelfirandet + snabbvinstsvepet** (v1.251.0): `_checkComplete` spelade
   själv `sfx('celebrate')`, `say(randomFrom(PRAISE))` och `bigCelebration` — alla tre strukna,

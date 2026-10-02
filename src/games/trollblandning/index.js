@@ -869,17 +869,13 @@ export default {
   // ---- Droppar (oändliga hyll-källor) -------------------------------------
 
   _makeDrop(ctx, elemId) {
-    const E = ELEMENTS[elemId]
     const c = new Container()
     c.position.set(500, SHELF_Y) // tillfälligt; _layoutShelf sätter hemmaplats
     const shadow = new Graphics().ellipse(0, 42, 40, 12).fill({ color: 0x000000, alpha: 0.18 })
     shadow.eventMode = 'none'
     // P0 ASSETS: elementet är ett FRISTÅENDE ritat föremål. Den gamla lösningen
-    // var en emoji inuti en fylld färgcirkel — en ikon i en bricka. Cirkeln är
-    // nu bara ett mjukt sken bakom, inte en behållare.
-    const body = new Graphics().circle(0, 0, 50).fill({ color: E.color, alpha: 0.2 })
-    body.circle(0, 0, 50).stroke({ width: 4, color: E.color, alpha: 0.4 })
-    body.eventMode = 'none'
+    // var en emoji inuti en fylld färgcirkel med ring — en ikon i en bricka. Även två
+    // genomskinliga skivor utan ring läste som en bricka i bilden, så bara markskuggan bär det.
     const emoji = drawElement(elemId)
     emoji.scale.set(1.5)
     // Vilorörelsen får INTE röra `c.y` — DragController, `_layoutShelf` och hällningens
@@ -887,7 +883,7 @@ export default {
     // kvar på `c`: en skugga som guppar med föremålet slutar läsa som mark.
     const krop = new Container()
     krop.eventMode = 'none'
-    krop.addChild(body, emoji)
+    krop.addChild(emoji)
     c.addChild(shadow, krop)
     c._krop = krop
     c._skugga = shadow // krymper med kroppen när hyllan blir trång (_layoutShelf)
@@ -1398,7 +1394,7 @@ export default {
     // Vinstljud, beröm och konfettiregn kommer från complete() nedan. Radens egen
     // replik ("<Namn>! Vad fint!") sades nyss i _onRecipe och talar kvar, så berömmet
     // utgår i stället för att kapa den.
-    floatText(ctx.fxLayer, CX, BREW_Y - 10, '🧪', { fontSize: 120, rise: 220 })
+    this._flaskaFinal(ctx)
     burst(ctx.fxLayer, CX, BREW_Y, { count: 22, power: 1.3 })
     this._wizardGesture('cheer')
 
@@ -1415,6 +1411,76 @@ export default {
     this._winTimer = gsap.delayedCall(1.6, () => {
       if (this._alive) this._buildRound(ctx)
     })
+  },
+
+  // Finalens flaska: en RITAD glasflaska fylld med rundans egen brygd som stiger ur kitteln,
+  // tippar och skvätter (ersätter en 🧪-emoji som hela föremålet). Lever i fxLayer och går
+  // genom en {}-proxy som bara rör noden om den lever — samma mönster som feedback.js, så
+  // ett utträde mitt i animationen bara låter den tona ut själv.
+  _flaskaFinal(ctx) {
+    const layer = ctx.fxLayer
+    if (!layer || layer.destroyed) return
+    const farg = this._brewColor ?? COLORS.yellow
+    const ljus = tint(farg, 0.45)
+    const x0 = CX
+    const y0 = BREW_Y - 10
+    const f = new Container()
+    f.position.set(x0, y0)
+    f.scale.set(0.2)
+    f.eventMode = 'none'
+    const g = new Graphics()
+    // Silhuett: mörk kant (något större) → glas → vätska → glans → kork.
+    g.circle(0, 24, 49).fill({ color: 0x4d6272, alpha: 0.55 })
+    g.roundRect(-17, -62, 34, 58, 8).fill({ color: 0x4d6272, alpha: 0.55 })
+    g.circle(0, 24, 44).fill({ color: 0xeaf8ff, alpha: 0.78 })
+    g.roundRect(-13, -58, 26, 54, 6).fill({ color: 0xeaf8ff, alpha: 0.78 })
+    // Vätskan: cirkelsegment under nivån y = 12 (polygon, ingen arc).
+    const pts = []
+    const a0 = Math.asin((12 - 24) / 38)
+    for (let i = 0; i <= 24; i++) {
+      const a = a0 + ((Math.PI - 2 * a0) * i) / 24
+      pts.push(38 * Math.cos(a), 24 + 38 * Math.sin(a))
+    }
+    g.poly(pts).fill(farg)
+    g.ellipse(0, 12, 33, 6).fill(ljus)
+    for (const [bx, by, br] of [[-14, 34, 5], [10, 28, 4], [18, 42, 3], [-4, 46, 3]]) {
+      g.circle(bx, by, br).fill({ color: 0xffffff, alpha: 0.5 })
+    }
+    g.ellipse(-26, 10, 6, 14).fill({ color: 0xffffff, alpha: 0.55 })
+    g.roundRect(-9, -50, 5, 30, 2.5).fill({ color: 0xffffff, alpha: 0.5 })
+    g.roundRect(-20, -68, 40, 10, 5).fill(0xc9a36b)
+    g.roundRect(-14, -84, 28, 20, 6).fill(0x9a6a3c)
+    f.addChild(g)
+    layer.addChild(f)
+
+    const st = { s: 0.2, dy: 0, rot: 0, a: 1 }
+    const tl = gsap.timeline({
+      onUpdate: () => {
+        if (f.destroyed) {
+          tl.kill()
+          return
+        }
+        f.scale.set(st.s)
+        f.y = y0 + st.dy
+        f.rotation = st.rot
+        f.alpha = st.a
+      },
+      onComplete: () => {
+        if (!f.destroyed) f.destroy({ children: true })
+      },
+    })
+    tl.to(st, { s: 1.15, dy: -120, duration: 0.38, ease: 'back.out(1.6)' })
+      .to(st, { rot: -0.7, dy: -150, duration: 0.3, ease: 'power2.inOut' }, '+=0.04')
+      .call(() => {
+        if (!this._alive || f.destroyed) return
+        // Tippad: en skvätt av brygdens färg ut ur mynningen + ett mjukt plopp.
+        const mx = x0 - 80
+        const my = y0 - 150 - 30
+        burst(layer, mx, my, { count: 14, colors: [farg, ljus, 0xffffff], power: 0.9 })
+        puff(layer, mx, my, { count: 6, color: ljus })
+        ctx.services.audio.tone({ freq: 560, dur: 0.14, type: 'sine', vol: 0.12, slideTo: 280 })
+      })
+      .to(st, { dy: -230, a: 0, duration: 0.5, ease: 'power1.in' }, '+=0.05')
   },
 
   // ---- Brygd-yta (exit-säker {}-proxy-tween) ------------------------------

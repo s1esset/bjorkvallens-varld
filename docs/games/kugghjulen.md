@@ -73,6 +73,16 @@ vevande inte kräver något, och vars storleks-poäng aldrig firas.**
   *Farthalvan finns redan: karusellen och flaggan följer målhjulets vinkel (:1632), så de går
   exakt så fort barnet vevar. Kvar är musiken.*
 
+- ✅ ~~**[Deep] Kuggkoppling med last (F10 / LYFTPLAN B7): veven tar emot.**~~ Byggd 2026-10-02 som
+  den ÄRLIGA delen — se §5. Karusellen (och fläkten på nivå 8) är ett motstånd vid utgången som
+  veven märker genom utväxlingen (J·f², b·f²); det sakta ner, stoppar aldrig. **Kvar, medvetet
+  inte byggt:** (a) hjulen som matter-`gangjarn`-kroppar och (b) veven via `lib/vev.js` — se §5 för
+  varför. **Premissen "ett stort hjul sist" faller delvis:** målhjulet har FAST radie (RT = R0), och
+  faktorn teleskoperar (±R0/r_mål = ±1), så karusellens last är konstant ±1 hur man än bygger. Det
+  som varierar med bygget är fläkten på grenhjulet (litet S = f 1,32 → 2,8× tyngre än stort L).
+  Vill man ha läxan "stort hjul sist = lätt men långsamt" fullt ut krävs ett målhjul som kan byta
+  storlek per nivå — en nivåändring (nivå 1–8 är fasta, så inte nu).
+
 ### Variation & överraskning
 - ~~**[Deep] Special-hjul per nivå:** en **rem/kedja** som överbryggar ett gap mellan två
   pinnar~~ ✅ v1.90.0 — remmen finns (nivå 5 och 7).
@@ -144,6 +154,15 @@ vevande inte kräver något, och vars storleks-poäng aldrig firas.**
   "maskinen drar igång"-svep när vevningen startar.
   *Klacket (:1478, djupare ju tyngre bygget) och klonket (`_onChainGrips`) finns som stämd
   syntes. Kvar är riktiga klipp och surr-ambienten — blockerade så länge MOSS är nere.*
+
+### Kvar efter kritiken 2026-10-02 (F10)
+- **[Quick] Lasten äter belöningen efter släpp:** karusellens broms (b 0,4) kortar utrullningen
+  16,4 → 5,0 rad på nivå 8 — ett barn som vevar och släpper får mindre snurr. Pröva att låta
+  `b` gälla bara medan veven hålls, eller sänk den; mät med `_vevprobe` (sektion LASTEN).
+- **[Medium] "Stort hjul sist = lätt men långsamt" finns inte för karusellen** (målhjulets f = ±1
+  alltid). Kräver en nivå där målhjulet byter storlek.
+- **[Quick] Städning:** kommentarblocket "KOPPLINGEN MÅSTE ORKA…" i `index.js` hänger utan sin
+  konstant — flytta till `maskin.js`; `_last()` kan cachas per `_rebuildMesh`.
 
 ## 5. Status / loggar
 
@@ -372,3 +391,34 @@ vevande inte kräver något, och vars storleks-poäng aldrig firas.**
 - 2026-08-09 ✅ **Tyngd i draget [Quick]** (v1.69.0): föremålet följer fingret med en liten eftersläpning, lutar åt dragets håll och landar med en tryckning i målet (delat i `DragController`). Här tändes dessutom lyft-skuggan (`skugga: true`) — spelet ritar ingen egen. Mätt med `_dragprobe`: 13 px släp, 0,108 rad lutning, skuggan borta och lagret tillbaka efter släpp, 0 konsolfel vid exit mitt i drag.
 
 - 2026-10-02 **T3: fast 60 Hz-steg via lib/takt.js — 57 fps-fysiken blir 60 Hz-fysik** (Ä10): vevens tröghet (`_stegMaskin`), det fria snurret (`freeVel *= 0,94`) och remmens ribbfas stegar i en `Takt` med exakt 1; remmens `Rep` stegas med `uppdatera(deltaMS)` (egen Takt). Vinkeltilldelning till vyerna, flaggan och idle-timers ligger kvar per bildruta. Nivå 1–8 orörda.
+
+- 2026-10-02 **F10: last vid utgången + maskinmodellen utflyttad till `maskin.js`** (v1.404-omgången, D10 B1).
+  - **Vad:** karusellen hänger på målhjulet (när kedjan är komplett) och fläkten på dubbelhjulets
+    gren (när grenhjulet drivs). `reflekteradLast` ger veven J·f² och b·f² (energi- och effektbalans,
+    bevisat i Node). Tröghet → längre uppstart, ljudet djupare och tap-auto-vevningen längre
+    (`_troghet()` räknar in lasten); dämpning → kortare utrullning. Siffror (nivå 8-bygge, Node):
+    90 % av farten efter 31 mot 23 steg, utrullning 5,5 mot 8,7 rad, glapp oförändrat 10°.
+  - **P0 MOTGÅNG av konstruktion:** bromsen under vevning är klämd till `LAST_TAK` = 50 % av det
+    kopplingen maximalt orkar dra per steg, så en last — hur stor som helst — kan sakta ner men aldrig
+    stoppa eller vinna över handen (svep tröghet 1–12 × b 0–8: 0 brott, veven når alltid fingrets
+    fart). Flaggan hissas på |Δvinkel| som förr; tom vev, nivå 8 och 3× lasten hissar lika fort.
+  - **Utflyttat (ingen beteendeändring):** `byggKoppling` + `beraknaFaktorer` (länkregeln/BFS ur
+    `_rebuildMesh`) och `stegaMaskin` (ur `_stegMaskin`) bor nu i `maskin.js` — ren logik som Node
+    prövar. Utan last är steget bit för bit identiskt med det gamla (`_dag-kugghjulen-utvaxling.mjs`,
+    största avvikelse 0). Utväxlingen: 10 varv stegade på ytfart ger ≤ 1e-11 % fel mot faktorn (mål
+    1 %); kontrollarm med 3 % fel radie ger 2,9 %.
+  - **Inte byggt — gangjarn-kroppar:** hjulen är redan exakta via länkregeln (faktorn bärs av
+    länken) och egen tröghetsmodell; matter-`gangjarn` skulle ersatt ett exakt, deterministiskt
+    kopplingsträd med en lösare som driver felet från noll (CLAUDE.md "fel som konvergerar") utan
+    något barnet ser, och kuggkopplingen per hjulpar hade ändå behövt skrivas för hand ovanpå.
+  - **Inte byggt — `lib/vev.js` för veven:** spelets vev har en POSITIONSKOPPLING (handtaget sitter
+    i fingret, glapptak ~17°, 90 % fart på ≤ 3 rutor på en tom vev, fartak 0,5 rad/ruta) som
+    `Vev` saknar — den följer fingrets vinkelFART och släpper därför handtaget från fingret (just
+    felet som kostade 40–100° glapp en gång). Dessutom är `Vev`s tap en kvartsvarvsknuff, spelets
+    en tvåvarvs auto-vev. Att byta hade ändrat de uppmätta invarianterna; libbet ändras inte.
+  - **Doc-drift (FYSIKPLAN §5.6, kan jag inte röra):** raden för kugghjulen säger "svänghjulströghet
+    (F10, G8)" som köad — trögheten fanns redan (v1.1xx, `_vevprobe`), det som saknades var
+    LASTEN, nu byggd. G8:s `Vev` har ingen kugghjulen-kund (skäl ovan); F10:s "hjul som
+    gangjarn-kroppar" bör strykas eller omformuleras.
+  - Mät: `node scripts/_dag-kugghjulen-utvaxling.mjs` (Node) · `node scripts/_vevprobe.mjs` (sektion
+    8, "LASTEN") · `node scripts/_remprobe.mjs`.

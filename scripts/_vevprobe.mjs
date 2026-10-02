@@ -186,6 +186,137 @@ try {
   ok('klacket stannar i tablet-högtalarens band', L.bygd.freq >= 150 && L.tom.freq <= 250,
     `${L.bygd.freq}–${L.tom.freq} Hz (golv 150, tak 250)`)
 
+  // 8. LASTEN (F10): en HEL byggd maskin med karusell (och fläkt) mot SAMMA maskin utan last.
+  //
+  // Kontrollarmen är spelets egen `_last()` — den slås av genom att skugga metoden på instansen
+  // (`g._last = () => ({ J: 0, b: 0 })`, återställd efteråt), så båda armarna kör samma bygge, samma geometri och samma
+  // kod; bara lasten skiljer. Förväntat PÅ HEAD (före F10): `_last` finns inte, sektionen hoppas
+  // över och skriver det — då är lasten alltså inte byggd. Efter F10: lasten syns (längre
+  // uppstart, kortare utrullning), flaggan hissas ändå, och tap-fallbacken når samma två varv.
+  const bygg = (niv, medGren) =>
+    page.evaluate(
+      async ([niv, medGren]) => {
+        const app = window.__barnspel
+        const g = app.game
+        const ctx = app.ctx
+        const vanta = (n = 1) => new Promise((r) => { let i = 0; const s = () => (++i >= n ? r() : requestAnimationFrame(s)); requestAnimationFrame(s) })
+        g._buildLevel(ctx, niv)
+        await vanta(3)
+        for (const s of g._solutionPegs) g._spawnGear(ctx, s.peg, s.size, {})
+        if (medGren && g._gren) g._spawnGear(ctx, g._gren.peg, g._gren.size, {})
+        // rem-nivåer: lägg remmen om den finns (annars bryts kedjan)
+        if (g._rem && !g._rem.placed) { g._rem.placed = true }
+        g._rebuildMesh(ctx)
+        await vanta(30) // låt inbouncen och fly-in lägga sig
+        return { komplett: g._chainComplete, drivna: g._gears.filter((x) => x.driven).length, harLast: typeof g._last === 'function' }
+      },
+      [niv, medGren]
+    )
+  const mataLast = (pa) =>
+    page.evaluate(
+      async (pa) => {
+        const g = window.__barnspel.game
+        const vanta = () => new Promise((r) => requestAnimationFrame(r))
+        const orig = g._last
+        if (!pa) g._last = () => ({ J: 0, b: 0 })
+        g._resolving = false
+        g._flagProgress = 0
+        g._crankAngle = 0
+        g._crankVel = 0
+        g._cranking = true
+        g._fingerAngle = 0
+        g._fingerVel = 0
+        const farter = []
+        for (let i = 0; i < 90; i++) {
+          g._fingerAngle += 0.18
+          g._fingerVel = g._fingerVel * 0.6 + 0.18 * 0.4
+          g._flagProgress = 0
+          await vanta()
+          farter.push(Math.abs(g._crankVel))
+        }
+        const topp = Math.max(...farter)
+        const t90 = farter.findIndex((v) => v >= topp * 0.9)
+        const J = g._troghet()
+        g._cranking = false
+        const a0 = g._crankAngle
+        let rutor = 0
+        while (g._crankVel !== 0 && rutor < 600) { g._flagProgress = 0; await vanta(); rutor++ }
+        const ut = Math.abs(g._crankAngle - a0)
+        g._last = orig // spelet ÄR modulobjektet: återställ aldrig med delete
+        return { J, topp, t90, utrullning: ut, rutor }
+      },
+      pa
+    )
+  const hissa = () =>
+    page.evaluate(async () => {
+      const g = window.__barnspel.game
+      const vanta = () => new Promise((r) => requestAnimationFrame(r))
+      g._resolving = false
+      g._flagProgress = 0
+      g._crankAngle = 0
+      g._crankVel = 0
+      g._prevTargetAngle = 0
+      g._cranking = true
+      g._fingerAngle = 0
+      g._fingerVel = 0
+      let rutor = 0
+      while (!g._resolving && rutor < 900) {
+        g._fingerAngle += 0.18
+        g._fingerVel = g._fingerVel * 0.6 + 0.18 * 0.4
+        await vanta()
+        rutor++
+      }
+      g._cranking = false
+      return { klar: g._resolving, rutor }
+    })
+
+  console.log('\n   LASTEN — hel maskin med karusell (och fläkt), med och utan last')
+  const n8 = await bygg(8, true)
+  if (!n8.harLast) {
+    console.log('   ⚠ spelet har ingen `_last()` (HEAD före F10) — lastsektionen hoppas över')
+  } else {
+    ok('nivå 8 med gren: kedjan greppar och är komplett', n8.komplett, `${n8.drivna} drivna hjul`)
+    const med = await mataLast(true)
+    const utan = await mataLast(false)
+    console.log(`   med last : tröghet ${med.J.toFixed(2)} · 90 % efter ${med.t90} rutor · toppfart ${med.topp.toFixed(3)} · utrullning ${med.utrullning.toFixed(2)} rad`)
+    console.log(`   utan last: tröghet ${utan.J.toFixed(2)} · 90 % efter ${utan.t90} rutor · toppfart ${utan.topp.toFixed(3)} · utrullning ${utan.utrullning.toFixed(2)} rad`)
+    ok('lasten syns i tröghet', med.J > utan.J + 0.5, `${utan.J.toFixed(2)} → ${med.J.toFixed(2)}`)
+    ok('lasten syns: längre tid att få igång', med.t90 > utan.t90, `${med.t90} mot ${utan.t90} rutor`)
+    ok('lasten syns: kortare utrullning', med.utrullning < utan.utrullning * 0.95, `${med.utrullning.toFixed(2)} mot ${utan.utrullning.toFixed(2)} rad`)
+    ok('lasten sakta ner men stoppar inte: toppfarten når fingrets', med.topp > 0.18 * 0.85, `${med.topp.toFixed(3)} rad/ruta`)
+
+    // Fläkten på ett litet grenhjul (nivå 8: S) mot nivå 8 UTAN grenhjulet: mer last.
+    const utanGren = await bygg(8, false)
+    ok('nivå 8 utan gren: kedjan komplett (grenen är en bonus)', utanGren.komplett)
+    const lastUtanGren = await page.evaluate(() => window.__barnspel.game._last())
+    await bygg(8, true)
+    const lastMedGren = await page.evaluate(() => window.__barnspel.game._last())
+    ok('fläkten är en EXTRA last när grenen drivs', lastMedGren.J > lastUtanGren.J + 0.2 && lastMedGren.b > lastUtanGren.b,
+      `J ${lastUtanGren.J.toFixed(2)} → ${lastMedGren.J.toFixed(2)}, b ${lastUtanGren.b.toFixed(2)} → ${lastMedGren.b.toFixed(2)}`)
+
+    // Tap-fallbacken: ett tryck på veven = två varv (4π) även med lasten på.
+    await bygg(8, true)
+    const tap = await page.evaluate(async () => {
+      const app = window.__barnspel
+      const g = app.game
+      g._resolving = false
+      g._flagProgress = 0
+      g._crankAngle = 0
+      g._crankVel = 0
+      g._prevTargetAngle = 0
+      g._autoCrank(app.ctx)
+      const t0 = performance.now()
+      await new Promise((r) => setTimeout(r, 5500))
+      return { vinkel: g._crankAngle, flagga: g._flagProgress, sek: (performance.now() - t0) / 1000, J: g._troghet() }
+    })
+    ok('tap på veven vevar ändå två varv med lasten på', tap.vinkel >= Math.PI * 4 - 0.05,
+      `${(tap.vinkel / (2 * Math.PI)).toFixed(2)} varv, flaggframsteg ${tap.flagga.toFixed(1)} (tröghet ${tap.J.toFixed(2)})`)
+
+    // En full maskin når ALLTID flaggan (no-fail): vev tills spelet vinner. SIST — vinsten startar om nivån.
+    const flagga = await hissa()
+    ok('en full maskin med last når flaggan', flagga.klar, `${flagga.rutor} bildrutor vid fingerfart 0,18`)
+  }
+
   ok('inga konsolfel', errors.length === 0, errors.slice(0, 2).join(' | '))
 
   console.log(`\n${fel === 0 ? '✓ ALLA MÅTT GODA' : `✗ ${fel} MÅTT UNDERKÄNDA`}\n`)
@@ -193,3 +324,4 @@ try {
 } finally {
   await browser.close()
 }
+

@@ -17,6 +17,7 @@ import { DragController } from '../../lib/DragController.js'
 import { Rep, ritaRep } from '../../lib/rep.js'
 import { Takt } from '../../lib/takt.js'
 import { byggVerkstad } from './verkstad.js'
+import { byggKoppling, beraknaFaktorer, reflekteradLast, stegaMaskin } from './maskin.js'
 import { bounceIn, pop, puff, sparkle, burst, breathe, floatText, ripple , kvittera} from '../../lib/feedback.js'
 import { COLORS } from '../../lib/theme.js'
 import { randomFrom } from '../../lib/swedish.js'
@@ -74,18 +75,14 @@ const FLAKT_DX = 132 // fläktens plats räknat från grenpinnen
 const FLAKT_DY = -18
 const FLAKT_R = 38 // bladradie (ytterkant 38 + nav → ryms över kedjan)
 
-// Maskinens tröghet (se `_stegMaskin`). Talen är mätta i `scripts/_vevprobe.mjs`.
-// ⚠️ KOPPLINGEN MÅSTE ORKA DRA DET TYNGSTA BYGGET SJÄLV. Med 0,12 blev momentet vid
+// Maskinens tröghet, last och fingerkoppling bor i `maskin.js` (ren logik, prövas i Node:
+// `scripts/_dag-kugghjulen-utvaxling.mjs`). Talen är mätta i `scripts/_vevprobe.mjs`.
+// ⚠️ KOPPLINGEN MÅSTE ORKA DRA DET TYNGSTA BYGGET SJÄLV. Med VEV_MOMENT 0,12 blev momentet vid
 // glapptaket bara 0,30·0,12/5,77 = 0,006 rad/ruta² — då var det den hårda klämman som
 // släpade maskinen framåt, inte fjädern, och det tunga bygget nådde bara 0,054 rad/ruta
 // mot fingrets 0,18. Kravet: gap·K/J ska bära fingrets fart även vid J = 5,77, alltså
 // K ≥ 0,18·(1−damp)·J/gap = 0,52. 0,9 ger marginal och ett glapp på ~10° på tungt bygge,
 // ~2° på en tom vev.
-const VEV_SNABB = 1.2 // glapp → önskad fart (ger ~9° släp vid normalt vevtempo)
-const VEV_MOMENT = 0.05 // hur mycket farten får ändras per bildruta vid tröghet 1
-const VEV_MAXGAP = 0.3 // ~17°: hårt tak på hur långt handtaget får hamna efter fingret
-const VEV_FRIKTION = 0.9 // svänghjulets avklingning per bildruta (delas med trögheten)
-const VEV_MAXFART = 0.5 // rad/bildruta — taket, så inget kan skena
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
 const lerp = (a, b, t) => a + (b - a) * t
@@ -1189,35 +1186,24 @@ export default {
     const nodes = [crankNode, ...gearNodes, targetNode]
     const n = nodes.length
 
-    const adj = nodes.map(() => [])
     // `tecken` = vad länken gör med rotationsriktningen. Kuggar vänder (−1), en RAK
     // rem behåller (+1) och en KORSAD rem vänder (−1) — det är hela mekaniken bakom
-    // X:et, och den bor på länken, inte på djupet.
-    const lank = (i, j, tecken) => {
-      adj[i].push({ to: j, tecken })
-      adj[j].push({ to: i, tecken })
-    }
-    for (let i = 0; i < n; i++) {
-      for (let j = i + 1; j < n; j++) {
-        const a = nodes[i]
-        const b = nodes[j]
-        const dist = Math.hypot(a.x - b.x, a.y - b.y)
-        if (Math.abs(dist - (a.r + b.r)) < MESH_TOL) lank(i, j, -1)
-      }
-    }
-
+    // X:et, och den bor på länken, inte på djupet. Regeln bor i `maskin.js`.
+    //
     // Remmen är en länk som geometrin aldrig kan ge: den kopplar två hjul som
     // ligger `REM_GAP` px för långt isär för att kunna greppa.
     const rem = this._rem
     let remGriper = false
+    const extra = []
     if (rem && rem.placed) {
       const ia = this._remNodIndex(rem.aRef, nodes)
       const ib = this._remNodIndex(rem.bRef, nodes)
       if (ia >= 0 && ib >= 0) {
-        lank(ia, ib, rem.korsad ? -1 : 1)
+        extra.push({ i: ia, j: ib, tecken: rem.korsad ? -1 : 1 })
         remGriper = true
       }
     }
+    const adj = byggKoppling(nodes, MESH_TOL, extra)
 
     for (const g of this._gears) {
       g.driven = false
@@ -1225,27 +1211,8 @@ export default {
       g.factor = 0
     }
 
-    // BFS från veven. Riktning och utväxling bärs av LÄNKEN, inte av djupet: kuggar
-    // vänder riktningen, en rak rem behåller den, en korsad vänder den, och alla för
-    // över ytfarten (ω_v = ω_u · r_u / r_v). För en ren kuggkedja är det exakt samma
-    // tal som den gamla djupparitets-formeln gav — remmen är enda stället de skiljer
-    // sig åt.
-    const depth = new Array(n).fill(-1)
-    const factor = new Array(n).fill(0)
-    depth[0] = 0
-    factor[0] = 1
-    const q = [0]
-    while (q.length) {
-      const u = q.shift()
-      for (const e of adj[u]) {
-        const v = e.to
-        if (depth[v] < 0) {
-          depth[v] = depth[u] + 1
-          factor[v] = factor[u] * e.tecken * (nodes[u].r / nodes[v].r)
-          q.push(v)
-        }
-      }
-    }
+    // BFS från veven (`maskin.js`): riktning och utväxling bärs av LÄNKEN, inte av djupet.
+    const { depth, factor } = beraknaFaktorer(nodes, adj)
     for (let i = 0; i < n; i++) {
       if (nodes[i].gear && depth[i] >= 0) {
         nodes[i].gear.driven = true
@@ -1586,47 +1553,32 @@ export default {
     let j = 1 // veven själv
     for (const g of this._gears) if (g.driven && !g.fly) j += (g.r / R0) * (g.r / R0)
     if (this._rem?.gripping) j += REM_TROGHET // gummit väger också något
-    return j
+    return j + this._last().J // och det som hänger på slutet: karusellen, fläkten
+  },
+
+  // ---- Lasten vid utgången (F10) -------------------------------------------
+  //
+  // Karusellen hänger på målhjulet och fläkten på dubbelhjulets gren. De är ett motstånd som
+  // veven märker GENOM utväxlingen: ett hjul med faktor f känns som J·f² och b·f² vid veven
+  // (`reflekteradLast`). Målhjulet har fast radie (RT = R0), så karusellens faktor är alltid ±1
+  // — det som VARIERAR med bygget är fläkten: sitter den på ett litet grenhjul (f > 1) är den
+  // tyngre att dra än på ett stort (f < 1), men snurrar då också fortare. Lasten SAKTAR NER
+  // (längre startsträcka, kortare utrullning) och är klämd mot kopplingens moment — den kan
+  // aldrig stoppa veven, och flaggan hissas på |Δvinkel| precis som förr (no-fail står).
+  _last() {
+    const laster = []
+    if (this._chainComplete) laster.push({ typ: 'karusell', f: this._targetFactor })
+    const gg = this._gren?.peg?.gear
+    if (this._flaktBlad && !this._flaktBlad.destroyed && this._flaktBlad.visible && gg?.driven && !gg.fly) {
+      laster.push({ typ: 'flakt', f: gg.factor })
+    }
+    return reflekteradLast(laster)
   },
 
   _stegMaskin(dt) {
-    const J = this._troghet()
-    if (this._cranking) {
-      // ⚠️ FINGRET ÄR KOPPLAT TILL VEVEN, INTE BARA TILL DESS FART. Första versionen
-      // styrde ren hastighet utan positionsåterkoppling, och då LOSSNADE handtaget
-      // synligt från fingret: uppmätt **40–100° glapp** efter en halv till en sekunds
-      // vevning på ett femhjulsbygge i normalt barntempo, och glappet läkte aldrig —
-      // svänghjulet fortsatte från sin egen position. Kuggarna sitter 36–40° isär, så
-      // glappet var en hel kuggbredd eller mer. Det ser inte tungt ut, det ser trasigt
-      // ut — och det slog till precis vid den mest triumferande stunden.
-      //
-      // Nu sitter fingret i veven som i en STYV FJÄDER: momentet växer med glappet, så
-      // en tung maskin släpar efter men hinner alltid ikapp, och glappet har dessutom
-      // ett hårt tak så handtaget aldrig kan hamna en kugge fel.
-      // ⚠️ INTE EN FJÄDER. En fjäder med samma styvhet kan inte både bära ett femhjuls-
-      // bygge och vara stabil på en tom vev: ω = √(K/J), så det K som orkar dra det tunga
-      // (0,9) gav den tomma ω ≈ 0,95 rad/ruta och den svängde FÖRBI fingret — uppmätt
-      // 40° glapp åt fel håll och farten i taket. Kopplingen är därför en FART som
-      // stänger glappet, med ett tak på hur snabbt farten får ändras — och det taket är
-      // just massan. Stabilt av konstruktion: farten kan aldrig passera sitt mål.
-      // ⚠️ MÅLFARTEN MÅSTE INNEHÅLLA FINGRETS EGEN FART. Med enbart `gap · VEV_SNABB` är
-      // målfarten NOLL vid noll glapp — maskinen kan alltså aldrig följa ett finger som
-      // rör sig utan att bära ett stående glapp (precis `fart / VEV_SNABB`). Uppmätt
-      // följd: den TOMMA veven sköt förbi fingret under uppstarten och låg sedan pinnad
-      // mot det hårda taket från andra hållet — 17° glapp på en tom vev mot 9° på ett
-      // femhjulsbygge, alltså bakvänt. Med fingrets fart som framkoppling går glappet mot
-      // noll i jämvikt, och glappet bär bara det maskinen ÄNNU inte hunnit ikapp.
-      const gap = wrapAngle(this._fingerAngle - this._crankAngle)
-      const malVel = this._fingerVel + gap * VEV_SNABB
-      const maxAndring = (VEV_MOMENT / J) * dt
-      this._crankVel += clamp(malVel - this._crankVel, -maxAndring, maxAndring)
-      if (Math.abs(gap) > VEV_MAXGAP) this._crankAngle += (Math.abs(gap) - VEV_MAXGAP) * Math.sign(gap)
-    } else {
-      this._crankVel *= Math.pow(VEV_FRIKTION, dt / J) // tungt bygge rullar längre
-      if (Math.abs(this._crankVel) < 0.0008) this._crankVel = 0
-    }
-    this._crankVel = clamp(this._crankVel, -VEV_MAXFART, VEV_MAXFART)
-    this._crankAngle += this._crankVel * dt
+    // Själva steget (fingerkoppling, tröghet, lastens broms) bor i `maskin.js` och läser/skriver
+    // spelets egna fält — så sonden och spelet kör samma kod.
+    stegaMaskin(this, this._troghet(), this._last(), dt)
     if (Math.abs(this._crankVel) > 0.004) {
       this._idle = 0
       this._helpIdle = 0

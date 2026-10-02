@@ -428,3 +428,44 @@ vid `GY` och har därför en exakt förhandsvisning per konstruktion.
 - Räknare att läsa: `window.__fysikdebug` → `konturer === kroppar` (kroppar = `Composite.allBodies`, oberoende av ritningen).
   Inga levande världar → inget ritas. Hakar på `PhysicsWorld.prototype` utifrån (physics.js orörd); bygget har noll spår (markör `fysikdebug-markor-q7x3`).
 - Mät utan webbläsare: `node scripts/_fysikdebugprobe.mjs`. Bra första spel: `vippbradan` (led + sensor) och `grodan-slurp` (ragdoll, sensorer).
+
+## Tysta fällor (flyttade hit ur CLAUDE.md 2026-10-02 — indexet står kvar där)
+
+- **`restitution` på en STATISK kropp gör INGENTING.** `PhysicsWorld._make` skapar kroppen
+  dynamisk och sätter den statisk efteråt (NaN-fixen), och matters `Body.setStatic` nollar då
+  `restitution` och sätter `friction` till 1 (originalen hamnar i `body._original`). Studsen blir
+  alltså alltid den DYNAMISKA kroppens egen. `kulbana`s studsplatta stod på `0.95` och studsade
+  exakt som en ramp — uppmätt: plattans 0,02 och 0,95 ger identiskt studshopp. **Vill du ha en
+  studsande statisk yta: `{ isStatic: true, studs: 0.75 }`** (opt-in, sätts efter `setStatic`,
+  uppmätt +139 px mot samma yta utan den). Eller `lib/fjader.js` (`Fjaderbrada`) när ytan ska
+  kasta iväg något. De 31 kvarvarande `restitution`-talen på statiska kroppar är fortfarande
+  nollade med flit — `npm run check -- --studs` listar dem (15 döda strukna 2026-09-12).
+  ⚠️ `studs` väcker BARA studsen — friktionen står kvar på 1 (se `bowling`s kantstöd och skill
+  **fysik-spel**). → ÅTGÄRDER V10/V10b.
+- **En förflyttning av en statisk kropp kan bli en fart som ligger kvar för alltid.**
+  `Body.setPosition(body, p, true)` sätter farten till förflyttningen, och matter räknar aldrig om
+  hastigheten på en statisk kropp. Ett drag på 230 px gav (−651, −230) i hela byggfasen, och
+  lösaren läste sedan kontakten som **separerande** → ingen impuls → kulan föll rakt genom
+  plankan, utan konsolfel. Driv med fart bara i `phys.beforeStep()`; bär med fart = 0.
+- **matter-ledernas `damping` bromsar varje STEL rotation.** Konstraintens dämpning jämför
+  kropparnas MITTPUNKTER, inte ankarpunkterna, så en ragdoll som snurrar som en stel kropp tappar
+  snurret: 0,18 → 0,002 rad/steg på 40 steg med musklerna, gränserna och luften avstängda
+  (`_superhoppprobe`). Med `damping 0` höll halva. Sänk den bara medan något ska snurra fritt
+  (`grodan-slurp`s superhopp: 0,01 i luften, 0,08 igen vid landning).
+- **`Flytvolym` verkar även OVANFÖR ytan.** Fartspärren (`maxFart`) och `vridDamp` (0,9 per
+  BILDRUTA) läggs på varje kropp i volymen, var den än är. En kropp som ska snurra eller flyga fort
+  i luften måste tas UR volymen och läggas tillbaka vid landning. Och en Node-sond utan spelets
+  flytvolym mäter en snällare värld: där överlevde grodans volt, i spelet gjorde den det inte.
+- **En mjuk kropp måste stega med FAST tidssteg.** `Mjukkropp` (som `PhysicsWorld`) räknar `damp`
+  och villkorsstyvhet per STEG men kraftfält per `f²`. Ett för stort steg fyrdubblar tyngden utan
+  att lösaren får mer att säga till om (`dtF` 2 = en tappad bildruta vek ihop hamburgerbullen
+  **34,9 px av 50**, för gott); ett för litet ger en helt annan JÄMVIKT (3,1 px i spelet mot 7,0 i
+  sonden — Chrome gick på 58 fps och `dtF` blev 1,03). Använd en ackumulator som alltid stegar
+  med exakt 1, annars mäter sonden aldrig samma sak som spelet gör.
+- **`Mjukkropp.path()` är INTE en polygon — invändningen "en tiohörning läser som en kantig
+  klump" gäller den inte.** Kurvan lägger kvadratiska mellansteg genom kantmittpunkterna och
+  avviker **0,01–0,12 px** från en perfekt cirkel för 10–16 punkter över hela spannet 17–100 px
+  radie; den råa polygonen ligger på 0,33–4,89, alltså 40× mer. Formhalvan av `sapbubblor`s
+  strykning var ett antagande om renderingen. **Kostnadshalvan står kvar** (en full omritning
+  per kropp och bildruta), så svaret är att göra bara de kroppar mjuka som faktiskt deformeras
+  just nu — i `pruttbad` bara bubblorna vid ytan, uppmätt högst 3 samtidigt.

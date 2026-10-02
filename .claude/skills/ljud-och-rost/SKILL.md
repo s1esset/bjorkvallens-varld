@@ -97,3 +97,37 @@ spelet redan nu (den faller tillbaka av sig själv), generera senare.
 
 UI- och rösttext behåller **å/ä/ö**. Id:n, filnamn och ljudnycklar `asciiFold()`:as (å/ä→a, ö→o).
 Röstrepliker är hela svenska meningar, inte nyckelord.
+
+## Tysta fällor (flyttade hit ur CLAUDE.md 2026-10-02 — indexet står kvar där)
+
+- **Repliker som inte står som `voice.say('literal')` får aldrig ett klipp.** `check.mjs` kan bara
+  läsa literaler; byggs texten vid körning (template literal, tabelluppslag) syns den inte statiskt.
+  Backstoppen är mätt, inte gissad: `check.mjs` läser `rost-utan-klipp` ur `.test-logs/<id>.json`
+  och varnar för den **exakta** text körningen sa. Den kontrollen kräver alltså att spelet har
+  körts — `npm run check` ensam ser dem fortfarande inte. Lägg in frasen i
+  `scripts/voice-phrases.json` för hand och kör `npm run voice`.
+- **Röstkön är inte permanent.** `npm run voice` fungerar (F5-TTS i `C:\repos\storygen`) — töm kön
+  i stället för att lämna repliker på Web Speech.
+- **`voice.say()` KAPAR den förra repliken — schemalägg aldrig tal på ett fast tal.** Den
+  anropar `cancel()` som första sak, och de F5-genererade klippen är **2,3–4,1 s** medan
+  spelens `ctx.later(...)` nästan alltid står på 2–3 s. Uppmätt i `mata-munnen`: introt
+  (3,65 s) kapades av nästa replik och belöningsraden (2,71 s) hann höras till **54 %** —
+  ett barn hör att någon blev avbruten mitt i meningen. Samma familj som "två röster
+  samtidigt" (v1.194), fast åt andra hållet, och den fanns i ett spel som redan hade rättat
+  den andra halvan. Vänta in **`voice.kvar` / `voice.talar`** (narratorn) OCH
+  `audio.sampleDuration()` (figurens eget klipp) — mönstret heter `_narTyst`, och finns
+  sedan v1.251 i kontraktet som **`ctx.narTyst(fn)`**. **Bilden väntar inte:** ring, gest
+  och glitter kommer genast, bara orden köar. `complete()` firar SJÄLV (ljud + beröm + regn)
+  och hoppar över berömmet om något redan talar — säg spelets egen vinstrad FÖRE complete().
+  **Två verktyg, välj efter repliken (V24):** en INSTRUKTION köar (`ctx.narTyst` + en vakt att
+  den fortfarande gäller — samma runda, fågeln flyger kvar); ett UTROP på ett ögonblick ("Oj
+  då!", "Mums!") hoppas över med `if (!voice.talar)` — köat kommer det för sent. Och **mät
+  spelets EGET flöde:** `_tomgangprobe.mjs --eget` hittade 9 spel som kapade sitt eget intro
+  vid varje start, bland dem tre som standardläget aldrig kunde se.
+- **Ett kontinuerligt ljud överlever allt utom att någon stoppar källan.** En tween dör med
+  spelet, en `AudioBufferSourceNode` med `loop = true` gör det inte — den låter vidare på
+  menyn, utan bild, och går inte att stänga av. Slingor tystas därför av `GameHost.destroy`
+  (`audio.stopAllLoops()`) och inte bara av spelets egen `destroy`, av samma skäl som
+  `timers`: skalet får inte lita på att spelet gjorde rätt.
+- **Byt inte ut stämda ljud mot samplade.** `correct` (660→880 = kvint), `match` (durtreklang) och
+  `pling` är musik, inte blipp — ett generiskt UI-klick vore ett brott mot grindens punkt 5.

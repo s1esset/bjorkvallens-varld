@@ -130,3 +130,126 @@ Takt-sonden (FYSIKPLAN M2, **webbläsare**):
 |---|---|
 | `node scripts/_taktprobe.mjs <id> --expr "namn=g._balls[0]?.body.position.x" [--hz 30,45,57,60] [--seed 7] [--sek 8] [--tryck "1.5:640,60"] [--drag "2:300,400>900,400:0.6"] [--riktig-klocka]` | **vad GÖR en bildruta?** Samma värld vid olika Hz: seedad `Math.random`, tickern stoppad (`autoStart=false`, `maxFPS=0`) och driven med `ticker.update(t += 1000/hz)`, `performance.now`/`Date.now`/gsap virtualiserade och drivna av sonden, tryck på samma SIMULERADE tid (sek eller `Nt` = tick) som riktiga PointerEvent. Uttrycket körs med `g` (spelet) · `ctx` · `S` · `t` · `k` · `hz`; förval = `g._phys.engine.timing.timestamp` (fysiksteg, ska vara lika vid alla Hz). Tabell per uttryck + max−min över armarna |
 | kontrollarm FÖRST | `--hz 60,60` → ska säga IDENTISK (annars är armen inte deterministisk: röst/ljud på väggklocka, I/O under montering — jämför inget). Sedan `--hz 30,60`: per-bildruta-kod ska SKILJA, en fix per fysiksteg ska inte. Tusen tick = ~4–6 s per arm. Kör aldrig bredvid en annan webbläsarsond |
+
+## Tysta fällor (flyttade hit ur CLAUDE.md 2026-10-02 — indexet står kvar där)
+
+- **Grönt test betyder bara "0 konsolfel".** Det säger ingenting om målet går att nå, om mätaren
+  syns eller om scenen är tom. Grävmaskinen klarade en nivå på 3,4 s och rapporterade grönt.
+  `npm run test` kör därför `bildkoll.mjs` på skärmdumpen — **och titta på bilden själv ändå.**
+  **Och harnessens auto-drag drar mellan GENERISKA punkter** — den träffade inte en enda matbit
+  i `mata-munnen` (loggen: fyra `drag/foremal`, noll `drag/ratt`), så hela kärnloopen var grön
+  och omätt. Läs `drag/ratt` i `.test-logs/<id>.json`: står den på 0 har testet aldrig spelat
+  spelet, och en sond som drar från föremålets FAKTISKA läge till målet är enda mätningen.
+  **Samma hål finns för TRYCK, och det är geometriskt:** de nio autotrycken är ett fast rutnät
+  vars högsta x är **950** och lägsta y **600** (`test-game.mjs:51-53`) på en 1280×720-duk —
+  allt bortom det är ONÅBART för varje automatisk körning. `unika-knytt`s spak står på 1160, så
+  ceremonin, ägget, kläckningen, knyttet och hyllan hade aldrig körts en enda gång (bekräftat
+  två vägar: geometrin, och **noll `takt/spak`** i båda loggarna). Det kan vara AVSIKTLIGT —
+  där är det en dokumenterad layout-invariant så skärmdumpen inte landar mitt i en ceremoni —
+  men följden är densamma: grönt betyder bara att den nåbara halvan monterar. **Kolla var
+  spelets primära kontroll sitter innan du litar på en grön körning.**
+  **Och en sond som mäter bildrutetid kan vara MÄTTAD utan att säga det.** rAF-intervallet
+  klipps av vsync, så tre helt olika faser rapporterade alla 17,4 ms (headless Chromes ~57 fps)
+  — ett mättat mått kan inte skilja "billig fas" från "trasig mätare", och de tre gröna talen
+  var värdelösa tills en barlast som bränner 25 ms per bildruta flyttade samma mätare till
+  26,2. Ett bildrutemått svarar på "spräcker det budgeten?", aldrig på "vad kostar den här
+  raden?" — den andra frågan kräver en profilerare.
+  **Och spela minst TVÅ rundor, och tryck så fort spelet tillåter i stället för att vänta
+  artigt.** Den otåliga vägen är barnets väg, och det är där rivningskapplöpningarna bor: i
+  `unika-knytt` levde en 0,9 s-tween kvar när nästa tryck rev dess mål, och gsap skrev på en
+  död nod **varje bildruta resten av rundan** (22 konsolfel på kod som passerat varje grind i
+  två dygn). `destroy()` gjorde redan rätt — **exit-säkerhet och ÅTERSPELS-säkerhet är olika
+  egenskaper**, och en sond som bara mäter exit rapporterar allt-klart.
+- **Redigera aldrig `src/` medan en sond kör mot dev-servern.** Vite laddar om sidan vid varje
+  sparad modul i appens graf, och sondens hakar (lappade prototyper, räknare på `window`) försvinner
+  med den gamla sidan. `_graflackprobe`s tredje arm dog så 2026-09-12 — mitt i den ändrade jag sju
+  spelfiler. Den gången blev det en krasch; en sond som bara läser tal efter omladdningen hade i
+  stället rapporterat en helt ny sidas nollor som ett mätresultat.
+- **Kör ALDRIG två webbläsarsonder samtidigt — de förfalskar varandras svar.** `_elementprobe`
+  och `_snurrprobe` startade i samma tool-block mot samma dev-server, och `_elementprobe`
+  rapporterade då att `jord+vatten` gav **noll lera**: en av spelets sex reaktioner såg
+  stendöd ut. Den var det inte. Ensam kör samma sond `lera=24` och tänder rutan. Sonderna
+  väntar i fasta fönster (260 ms för att materialet ska lägga sig, 1800 ms mätning) och två
+  headless Chrome svälter varandras ticker tills fönstren mäter fel skede. Kostnaden blev
+  två engångssonder och ett halvt pass jagande av en bugg som aldrig fanns. Samma regel
+  gäller sond bredvid `npm run test:all`. **Och kontrollarmen först, alltid:** min egen
+  node-arm lade elden med en rads lucka till jorden, glöden nådde aldrig fram, och armen
+  var död utan att säga det — hade jag läst lera-talet bredvid den hade jag trott på fel svar.
+- **Sekventiellt före/efter duger inte för att döma en flaky svit.** Maskinen driver (termik,
+  ackumulerade Chrome-processer), och en delmängd på 8 spel var ren medan hela 72-svitens last
+  flakade. `scripts/_ab.sh` kör HEAD och ändringen **växelvis** i full skala — det är den enda
+  mätning som faktiskt attribuerar. **Läs båda armarna:** HEAD flakade själv 1 av 3 i en av
+  körningarna, så "min ändring flakade en gång" betyder ingenting utan HEADs egen frekvens
+  bredvid sig.
+- **Ett GRÖNT pixeltal kan mäta allt utom din effekt — kör sonden mot HEAD innan du tror på
+  den.** Fem gröna tal i ett och samma pass mätte ingenting, alla gröna även på HEAD där
+  effekten inte fanns: ⓵ en isolering som stannar före roten mäter **skalets bakknapp**
+  (16 320 px i båda armarna); ⓶ en isolering som MISSLYCKAS ger en skärmdump av hela scenen —
+  räkna den som 0, aldrig som en mätning; ⓷ en livslängd mätt från fel nollpunkt blir
+  `performance.now()` = 15 116 ms när ingenting föddes; ⓸ spelets **egen idle-hjälp** målar i
+  samma `fxLayer` efter 6–9 s stillhet (nollställ räknarna genom hela fönstret); ⓹ `fxLayer` är
+  **delat** — badets bubblor i `tvatta-djuret` målar där varje bildruta, och fältet bär
+  parkerade partiklar (1 988 px utan någon effekt alls). Mät i en RUTA runt effekten, och läs
+  **svängningen** (max − min), inte nivån.
+- **Att mäta en visuell effekt: bara EN av tre metoder svarar på frågan.** Uppmätt på samma
+  effekt (`kulbana`s fartsvans), tre pass i rad med samma slutsats. ⓵ **Jämför mot en
+  referensbild** → du mäter det som RÖRT SIG mest, inte din effekt: kulan stod på olika plats i
+  varje arm och gav "energi 1 523k mot 1 715k", alltså ingen skillnad i något som i själva
+  verket skiljer 6×. ⓶ **Växla bara effektens `visible`** → de två bilderna tas ~60 ms isär och
+  allt annat i scenen hinner röra sig: **1 132 px "från ett lager"** vars buffert var bevisat
+  tom. ⓷ **Dölj hela scenen UTOM effektens lager** (och `ctx.fxLayer`) → 0 px när det är tomt,
+  och tal som faktiskt är effektens. Använd ⓷. Och frys förloppet: pinna läget **varje**
+  bildruta, `positionPrev` med (matter härleder farten ur skillnaden), annars mäter du loopens
+  egen reaktion i stället för din variabel.
+- **Ingen FAST TON kan matcha en bakgrund som ytan GLIDER över — och luminans är blind på en
+  färgad kropp.** `unika-knytt`s ögonlock är kroppsfärgat och sänks med `scale.y` över ett
+  `sphereFill`-tonat ansikte. Kalibrerad mot PANNAN (`tint(bas, 0.23)` träffade dess uppmätta
+  241,229,126 på pricken) försvann överkanten helt stängd (16 → 2 kanalsteg) — men gradienten är
+  bakad i lockets EGET rum, så vid halvstängt tryckte `scale.y` ner den ljusa toppen över ögat där
+  kroppen är mörkare, och locken lyste som två ljusa lådor. Kalibrerad mot ögonhöjd i stället:
+  halvläget rätt, överkanten **18**, alltså SÄMRE än den platta. Svaret är att kanten inte ska
+  finnas — tona in ur genomskinligt (`lib/form.js:fadeTopFill`), då finns ingen kant i något läge.
+  ⚠️ Och intoningen måste vara FÄRDIG innan den når det som ska döljas: ett fade som nådde ner
+  över ögat lät ögat lysa igenom och mätte **37**, då på ÖGATS kant och inte på lockets.
+  ⚠️ **Mät inte en färgskillnad i luminans.** Locket och ansiktet skilde bara −8,5 lum men **−37 i
+  BLÅ** — på en gul kropp bär blå-kanalen hela mättnadsskillnaden, och ögat ser mättnad. Ett
+  luminansmått gav 1,1–1,3 och sa "ingen kant" om en kant som syns tydligt i bilden.
+- **Räkna pixlar mäter YTA — styrkan bor i ALFAN.** Ett band täcker ungefär samma bana oavsett
+  hur starkt det är, så pixelantalet växte 1 011 → 1 587 medan summan av avvikelserna gick
+  **33k → 205k**. Ska du visa att något blev *starkare*: summera skillnaden, tröskla den inte.
+  Och en effekt kan passera varje tal du satt och ändå vara osynlig — röken i
+  `blixt-och-dunder` mätte 655 målade pixlar av 7 200 och syntes inte i bilden.
+- **`sparkle`/`puff` går genom `ParticleContainer`.** Räkna aldrig `fxLayer.children` för att
+  se om partiklar föddes — fältet är ETT återanvänt objekt och innehållet ligger i
+  `particleChildren`. Mätningen såg "1 ny fx-nod" och lästes som att glittret var trasigt.
+- **Sonder måste ligga i repot.** Scratchpad-katalogen kan inte lösa `playwright`; lägg
+  engångsskript som `scripts/_*.mjs`.
+- **När en sond rapporterar ett ANTAL är identiteten på det den räknade fortfarande OMÄTT.**
+  `_stillaprobe` gav nästan identiska tal åt två spel och rätt svar var motsatt: `kla-efter-vadret`
+  4,2 px / 3 av 84 noder var ett **äkta** fynd (de tre var en dekorativ vädersymbols glow-puls
+  medan spelets enda karaktär stod stilla), `folj-sparet` 4,6 px / 2 av 30 ett **falskt** (de två
+  ÄR figuren — container + dess Graphics, samma sak räknad två gånger — och rörelsen är
+  `_lookEager` som fungerar). Jag gissade identiteten på de tre ("snöflingorna"), skrev det som
+  om det vore mätt, och hann få in det i ett commit-meddelande, två dokument och ett sondhuvud
+  innan `_vilkaprobe.mjs` visade att det var vädersymbolen. **Kör `_vilkaprobe` innan du bygger
+  något på ett stillhetstal.** En summerad RÖRLIG YTA prövades som skiljelinje och **förkastades
+  med mätning** — den rankar det döda spelet (53 482 px², stor glow-cirkel) före det levande
+  (10 969 px², liten figur). Frågan "lever scenen?" har inget skalärt svar.
+- **En ny sond kostar mer än speländringen — kör kontrollarmen FÖRST.** Uppmätt över kvällspasset
+  2026-08-12 (v1.181–1.182): **630 rader sond mot 459 rader spelkod**, och `_tuggprobe` ensam
+  (413 rader) var större än ändringen den mätte. Posten tog **77 min mot dagens 8–25 min per spel**
+  — inte för att spelet var svårt, utan för att MÄTAREN var fel fyra gånger innan den var rätt:
+  magens `rorelse` gav 27 → 217 mellan två körningar av samma sak · "duken är svart när allt är
+  dolt" räknade 921 600 av 921 600 ljusa pixlar i BÅDA armarna · skumnivån nollställs när målet nås
+  · en CPU-strypning som inte bet ens vid ×20. Alla fyra hade fallit direkt på en körning mot HEAD
+  eller mot en känd barlast. **Ordningen är: kontrollarm (HEAD, eller barlast med känt utslag) →
+  se att talet RÖR SIG → först då mätarm.** En mätning som inte kan skilja två KÄNDA lägen åt
+  säger ingenting om det okända — och en sond som mäter fel kostar mer tid än hela speländringen.
+  **Och lista `scripts/_*probe*` innan du döper en ny** — `_svingprobe.mjs` fanns redan (7/7,
+  spök-bågen) och skrevs över av en ny sond med samma namn 2026-08-12.
+- **Mät den RITADE geometrin när de två armarna inte delar tillstånd.** HEAD har inget rep att
+  läsa när ändringen är "tråden blir ett rep" — men båda armarna RITAR en väg. `_tradprobe`
+  hakar på `_thread`s egna `moveTo/lineTo/quadraticCurveTo` och mäter den; då finns ett tal i
+  båda armarna (bågen 0,0 % mot 13,4 % av kordan). Samma pass bar två klassiska mätfel: ett
+  läge avläst i FEL bildruta mätte skjut-armens flax (29,3 px), och en kvot vars **nämnare
+  flyttar sig** (kordan är ~0 px när skottet börjar) gav 2,46× utan att en pixel var fel.

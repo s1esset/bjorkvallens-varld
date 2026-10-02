@@ -263,3 +263,104 @@ export default {
   destroy() { this._alive = false; this._root?.destroy({ children: true }) },
 }
 ```
+
+## Tysta fällor (flyttade hit ur CLAUDE.md 2026-10-02 — indexet står kvar där)
+
+- **Ett släpp når ALDRIG ett syskon — och en bubblande förälder måste vara `static`.** Har ett
+  spel TVÅ greppytor måste `pointerup`/`pointerupoutside` sitta på deras gemensamma FÖRÄLDER.
+  Pixis båda släppvägar går uppför en föräldrakedja, aldrig i sidled: `mapPointerUp` bubblar
+  längs SLÄPP-MÅLETS kedja och `mapPointerUpOutside` bara uppför **pressTargets egen**
+  (`EventBoundary.mjs:559,634`). `skattjakt-i-morkret` lyssnade på `_catcher` medan ficklampan
+  bodde i `_front` — ett syskon — så greppet på lampan släpptes aldrig: `_drar` stod kvar `true`
+  och `_pekId` på ett dött finger-id, och eftersom varje ny fingerpekning får ett **nytt**
+  pointerId avvisades allt därefter som "andra fingret". **Permanent död träffyta utan ett enda
+  konsolfel**, grönt test hela tiden — bara en pekare med två olika id:n hittar den.
+  ⚠️ Andra halvan var inte gratis: `notifyTarget` (`:370`) bortar tyst på allt som inte är
+  `static`/`dynamic`, så en bubblande förälder på default `'passive'` får **ingenting** — utan
+  `eventMode = 'static'` fastnade även kontrollarmen. En bar `Container` utan `hitArea`
+  träfftestar ändå alltid falskt, så roten blir inte själv ett träffmål av raden.
+- **Egna fält på ett Pixi-objekt får inte heta som Pixis egna.** `f._cx = x` såg ofarligt ut,
+  men `_cx`/`_cy`/`_sx`/`_sy` är Container-transformens interna cache: `lt.a = _cx * scale.x`.
+  Snöbollens snöfält renderades därför med vågrät skala 3660 — osynliga, utan ett enda
+  konsolfel. `check.mjs` felar numera på hela namnlistan; använd ett eget prefix (`_wx`).
+- **`Graphics.arc()` drar ett streck från PENNAN till bågens start.** ⚠️ *Rättat 2026-09-23:*
+  inte "när ingen moveTo står före" — en färsk Graphics eller en efter `clear()` ritar rent.
+  Fällan är att `arc()` fortsätter en ÖPPEN väg, och Pixi 8.19 lämnar pennan kvar på två sätt:
+  ⓵ efter varje `fill()`/`stroke()` sår den nästa väg med `moveTo(förra vägens sista punkt)` —
+  efter en SLUTEN form (circle, rect, ellipse …) är den punkten **origo** (`getLastPoint` har
+  inget fall för den); ⓶ två kedjade bågar `g.arc(A).arc(B)` får ett streck mellan sig.
+  `kugghjulen`s Elvira fick en gul kil över ansiktet, gungans Lova ett streck genom kroppen,
+  `rulla-bollen-hem` ett 172 px streck från skärmens hörn — i varje skärmdump, noll konsolfel.
+  **Använd `bage(g, cx, cy, r, a0, a1, ccw)` ur `lib/form.js`.** En tårtbit skriver
+  `moveTo(mitten).arc(…)` själv (sapbubblornas fläktblad) — därför lappas inte Pixi centralt.
+  Mät med `scripts/_bagprobe.mjs` (körtid, penna → start per båge; `_bagscan.mjs` är bara
+  statiska kandidater, 88 st varav 32 var äkta). Latent: en båge direkt efter en båge sås med
+  (undefined, undefined) — Pixi läser `data[5..6]` av sex argument — och den ritar i dag
+  ingenting (`_bagnanprobe.mjs`). Rättar Pixi sin bugg vaknar ~15 bågloopar; **kör `_bagprobe`
+  efter varje Pixi-uppgradering.** → ÅTGÄRDER V23.
+- **`renderer.generateTexture()` fäller hela testsviten, inte spelet.** Att baka en form till en
+  textur byter rendermål mitt i en bildruta. Ensamt syns inget; i `npm run test:all` (72 spel,
+  fyra parallella webbläsare) gav det **`tom-scen` i 5 av 7 körningar mot 0 av 7 på HEAD**, plus
+  "WebGL context could not be created" i `glittergrottan`. Att baka tidigt vid uppstart hjälpte
+  inte. **Rita formen med Canvas2D i stället** — det rör inte GL-tillståndet och behöver ingen
+  renderare. Samma regel gäller nästa gång något vill baka: fråga först om Pixi behövs alls.
+- **Ett vilande `ParticleContainer` på `fxLayer` dör aldrig.** `fxLayer` lever hela appens
+  livstid, så ett fält som cachas där behåller sina GPU-buffertar för alltid. Med kvarliggande
+  fält flakade sviten 1 av 3; med `stad()` som river tomma fält: 0 av 4. Allt som cachas på ett
+  app-långlivat lager måste kunna rivas när det är tomt.
+- **En `new FillGradient` per scen/objekt destabiliserar sviten precis som `generateTexture`.**
+  Varje gradient bakar en egen duk och laddar upp en textur — sker det vid varje montering
+  gav det `tom-scen` i 1 av 3 rundor mot 0 av 3 på HEAD. **Cacha varje gradient per färg**
+  (`lib/form.js`, `scene.js`); en scen ska göra NOLL texturbakningar när den monteras.
+- **En radiell gradient kan inte ha genomskinlig mitt.** `buildRadialGradient` fyller först
+  HELA duken med sista färgstoppet och ritar gradienten ovanpå — en genomskinlig källa raderar
+  ingenting i source-over. En vinjett byggd så blir en **jämn** mörkning över hela ytan
+  (uppmätt: himlens mitt [176,227,250] → [146,189,208], samma faktor överallt). `buildLinear-
+  Gradient` har ingen sådan förifyllning: bygg kanttoningar av **linjära** gradienter.
+- **Radiella gradienter kostar 256× linjära.** Pixi bakar en linjär till `256×1` (~1 KB) och en
+  radiell till `256×256` (~256 KB). Ikonbiblioteket låg på 15,3 MB innan `textureSize: 64`
+  tog ner det till 1,0 MB — utan synlig banding ens på 300px. Mät med `_ikonkostnad.mjs`.
+- **Animera aldrig containern som `addTarget` fick — det flyttar snäppytan.** `DragController`
+  mäter avståndet till `target.view.x/y` **när saken släpps**. `sortera-skrap`s tunnor fick en
+  tyngdkänsla som sänkte dem upp till 13 px i guppet, och då flyttade målet undan sig självt
+  mitt i ett släpp: loggfyndet `snal-snappyta` (släpp **2 px** utanför radien). Samma sak gäller
+  `hitArea`, som sitter på samma nod. **Animera i ett BARN** — då står både släppmål och
+  träffyta still medan bilden rör sig. Sonden såg det inte; `test:all`-loggen gjorde det.
+- **En ringbuffert av tweens dödar den EVIGA tweenen först.** `Ansikte._track` höll 24 tweens
+  och kastade den ÄLDSTA när listan blev full — och den äldsta är `liv()`s oändliga andetag,
+  som registreras vid uppstart och aldrig tar slut av sig självt. Med bara tugg och miner
+  räckte 24 platser länge; med huvudgester (en nick per min, ett ryck per bus) fylls de på en
+  halv minut, och ansiktet slutar andas **utan ett konsolfel**. Uppmätt med den gamla koden
+  inlagd som kontrollarm: **1,66 ‰ svängning före 40 gester → 0 ‰ efter**. Rensa FÄRDIGA
+  tweens i stället för de äldsta, och skydda `repeat: -1`. Samma fråga gäller varje tak på en
+  lista av levande saker: är det yngsta eller det VIKTIGASTE som ryker?
+  — **och den rättningen läckte i sin tur.** `isActive() || totalProgress() < 1` kan inte
+  skilja LEVANDE från DÖDAD: en dödad `repeat: -1`-tween ger `isActive() === false` men
+  `totalProgress() === 0`, alltså < 1, och slapp igenom filtret — medan while-loopen hoppade
+  över allt evigt och aldrig kunde vräka den. `liv()` anropas en gång per tugga, så listan
+  växte med **en permanent död post per tugga** (uppmätt 1 → 33 över 60 tuggor). Vid mättnad
+  dödades LEVANDE tweens: en hel grimaslapp frös på alfa 1 med `visible: true` medan en annan
+  min var aktiv — **två ansikten på en gång, permanent, med noll konsolfel**. Måttet som
+  faktiskt svarar är **`tw.parent`** (sann för löpande OCH väntande, falsk för både färdiga
+  och dödade — `_tweenprobe.mjs` prövar alla lägena). Och samma fråga gäller varje flagga som
+  betyder "lever": `if (this._blinkTimer)` frågade om fältet var SATT, inte om timern LEVDE.
+- **`killTweensOf(figuren)` når BARA figurens rot — barnbarnen städas aldrig.** Armar som
+  vinkar, ögon som kisar och en del som studsar in ligger en nivå längre in, och en rivning
+  som bara tar roten lämnar dem levande. I `bygg-en-kompis` hann en vinkning (0,72 s) nästan
+  alltid vara igång när nästa knapp rev figuren; harnessen larmade `tween-mot-forstort`, men
+  **sonden var helt tyst** — gsap skriver bara på en nollad transform och Pixi v8 kastar
+  ingenting. "0 konsolfel efter exit" är alltså blind för precis den här läckan (fyra
+  exit-tider gav 0 fel i BÅDA armarna). Ge sammansatta figurer en städhjälpare som tar alla
+  animerade innernoder och kalla den före varje rivning — även för kopior i ett galleri.
+  **Mät den:** plocka undan innernoderna i en array FÖRE `destroy()` och räkna
+  `gsap.isTweening` efteråt (uppmätt **2 → 0**). Sonden måste använda SPELETS gsap — en
+  nyimporterad kopia har en egen global tidslinje och rapporterar 0 oavsett vad som pågår
+  (hämta url:en ur `performance.getEntriesByType('resource')`).
+- **Konstens utbredning och träffytans utbredning är två olika budgetar.** `bygg-en-kompis`
+  vingar var måttade mot kamerans synliga STATIV — men kamerans `hitArea` börjar 100 px till
+  vänster om benen, så vingspetsen låg **inne i kameraknappen** och ett tryck på den tog
+  kortet i stället för att kittla. Ingen skärmdump visar det, `check.mjs` mäter ingen geometri
+  och en `hitArea` ritas aldrig. Ritar du nära en knapp: mät mot grannens **hitArea**, läs
+  spetsen ur den RITADE geometrin (`getBounds()`, inte ett tal i sonden — en hårdkodad spets
+  rapporterade samma tal efter att vingen krympts) och peka med riktiga muspekningar i varje
+  skalläge. Och P0-avståndet vinner: rätt fix var att krympa vingen, inte att vidga ytan.

@@ -129,3 +129,16 @@ dev-servern (`window.__barnspel` är DEV-only — funkar EJ mot preview-bygget p
   landat, och behandla PAGEERROR som nämner symboler utanför din fil som transienta.
 - **Röst:** nya repliker läggs till i `scripts/voice-phrases.json` och körs i klump med `/rost`
   när narrator-tjänsten är uppe. Spelet ska alltid funka direkt via Web Speech-fallback.
+
+## Tysta fällor (flyttade hit ur CLAUDE.md 2026-10-02 — indexet står kvar där)
+
+- **Docens §4 kan vara inaktuell.** Läs `src/games/<id>/index.js` **före** planen. Två gånger har
+  en köad punkt redan varit gjord, och båda gångerna bar koden på fel ingen doc kände till.
+  **Och pröva köpostens PREMISS mot koden innan något byggs** — den faller ofta: "tuggbar mat"
+  gick inte att göra som en deformation (`food.js` = 5–7 lagrade `Graphics` × 18 varianter, ingen
+  silhuett att töja, och `generateTexture` är förbjuden), `pruttbad`s bubbla poppade i SAMMA
+  bildruta som ytan bröts (inget liggande skede att fysikalisera), `pizzabageriet`s sås var en
+  fylld cirkel i bottnens ritning. Faller premissen: **skriv om posten till det som faktiskt går
+  att bygga** — bygg inte en större sak i stället för att rädda formuleringen.
+- **`korning.mjs` har egna verb:** `steg <namn> --nasta "…"` och `notis "…"`. Det finns inget
+  `nasta`- eller `anteckning`-kommando.

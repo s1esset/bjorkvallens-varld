@@ -138,3 +138,15 @@ destroy(ctx) {
 - **Objekt "hoppar" vid resize:** placera via `designToWorld` (inte råa världskoordinater)
   och/eller läs om positioner i en `scaler.onResize`-lyssnare vid behov.
 - **Minnesläcka mellan spelomgångar:** `_build` som skapar nya meshar måste disposa de gamla.
+
+## Tysta fällor (flyttade hit ur CLAUDE.md 2026-10-02 — indexet står kvar där)
+
+- **Ett bibliotek kan skriva konsolfel INNAN du hinner fånga felet.** three.js lyssnar på
+  `webglcontextcreationerror` och gör `console.error` i lyssnaren; konstruktorn kastar först
+  efteråt. `glittergrottan`s reservläge var alltså helt korrekt — full bild, rätt beteende —
+  och testet ändå **rött av 8 konsolfel**. Hämta resursen själv där det går (`getContext`
+  utan lyssnare är tyst) och lämna den färdig till biblioteket: `new WebGLRenderer({ canvas,
+  context })`. Samma fråga gäller nästa bibliotek: loggar det något innan mitt `catch` körs?
+- **`Web page caused context loss and was blocked` är en SPÄRR för sidan, inte en transient.**
+  Omtagningar hjälper inte — uppmätt 0 räddningar av 2 fall över 15 körningar. Det som räddar
+  bilden är att spelet kan köra UTAN resursen. → ÅTGÄRDER V15.

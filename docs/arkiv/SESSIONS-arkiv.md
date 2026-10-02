@@ -1,0 +1,7201 @@
+# SESSIONS-arkiv — äldre sessionsposter
+
+Flyttade ur `docs/SESSIONS.md` 2026-10-02 för att den filen ska gå att läsa billigt. Nyast överst,
+samma format. Nya poster skrivs aldrig här.
+
+---
+
+## 2026-09-25 — Grodan Slurp: hoppen landar, maxfarten, natt, torr öken + vardagsrum · v1.262.0
+
+**Uppdraget (ägaren):** grodan tumlade för ofta vid vanliga hopp och fötterna var för känsliga;
+bara maxfarten ska ge ragdoll; maxfarten ska synas (grodan glittrar/glänser, pilen tjock och
+lysande röd) och ha 25 % mer kraft; man ska kunna hålla hur länge som helst; alla fyra tider på
+dygnet slumpas (även vid start); öknen och vardagsrummet utan vatten; sedan commit, publicera, stäng
+dev-servern.
+
+**Byggt:** HÅLLET är nu ett SATS-HOPP (`groda.laddHopp`: pilens bana, vanliga poser, landar på benen)
+och bara FULL SATS är superhoppet — med `MAX_KRAFT` 1,13 (höjd +25 %, längd +24 % mot HEAD).
+Maxfarten syns: tjock lysande röd pil med glödband, större pilspets, röd skugga; grodan glittrar
+(gnistor, tindrande stjärnor) och glänser (pulserande glans bakom den). Ingen avfyrning av sig själv
+längre. `_small`: fötterna + underbenets nedre halva känner inget, landningar ovanpå något tumlar
+aldrig (utom ≥ 19 px/steg), sidoslag räknas längs kontaktnormalen (`physics.onImpact` ger nu
+`normalFart`). NATT (måne, stjärnor, månskenston; inne lampljus) och `_valjTid` som slumpar varje
+runda och sparar den förra. Öknen och vardagsrummet `torr`: mark kant till kant, ingen flytvolym,
+kören på en sandstenshäll i en palmlund resp. en golvkudde vid en matta. Pilen provar bara
+tyngdpunkten under lättningen (slutade förut efter 4 steg vid en grannsten).
+
+**Mätt:** `_tumlaprobe` (ny): vanliga hopp 4/60 → 1/60 tumlade, sats-hopp 0/60 · `_superhoppprobe
+ladd`: alla landar sittande · bajsloopen klar i öknen (109 s) och vardagsrummet (105 s) utan vatten ·
+`_biomrokprobe` 10/10 världar 0 fel · `_superspelprobe` hela superhoppet + exit med repet 0 fel ·
+test för de 8 spel som använder `onImpact` gröna.
+
+**Öppet:** ett flackt sats-hopp rakt över grannbladet kan snudda det med benen och landa kortare än
+pilen (sällsynt, se docs §3). Se ett barn spela.
+
+## 2026-09-24 natt — Grodan Slurp: sikt-pil + vändknapp, L6 + L7 (sex nya världar) · v1.260.0–v1.261.0
+
+**Uppdraget (ägaren):** en liten knapp nere till höger som vänder grodan (att trycka bredvid den
+vände den inte alltid och sköt dessutom tungan); en diskret halvgenomskinlig animerad pil som visar
+superhoppets bana medan fingret håller, där fingret som drar väljer riktningen; sedan L6 och L7; sist
+spara, committa, publicera och avsluta.
+
+**Byggt — v1.260.0 (`cd2e075`, publicerad):** VÄNDKNAPPEN (HUD, bild r 32, träffyta r 60, ett
+grodhuvud i profil som vänder med grodan; glider upp ovanför kören när kören står i hörnet). SIKTET:
+prickar som glider längs banan, pilspets, landningsskugga; dra > 60 px från grodan = riktning
+(minst 30°), kort drag = superhopp, kort tryck = vanligt hopp som förut. `groda.superFart()` är EN
+formel för hoppet och pilen. **Två fysikrättelser för att pilen skulle stämma:** superhoppets
+fartspärr klippte delarnas fart runt tyngdpunkten var för sig och LÄCKTE rörelsemängd (rakt upp 52 px
+för lågt) — nu bevaras tyngdpunktens fart exakt (full sats: 472 px högt/692 långt, var 382/779 med
+läckan); fötterna skrapade i bladet de stod på — grodan lättar 4 px och underlaget släpper igenom den
+i 8 steg. `_siktprobe`: 0–7 px fel längs banan i fri flygning.
+
+**Byggt — v1.261.0 (`0c96019` + röst `d4d122d`, publicerad):** sex nya världar i biomrotationen —
+TRÄSK (tjockt vatten, tuvor, andmat, gasbubblor, gädda), ÖKEN (oas, het sand som får grodan att
+trippa, sanddyner, klippor, jättekaktusar, buskboll, pillerbagge med bajsboll), STRAND (havet med
+vågor som gungar allt mot land, brygga med hopptorn, livräddartorn, parasoll, luftmadrasser, krabba,
+mås, badboll, stor våg), KÖK (bänken, diskhon, gelé som studsar, slevkruka, apelsin), VARDAGSRUM
+(akvarium, soffa/puff som studsar, bokhyllor, golvlampa, katt, pappersflygplan), BADRUM (badkar med
+badring, halt vått kakel, dusch, badanka, tvål, såpbubbla). Fyra nya insekter med egna korvfärger.
+Ramverket i dammen.js/hinder.js/index.js/biomer.js (jag); konsten i konst-ute.js, konst-inne.js och
+djur.js av tre hjälpare efter ett ritkontrakt (docs/games/grodan-slurp.md §4i). 9 röstklipp.
+
+**Mätt:** bajsloopen klar i alla sex (69–109 s), 0 konsolfel, aldrig fast; het sand 5 tripp/7 s (skog
+0), halt kakel 177 px glid (50), träskvatten 29 px simtag (57), vågor 142 px gung (14) — vågorna var
+först omärkbara (hemfjädern + ~40 % av jämviktsfarten) och fick dubbel amplitud. `_bajsloopprobe
+--biom X --rundor 1` hade gjort NOLL tryck (ombyggnaden räknade upp rundan) — rättat. Spelkritikern:
+"klar att committa", inga P0-brott. `check` + `test grodan-slurp` gröna.
+
+**Commits:** `cd2e075` sikt-pil + vändknapp · `0c96019` L6 + L7 · `d4d122d` röstklipp.
+**Öppet:** biomplanen (§4d) är klar. Se ett barn spela: sikt-draget är ett håll-och-dra (den övre
+halvan av 3–5 hittar det), rundlängden och den heta sanden. Pilen stoppar vid hinder nära
+frånskjutet där benen slår i (kaotiskt, pilen visar hellre för kort). Inte gjort: `test:all`
+(bara grodan-slurp ändrad, inga delade bibliotek).
+
+## 2026-09-24 sen kväll — Grodan Slurp L4 (stor värld) + L5 (biomer) · v1.258.0–v1.259.0
+
+**Uppdraget (ägaren):** "publicera och kör sen L4", sedan "kör vidare med L5 … och sen slutligen
+spara och uppdatera, committa och deploya + allt som behövs för mig att testa". L3 publicerades
+(v1.257.0) innan L4 började.
+
+**Byggt — L4 (v1.258.0, `e31b2c8`):** världen 2560 × 1440 med `lib/kamera.js` (ny `worldY0` —
+dammen ligger kvar på y 0–720, himlen och träden växer uppåt); fyra lager (himmel fast, fjärranband
+i parallax 0,3, världen, HUD); två stränder med höga träd (grenar på tre höjder), en stubbe, kören
+vid ena stranden; HEM-BLADET i HUD:en (håll 2,5 s) och KÖRPILEN (visar vägen); kasthåll 800 px;
+klättra (envägsgrenar och -blad, kameralyft, hoppa ned på tom luft); simtag; effekterna i världen.
+**Sex fällor hittade av sonderna, alla med grönt test och 0 konsolfel:** stubb-fällan (1/6 → 6/6),
+stubben som vägg, grodan under ett blad (9 min), startbladet (föll igenom 4/4), klättringen
+(0/4 → 4/4 i fem steg), och **L3:s vassregel var död** — `hitta.inuti` skickade aldrig tungans mål
+(L3:s 6/6 kom från de andra rättelserna; nu rättat och dokumenterat i spelets doc).
+
+**Byggt — L5 (v1.259.0):** `biomer.js` (en biom = data), `dammen.js` bygger damm · IS (halt golv,
+vakar som brunnar, snö, snöfall, snöbollar) · FORS (`Flytvolym.stromX`, nytt i `lib/flytkraft.js`
+— ström mot kören, stenar, skum, strimmor, laxar) · SKOG (mark att dra sig längs med tungan, göl
+med kören, flugsvampar att studsa på, fler träd). **Ny biom vid varje start** (progress
+`biomNasta`: damm → is → fors → skog), slump inom en session, en kort replik per biom. Nästa korv
+efter 4 insekter (var 5). `physics.js`: rymde-diagnosen räknar mot världens `bounds`.
+
+**Mätt:** bajsloopen klar i alla fyra biomer (damm 104–183 s, is 139, fors 211, skog 212 s), 0 fel;
+klättring och ned igen; fällorna stängda; superhopp 4/4; korv+superhopp 3/3; svamplandning 5/6 på
+hatten (1/6 studsade av åt sidan); spelkritiker 8/8 ×2 (L3 och L4+L5); `npm run test:all` 86/86.
+
+**Commits:** `e31b2c8` L4 · L5 och röstklippen (se git log).
+**Öppet:** L6 (träsk, öken, sandstrand) och L7 (kök, vardagsrum, badrum) enligt §4d. Kosmetiskt:
+trädkronan ritas in bakom skalets hörnknappar när kameran är högt uppe. Se ett barn spela.
+
+## 2026-09-24 kväll — Grodan Slurp L3: bajsloopen + vass-fällan · v1.257.0
+
+**Uppdraget (ägaren):** slumpade banor i tio biomer (damm, skog, öken, träsk, frusen damm, fors,
+sandstrand, kök, vardagsrum, badrum) med egen fysik, hinder och djur, en värld som går att
+utforska åt sidan och uppåt med följande kamera — och i stället för att banan tar slut vid 8
+insekter ska grodan BAJSA efter vad den ätit, bära korven i munnen och mata grodkören: tre matade
+= banan klar. Frågan var om det är `/storbarn` eller `/polera`.
+
+**Beslut:** `/polera`, inte `/storbarn` — inget i önskemålet är storbarnens motgång, allt ryms i
+småbarnens P0 (en värld större än skärmen finns redan i `spindel-zacke-svingar`, 3–5 år).
+Ägaren valde: vilka tre korvar som helst räcker · med korv i munnen svingar tungan men äter inte ·
+biomordning is/fors/skog först. Leveranser: **L3 bajsloopen på dagens damm** (det vi inte vet om
+en treåring klarar) → L4 kamera + större värld → L5 biomramverket + is/fors/skog → L6 träsk/öken/
+strand → L7 inomhus. Planen står i `docs/games/grodan-slurp.md` §4d–4e.
+
+**Byggt (L3):** `bajs.js` (korven: en led per insekt i ätordning, brun med insektens färg
+inblandad, flyter, stinklinjer, i grodans kollisionsgrupp) · `groda.krysta()` · grodungarna kan
+gapa, längta, tugga, svälja och få rund mage i korvens färgton · rundflödet i `index.js` (magen →
+krysta → plopp → tungan hämtar via insektsvägen → bär → tryck på kören = kast i båge → tre matade →
+final med rap-ringar i korvfärgerna) · 9 röstklipp (+ 6 storbarnsberöm som låg i kö).
+**Vass-fällan** hittades av den nya sonden, inte av något test: en runda stod still i 590 s (grodan
+i vassen vid kanten, vänd mot väggen, 576/578 tungskott fast i vassen, hoppen in i väggen).
+Rättad: vassen klibbar bara när fingret pekar på den, grodan vänder sig även i vattnet, hopp vid
+kanten går inåt, och den sena hjälpen hoppar ut en groda vid kanten. `_vassfalleprobe` 2/6 fast →
+6/6 loss. Korvens första utseende läste som ett pärlband (rena färger) — omgjord efter bildsond.
+
+**Mätt:** `_bajsloopprobe` 5/5 rundor klara på 46–70 s, 0 konsolfel, exit mitt i kast/krystning/
+korv-på-tungan 0 fel · `_bajssuperprobe` 3/3 (superhopp med korv i munnen) · regression
+`_grodprobe` oförändrad, `_superspelprobe` 4/4 · spelkritikern 8/8 "klar att committa".
+
+**Commits:** se git log (`feat(grodan-slurp)` + `feat(voice)`).
+**Öppet:** L4 (kamera + större värld i dammen, "grodan hem" till en egen skärmknapp) när ägaren
+vill. Se en riktig treåring spela L3 — är 8+5+5 insekter för långt så är `NASTA_KORV` 5 → 4 spaken.
+Inte publicerad (`npm run deploy` bara på begäran).
+
+## 2026-09-24 eftermiddag — Två åldersband: storbarn 6–12 + fliken Utmaning · v1.256.0
+
+**Uppdraget (ägaren):** gå igenom reglerna som formar spelen och släpp på dem för att kunna
+göra mer avancerade spel för äldre barn. Besluten: åldersband **6–12**; världar får vara större
+än skärmen (sidoscroll, plattform, top-down); **ingen automatisk hjälp**, bara enkla tips när det
+behövs; avancerade gester; **inga påminnelser**; läsning tillåten men ikon först; motgång på
+riktigt ("inte lika lätt, barnsligt eller inramat"); synlig poäng; **egen flik** för alla
+storbarnsspel; storbarnslägen av befintliga spel byggs **bara på begäran**, med en egen skill.
+
+**Byggt:**
+- `CLAUDE.md`: P0 delad i **grundlag** (båda banden) + **P0 per åldersband** (SMÅBARN 2–5 är de
+  gamla reglerna oförändrade; STORBARN 6–12 är de nya). Grundlagen fick en rad som inte fanns
+  förut: *sparade framsteg går aldrig förlorade* — det är det som gör att motgången får släppas.
+- Skalet: `theme.js` (`bandFor` · `iFlik` · femte fliken **Utmaning** 🏆 · `PRAISE_STOR`),
+  `LibraryScreen` visar bara flikar med spel (Utmaning dold tills första storbarnsspelet), och
+  `GameHost` sätter `ctx.band` och väljer beröm efter bandet.
+- `check.mjs`: ageRange 2–12, **fel** om det går över 6 år, och en **variantmodul**
+  (`...bas` ur `../<id>/index.js`) godkänns utan egen `init`/`destroy`.
+- Nytt kommando **`/storbarn <id>`**: storbarnsläget är en egen variantmodul (`<id>-stor`) med
+  skillnaderna bakom `ctx.band === 'stor'` i basspelet — invarianten är att småbarnsläget inte rörs.
+- Kritikern spelar nu i spelets band (3-åring resp. 9-åring med en 12-åring över axeln);
+  `spelbyggare`, `felsokare`, `/felsok`, `/spel`, `/polera`, `spelkontrakt`, `spel-pipeline`,
+  `PIPELINE.md`, `README`-indexet, `_MALL.md`, `DESIGN.md`, `skal-och-data` följer efter.
+- Städat på vägen: grinden hette "sju punkter" men hade åtta (nu åtta överallt), och
+  `spel-pipeline` sa fortfarande "aldrig `git push`".
+
+**Mätt:** ny `_flikprobe.mjs` mot en TILLFÄLLIG variant `klambubblor-stor` (borttagen efteråt):
+Utmaning syns och bär bara varianten, Roligt bär bara basen, `ctx.band` stor/sma, berömmet ur
+`PRAISE_STOR` resp. `PRAISE` — och utan varianten är Utmaning dold. `check.mjs` kontrollerad med
+tre kända fel ([4,8] · [6,14] · bruten spridning). `npm run test:all` 86/86.
+
+**Öppet:** inget storbarnsspel finns än — fliken syns först med det första. Sex nya berömklipp
++ "Utmaning" väntar på `npm run voice` (Web Speech tills dess). `BACKLOG` #6: föräldragrinden
+(håll 2,5 s) stoppar inte en sjuåring — ägarbeslut.
+
+---
+
+## 2026-09-24 förmiddag — Grodan Slurp: SUPERHOPPET + grodkören som hem-knapp (publicerat) · v1.255.0
+
+**Uppdraget (ägaren, ordagrant i `docs/games/grodan-slurp.md` §0):** håll fingret på grodan →
+den tar sats synligt och hoppar högre/längre ju längre man håller, gör en volt, lägger sig platt
+med magen mot oss och alla fyra benen ute medan den snurrar och flänger (ragdoll), äter det den far
+in i; tryck i luften → tungan blir ett mjukt klibbigt rep där insekter och saker fastnar; efter
+landningen tumlar den klart, ligger still en sekund, vaknar och slurpar in repet. Plus en dold
+knapp som kallar hem grodan om den fastnat (håll på grodkören).
+
+**Byggt:**
+- `groda.js`: faserna `ladda → volt → stjarna`, med `vakna()` och `avbrytSuper()`. Stjärnläget är
+  samma 12 kroppar med en ANNAN ledgeometri (`l.sid`/`l.stj`, som kopieras in i ledens fält), en
+  egen magritning och ett ansikte framifrån. Snurret är ett stelt v += ω×r kring tyngdpunkten, och
+  landning räknas bara vid kontakt UNDER grodan. Satsen är bild: hoptryckning, darr och kisande.
+- `klibbrep.js` (ny): 13 länkar i grodans grupp. Det klibbar via kontaktpar och `Query.point` mot
+  vassen (högst 2 saker), och slurpen sker kinematiskt längs den sparade formen.
+- `index.js`: håll/släpp på roten (`pointerup`/`upoutside`/`cancel`), satsens skala och trill,
+  superhoppets förlopp och ätandet/knuffarna i luften. Grodkören har en 2,5 s-håll med en ring,
+  och 4 nya röstklipp (F5-TTS).
+- `lib/physics.js`: valfritt `filter` i `onImpact`/`impactAudio`, bakåtkompatibelt och
+  `test:all` 86/86.
+
+**Mätt:** `_superhoppprobe` (Node, MED spelets flytvolym): höjd 267/332/382 px mot 192 för ett
+vanligt hopp, och stjärnposen håller (0,01 mot 0,48–0,76 utan muskler). `_superspelprobe`
+(Chrome): 5 av 5 superhopp går hela vägen, och exit med repet ute ger 0 fel. Målet mitt i ett
+superhopp startar firandet en gång. `_satsprobe`: trycket syns vid 90 ms, 2× HEAD. Spelkritikern:
+6/6. Två fynd åtgärdades: grodkören 2 → 2,5 s (P0), och stjärnan slår nu ut även vid tidig
+landning eller en studs i grenen (3/5 → 5/5).
+
+**Tre tysta fällor (nu i CLAUDE.md):** matter-ledernas `damping` bromsar varje STEL rotation
+(0,18 → 0,002 rad/steg på 40 steg), och `Flytvolym` spärrar farten och dämpar vridning även
+OVANFÖR ytan. En Node-sond utan spelets flytvolym mätte därför en snällare värld än spelets. Den
+tredje: `iVatten` fladdrar vid ytan, och ett enda gupp avbröt satsen.
+
+**Commits:** `38b6347` feat(grodan-slurp) superhopp · `892ae0b` docs tysta fällor + sonder ·
+(denna) docs sessionslogg. Publicerat via `npm run deploy`.
+
+**Öppet:** ägarens speltest av superhoppet på plattan. Frågor att ta ställning till där: är 1,55 s
+till full sats lagom, är 2,5 s på grodkören för långt för en förälder, och behövs en röstledtråd
+för grodkören (medvetet utelämnad). Sedan: speltest med barn · V10b ② · BACKLOG #3 (MOSS nere) ·
+`_bagprobe` efter varje Pixi-uppgradering.
+
+---
+
+## 2026-09-24 natt — NYTT SPEL: Grodan Slurp 🐸 (nattpass, publicerat) · v1.254.0
+
+**Uppdraget (ägarens idé, 2026-09-23 23:45):** en ragdoll-groda med leder och muskler, en
+klibbtunga som fastnar överallt där massan avgör vem som flyger, insekter som äts, tumling vid
+smällar. Spelet ska vara oförutsägbart och kreativt, och man ska försöka igen. Spec-kortet
+godkändes, och bygget kördes som nattpass som startade av ett CronCreate-jobb i samma session.
+
+**Byggt:** `src/games/grodan-slurp/` i sex moduler.
+- `groda.js` (orkestratorn): aktiv ragdoll i matter.js, 12 kroppar. Vinkelgränser och
+  PD-muskler läggs som moment-PAR, grodan speglas vid vändning, och ett bålstöd verkar bara mot
+  mark.
+- `tunga.js`: fjädern stäms mot den reducerade massan μ = M·m/(M+m), så fördelningen blir
+  Newtons tredje lag utan specialkod.
+- `index.js`: rundflöde, sikthjälp, väjande insekter, "munnen äter själv", autohjälp som kommer
+  sent, och finishen (rap → magplask → grodkör).
+- `hinder.js`: kotte, sköldpadda och anka (vattenskidor), fisk och vind. Aldrig mer än en åt gången.
+- `dammen.js` och `insekter.js` byggdes av spelbyggar-agenter mot ett fast API.
+
+**Mätt, inte gissat:**
+- `_grodprobe.mjs` (Node): sittposens posfel 0,16 mot 1,15 utan muskler. Kotte 0,10 (Newton
+  0,09) och stock 1,62× (förväntat 1,57×). Hoppet är 198 px, och en smäll ger 1,1 s slak.
+- `_grodspelprobe.mjs` (Chrome, två otåliga rundor): riktade tryck ger 17–22 ätna/min, **blinda**
+  ger 4,7/min, alltså avgör skicklighet. 0 konsolfel, inklusive exit mitt i ett tungdrag.
+  **Kontrollarmen fällde två av mina egna antaganden.** Med fångstkorridor +30 åt slumptryck lika
+  mycket som riktade tryck; korridoren är nu +12. Min första "blinda" arm tryckte dessutom i
+  insektsbandet, så sikthjälpen räddade den; den trycker nu ≥150 px från varje insekt.
+- Två buggar hittades bara med sonden. Vassen fångade 284 av 286 tungskott vid munnen (tungan
+  går nu igenom det munnen sitter inne i). Skötseln spawnade en fluga var 0,6 s medan den förra
+  flög in (den räknar nu på HEM, inte läge).
+- Kritikern gav 7 av 8 punkter. Åtgärdat: röstklippen genererades (`npm run voice`, 10 st), den
+  mätta magen gjordes tydlig, "munnen äter själv" byggdes, och skalets hörnknappar hålls fria
+  från både insekter och gren.
+
+**Commits:** `e68b8be` feat(grodan-slurp): ragdoll-groda med klibbtunga i en damm (v1.254.0)
+**Grind:** check 0/0 · `test grodan-slurp` grönt utan fynd · `test:all` 86/86 (`leksakslada`
+bär en gammal `snal-snappyta`-varning) · `npm run build` ok · **publicerat** (Pages-körning
+35932343240, headSha e68b8be, live-bundlen innehåller 1.254.0 + grodan-slurp).
+**Öppet:** speltest med barn. Är 8 insekter lagom? Riktade rundor tar ~30–45 s för en exakt
+sond. Slangbella-hopp och en bredare damm (kamera) står i doc §4b.
+
+## 2026-09-23 sen kväll — V24 (rundflödet kapade introt) + V23 (arc-strecket, väg b) · v1.253.0
+
+**Uppdraget:** "kör på V24 och ta sen V23 som alternativ b".
+
+⓵ **V24 var större än posten sa, och sonden var blind för en del av den.** Posten trodde att två av
+tolv var realistiska (domino, valpens-bajs). `_klipplangd.mjs` (ny) mätte introklippen mot spelens
+fasta fördröjningar, och `_tomgangprobe.mjs --eget` (nytt läge: sonden säger inget själv) visade
+**9 av 12 som kapade sin egen replik vid varje start utan ett tryck** — domino hördes aldrig säga
+"då ringer klockan!". Kontrollarm: domino på HEAD. Över alla 85 fann `--eget` tre till som
+standardläget inte KAN se: flipperspel (kapade 0,1 s in, före sondens 0,9 s), studsbollar och
+folj-sparet — vars intro ÄR sondens långa replik, så rösten spärrade upprepningen och V21-svepet
+aldrig såg spelet. **Två verktyg:** instruktion köar (`ctx.narTyst` + vakt att den gäller), utrop
+hoppas över (`if (!voice.talar)`). 12 → 0 och 9 → 0 och 3 → 0; varje flyttad replik hörs fortfarande.
+⓶ **V23: premissen föll mot Pixis källa.** `arc()` lägger inte in origo — en färsk Graphics ritar
+rent. Strecket kommer från PENNAN: sådden efter fill/stroke (origo efter en sluten form) och
+kedjade bågar. `_bagprobe.mjs` (ny, körtid, tre kontrollarmar) mätte 22 äkta platser vid
+montering; statisk genomgång av resten gav 10 till → **32 av 88** kandidater. Två träffar var
+AVSIKTLIGA tårtbitar (uttryckligt `moveTo(mitten)`) — exakt varför väg (a), en central lapp, hade
+varit fel. `bage()` i `lib/form.js`, 16 commits. 22 → 0, varje rättad båge 0,0 px; före/efter i
+bild (rulla-bollen-hem 172 px från skärmens hörn, saftbaren, gungan, studsmatta).
+⓷ **Sondens egna fel, fångade innan de blev fynd:** den första `_bagprobe` ignorerade uttryckliga
+moveTo — och `bage()` ÄR ett uttryckligt moveTo, så "0 efter" mätte ingenting. Nu redovisas de för
+sig och måste stå på 0,0 px. Och en stash-körning för HEAD-bilder skrev över `.test-shots/gungan.png`
+— bilden jag först läste som "efter" var HEAD.
+
+**Läxan:** en köposts antal ("12 spel", "2 realistiska", "88 kandidater") är en hypotes; mät
+fenomenet i barnets läge (spelets eget flöde, pennan i körtid) innan fixen byggs. Och en sond som
+undantar en klass måste fråga om rättningen själv hör till klassen.
+
+**Grind:** check 0/0 · `test:all` 85/85 (en ⚠ `snal-snappyta` i sortera-skrap, 0 av 2 omkörningar i
+båda armarna — harnessens slumpdrag).
+**Commits:** 15 × `fix(<id>): … (V24)` · `afbb9ba`-serien 16 × `fix(…): … (V23)` · docs+sonder (v1.253.0)
+**Öppet:** ~15 bågloopar vilar på Pixis NaN-sådd — `_bagprobe` efter varje Pixi-uppgradering ·
+speltest med barn · V10b ② · BACKLOG #3 (MOSS nere). Inte publicerad förrän ägaren säger till.
+
+## 2026-09-23 kväll — V21 (tomgången kapade rösten i 77 spel) + V22 (Elviras uttryck) · v1.252.0
+
+**Uppdraget:** "fixa V21 och V22, bobo behöver inte egen lykta, plantera fron kan ha kvar sin emoji".
+Före det, samma kväll: lock-repliken struken (`e3a57a9`) och gravmaskinens leveranskedja (`b179f84`,
+`_bobokedja.mjs`: Bobo-raden 1/3 → 4/4) — båda publicerade.
+
+⓵ **V21 mättes först, och var mycket större än posten sa.** `scripts/_tomgangprobe.mjs` (ny) gör
+samma sak i alla 85 spel — en 8,99 s replik, ingen input — och räknar varje say() som kommer mitt i:
+**77 av 85** kapade den med sin tomgångs-påminnelse (posten nämnde tre). Kontrollarmen `--kontroll`
+kapar alltid, så ett grönt utfall är en mätning. Tre agenter; regeln "tomgången räknas från tystnad"
+(`if (voice.talar) this._idle = 0`). **Fällan som fångades innan commit:** där samma klocka också
+driver auto-hjälpen sköt påminnelsens EGEN replik upp hjälpen med hela sin längd (studsa-ner
+12 → ~20 s) eller svalt ut den — de klockorna PAUSAS i stället. Efter: **0** kapningar från en
+påminnelse; 12 spel kvar med rundflöde/händelser på fast tid → **V24**.
+⓶ **V22:** Elvira i tre lager med fem uttryck, `_elviraminprobe`: 0/4 → 4/4 uttryck syns. **Sidofynd
+i samma ansikte:** hår och mun började med `arc()` utan `moveTo` och Pixi v8 drog ett streck från
+origo — en gul kil över ansiktet i varje skärmdump sedan figuren ritades. Rättat där; klassen
+(`scripts/_bagscan.mjs`: 88 kandidater i 38 filer, `lib/figurer.js` kände redan till den) är **V23**
+och en ny fälla i CLAUDE.md.
+
+**Läxan:** en köpost om ett fel i "tre spel" var en egenskap hos 77 — mät klassen i hela sviten
+innan du bygger fixen. Och en rättning som stoppar en klocka måste fråga vad MER den klockan driver.
+
+**Grind:** check 0/0 · `test:all` 85/85 (en `fysik-svalt` i bajs-och-kiss under svitens last, ren
+ensam två gånger) · `_tomgangprobe` 77 → 0 · `_elviraminprobe` 0/4 → 4/4.
+
+**Commits:** kugghjulen (V22 + V21) · 76 × `fix(<id>): paminnelsen kapar inte langre…` · docs.
+
+**Öppet:** V23 (arc-strecket, ägarbeslut: central lapp eller per ställe) · V24 (rundflöde som kapar,
+12 spel) · Skattjaktens lykta och plantera-frons emoji: **ägaren sa nej — stängda**.
+
+---
+
+## 2026-09-23 — SNABBVINSTER-kampanjen: dubbelfirandet stängt + A-raderna i 85 spel · v1.251.0
+
+**Uppdraget:** "börja med dubbelfirandet och sen kör på med alla små förbättringar + städningen,
+använd agenter om du behöver, max 10".
+
+⓵ **Dubbelfirandet stängt i värden** (`48dd169`). Premissen i SNABBVINSTER var halvt fel och
+MÄTTES först (`scripts/_firarprobe.mjs`, ny, HEAD 5 röda): i samma tick räddade AudioServices
+30 ms-golv redan ljudet — skadan var ett DUBBELT regn, två vinstljud när spelet firade 0,4 s
+före, och en replik som kapades mitt i meningen (5,4 s kvar). Nu: vinstljud och regn spärrar
+sig i ett 1,5 s-fönster, `complete()` hoppar över berömmet om något talar, och kontraktet fick
+**`ctx.narTyst(fn)`** för repliker efter firandet (tak 10,5 s — appens längsta klipp är 8,99 s,
+ffprobe över alla 1 829; 7 s hade fyrat mitt i en 8,4 s-replik).
+⓶ **Två hål som agenterna hittade** (`759258d`): `narTyst` pollade per anrop och talade i fel
+ordning → FIFO-kö som stoppas vid pause/destroy; `voice.talar` såg inte talsyntesen, så repliker
+utan klipp kapades ändå → läser `speechSynthesis.speaking`. Sonden 18/18 (armar O + W nya).
+⓷ **85 spel, en commit var** — 9 parallella agenter i två faser: fas 1 dubbelfirandet (eget
+firande strukit, egna vinstrader FÖRE complete, repliker efter i `narTyst`), fas 2 A-raderna ur
+SNABBVINSTER + prövning av varje §4 mot koden. Agenterna redigerade men testade aldrig i
+webbläsare; koordinatorn körde check 0/0, `test:all` 85/85 **utan ett enda fynd**, och tittade
+på skärmdumparna + `scripts/_samlingbild.mjs` (ny: samlingsvisningar med ifylld custom-data).
+⓸ **Sessionsgränsen slog till mitt i fas 2.** Inget förlorades: arbetsträdet låg kvar, alla
+filer var syntaktiskt hela, och de nio agenterna återupptogs med sitt sammanhang via
+SendMessage — billigare än nya agenter som läser om allt.
+
+**Läxan:** en köpost om ett FEL ska mätas innan den byggs, även när den ser bekräftad ut —
+"dubbelt vinstljud + kapad replik" var i samma tick fel på ljudet och rätt på regnet. Och
+agenter som hittar hål i ett nytt delat verktyg medan de använder det är värda mer än
+ett perfekt verktyg från början: båda hålen i `narTyst` kom från fältet.
+
+**Grind:** check 0/0 · `test:all` 85/85 utan fynd · `_firarprobe` 18/18.
+
+**Commits:** `48dd169` värden · `759258d` kön + talsyntesen · 85 spelcommits (`feat/fix/docs(<id>)`).
+
+**Öppet:**
+- ✅ **Publicerat samma dag** (`npm run deploy`, ägarens ja): `origin/master` = `df6d970`, live-sajten serverar 1.251.0 (bygg 39 s · publicera 32 s). Annotation: `ubuntu-latest` flyttar till Ubuntu 26 från 2026-10-19.
+- **Ägarbeslut, två tagna samma kväll:** lock-repliken i `leksakslada` struken (`e3a57a9`) ·
+  `gravmaskinen`s leveranskedja följer orden, Bobo-raden 1/3 → 4/4 (`b179f84`,
+  `_bobokedja.mjs`). **Kvar:** `skattjakt-i-morkret`s Bobo-lykta ändrar ledtrådarna · `plantera-fron`s
+  emoji-blomhuvud täcker de ritade kronbladen (P0 ASSETS-gräns).
+- **ÅTGÄRDER V21** (tomgångs-påminnelser som kapar långa repliker, flera spel) och **V22**
+  (kugghjulens döda Elvira-uttryck).
+- Det mesta nya är bara statiskt prövat + harnessens autotryck — sällsynta varianter (jätte,
+  guld, jackpot, fjäril) och finaler når harnessen inte. Speltest, eller riktade sonder.
+- Speltest med barn (Skrället) och V10b ② står kvar från förra passet. BACKLOG #3 blockerad (MOSS).
+
+---
+
+## 2026-09-12 — V16 stängd, bowlings kantstöd, 15 döda studstal, listorna städade · v1.250.0
+
+**Uppdraget:** "gör allt som inte kräver mig eller ett beslut, och alla små quick wins".
+
+⓵ **V16 stängd** (`b64b046`). Blastradien MÄTTES först med `scripts/_graflackprobe.mjs` (ny, tre
+armar): Pixi 8.19 har en GC som redan städade föräldralösa `GraphicsContext`s inom 60–80 s, så
+det var en topp efter varje spelbyte (1 883 kontexter · 8,1 MB GL · heap 120 MB efter tolv byten),
+aldrig en evig läcka — barlasten med GC:n av stod kvar i två minuter. Lappat på ETT ställe,
+`lib/pixilapp.js` (körs av `createApp`), i stället för 251 handändrade anrop: 0 kontexter · 1,9 MB ·
+84 MB i appen. `test:all` 85/85.
+⓶ **`bowling`s kantstöd studsar på riktigt** (ÅTGÄRDER V10b ①). `setStatic` nollade BÅDE studsen
+och friktionen — `studs` ensam tog pricklinjens fel 214 → 79 px, räckets deklarerade friktion 0,1
+tillbaka tog det till 9 px (`_studsprobe.mjs` §7, ny). Lärdomen står i skill fysik-spel.
+⓷ **15 döda statiska studstal strukna i 7 spel** (`check --studs` 48 → 31) — utom
+`natskott-pa-stan`s kruka, som ÅTGÄRDER hade fel om: den väcks och talet lever.
+⓸ **ÅTGÄRDER städad** (`fac348c`): 15 fixade rader flyttade till Avklarat; öppet är nu bara V14b,
+V10b, V10. LYFTPLAN rad 2 markerad vilande.
+⓹ **Kartläggning av alla öppna [Quick]-punkter** (två läsande agenter, 83 docs): ~105 går att
+bygga utan ägaren, ~75 är redan byggda men står kvar som öppna. Allt sparat i
+**`docs/SNABBVINSTER.md`** — kampanjen hann INTE starta (sessionen tog slut).
+
+**Nytt fynd, inte åtgärdat:** `progress.complete()` firar själv (`GameHost.js:29-32`), och spel som
+firar i samma ögonblick får dubbelt vinstljud och en KAPAD replik — bekräftat i `regnbagsmalaren`,
+44 spel att pröva. Står först i SNABBVINSTER.
+
+**Ny fälla (CLAUDE.md):** redigera aldrig `src/` medan en sond kör — registret importerar alla spel
+statiskt, så Vite laddar om varje öppen sida och sondens hakar försvinner.
+
+**Öppet:** SNABBVINSTER-kampanjen (3 agenter × 3 vågor; agenterna testar aldrig i webbläsare) ·
+speltest med barn (Skrället) · V10b ② `spindelhjalten` + `flipperspel`s dynor (ägarbeslut) ·
+BACKLOG #3 (MOSS och F5 svarar inte). ✅ **Publicerat samma dag** (`npm run deploy`, ägarens ja): `origin/master` = `190b484`, workflow-körning 34676938098 grön. *(Rättat 2026-09-23 — raden skrevs före deployen.)*
+
+---
+
+## 2026-09-10 — unika-knytt: poleringsrundans sex steg + kritikens rättelse · v1.249.0
+
+**Byggt:** ägarens sex steg ur förra sessionens förslag ("ja, kör alla sex steg"), en commit per
+steg. Varje steg fick en egen familj i `scripts/_knyttlyftprobe.mjs`, körd mot koden FÖRE ändringen.
+
+⓵ **Rättelser** — bodens P0-avstånd med åtta skyltar (pil ▼ och dörren låg 20 px isär) · kupans
+färglöfte (kupan räknade nyansen på ett annat sätt än `dna.js`: gul i vattenvärlden blev ~76° i
+kupan men ~54° på knyttet) · solens varvtid · ett dött rekvisitafält.
+⓶ **Ljudtratten (T6)** på (800, 630): barnet vrider fram melodin, noterna flyger in i kupan, och det
+nyfödda knyttet sjunger barnets motiv. Sparposten fick ett **nionde fält** (generation + tofs);
+`dnaFranPost` är enda avkodaren, och `dnaFromSeed` är byte-identisk mot `0da98f6` för varje recept
+utan generation (familj I). Kronan finns bara i generation 1 (~8 %).
+⓷ **Skrället** enligt §4b, byggt UTAN uppehållsmätningen (ägarens beslut): snor en rekvisita eller
+en gnista, lämnar tillbaka vid ett tryck, tröttnar efter 7 s — och drar barnet i spaken medan det
+håller något sugs det med in i degen, och knyttet föds med en tofs av dess päls.
+➕ **Ögonfixen:** det nyfödda knyttets pupiller var NaN sedan leverans 1 (`bounceIn` sätter skala 0,
+`toLocal` genom den ger NaN, och `naerma` bär det vidare för alltid).
+⓸ **Knyttet efter födseln:** namnskylt i trä (syns när namnet sägs) · solen i fonden söver knyttet ·
+sömnkorn av världens egna partiklar · folien följer fingret.
+⓹ **Verkstadshyllan lever:** bärskålen (knyttet äter och rapar en gnista) och knytt som springer på
+golvet.
+⓺ **Vänner i boden:** tre duetter mellan samma grannar → vänner som delar bo, sparat i blobben.
+**Kritiken** (spelkritiker, inga blockerande fynd): golvknyttets yta stod 2 och 8 px från grannarna i
+filens ändar — nu 26 och 32 — och två fel till i steg 5-koden kom fram och rättades: tryck som
+svaldes medan ett knytt sprang hem under hyllbona, och en hemkallning mitt i landningshoppet som
+försvann. Skrällets strikta växling rekvisita/gnista är specens tak och står kvar som en fråga till
+speltestet (docens §9 A).
+
+**Läxan som gick igen:** fyra armar (S2/S4, H5/H7) var gröna mot koden UTAN funktionen — "inte X" är
+sant när X aldrig hände. Varje sådan arm kräver nu att förutsättningen inträffat. Och en yta som är
+`static` men vars hanterare bara `return`:ar i ett läge sväljer trycket åt allt som ligger under den
+(G4: `boT []` → `[2]` när ytan stängs av i det läget).
+
+**Grind:** check 0/0 · test 0 fel · `_knyttlyftprobe` I–V gröna på steg 6, G + H gröna efter
+rättelsen (bara `hylla.js` rörd) · `_knyttprobe` 44/44 · `_bodprobe` 11/11.
+
+**Commits:** `a62c472` steg 1 · `91b05f2` steg 2 · `486be55` steg 3 · `62a03cb` ögonfixen · `f808d2d`
+steg 4 · `1cadec5` steg 5 · `096e40e` steg 6 · `acda86b` kritikens fynd.
+
+**Öppet:**
+- ✅ **Publicerat samma dag** (`npm run deploy`, ägarens ja): alla 13 commits ute, `origin/master` =
+  `526d2f6`, och live-sajten serverar `index-BRgpm88V.js` med 1.249.0. Den ändrade
+  deploy-workflowen körde för första gången och gick **grön** (run 34497323938: bygg 37 s ·
+  publicera 11 s) **utan en enda annotation** — node20-varningen är borta, och BACKLOG #5 är
+  därmed stängd.
+- **Speltest med ett barn:** Skrällets takt (12 s nåd · 22 s mellan besök · 7 s till uttråkad) och
+  om växlingen märks · hittar barnet hyllans lekar och vänskaperna i boden?
+- Bälgen (T3) läser fortfarande som plankor (kosmetik) · V16 i ÅTGÄRDER.
+
+---
+
+## 2026-09-05 — Snabbpass: V19 rättad + fyra listor som ljög + deploy ur node20 · v1.248.0
+
+**Byggt:** ett kort städpass över köerna, inget spelarbete.
+
+**⓵ ÅTGÄRDER V19 stängd** (`src/lib/mjukkropp.js`). `tyngdpunkt` summerade ringens n punkter
+PLUS mittpunkten men delade med `n` — ringens mitt gånger (n+1)/n, ett fel som växer med
+KOORDINATERNA och inte med kroppen. Nämnaren är nu `pts.length` (`|| 1`, annars ger en riven
+kropp NaN i stället för 0) och `flyttaTill()` **läser gettern** i stället för att räkna om samma
+sak. ⚠️ **Kontrollarmen visade att ÅTGÄRDER-raden hade en punkt fel:** den påstod att paret var
+självkonsistent, men `flyttaTill(700, 300)` gav `tyngdpunkt` **734,69** — 1/n fel per anrop.
+Att förankringen ändå mätte sig driftfri (0,0000 px över 300 steg) berodde på att felet
+KONVERGERAR: tecknet vänder och beloppet delas med n varje steg, så ett anrop per bildruta
+dolde det helt. En engångsförflyttning hade tagit fel. Fyra nya armar i `_mjukprobe` (körda mot
+HEAD först: 3 föll, den fjärde — driften — var grön i BÅDA armarna och mäter alltså inte fixen).
+Alla 8 `Mjukkropp`-kunder testade gröna, `_kastprobe` (geggan föds) och `_knyttprobe` 44/44.
+
+**⓶ Fyra listor rättade — poster som var GJORDA men stod som öppna.** `POLERINGSRUNDA` kö 3
+(Lära) stod på nio tomma rutor i en månad trots att kön kördes 2026-08-06 (v1.11.0) · `IDEER`
+hade `borsta-tanderna` som "spec godkänd" fast den byggdes v1.230.0 · `unika-knytt` §9B listade
+fyra [Quick]-poster som stycket ovanför dem själv sa var gjorda i v1.243.0. Allt verifierat mot
+koden, inte mot dokumenten. Det här är samma bokföringsfälla som CLAUDE.md redan varnar för i
+spel-docernas §4, och den har nu slagit till i fyra dokument till: **stryk posten i samma commit
+som du bygger den.**
+
+**⓷ BACKLOG #5 — de fem actionsen bumpade ur node20.** Läxan posten krävde är gjord: alla
+`runs.using` omlästa (`deploy-pages@v4` ÄR node20 och stod inte i GitHubs varning — listan är
+ofullständig precis som posten sa) och release notes lästa per majorhopp. Två brytande
+ändringar finns och båda är no-ops för oss, **mätt**: `setup-node@v5`s automatiska cache kräver
+ett `packageManager`-fält vi inte har (och vi sätter `cache: npm` explicit), och
+`upload-pages-artifact@v4`s dotfil-strykning träffar ingenting — ett riktigt `npm run build`
+gav **0 dotfiler i `dist/`** av 1963 precache-poster. ⚠️ **Ändringen är aldrig körd** — det går
+inte lokalt. Nästa push till master är testet.
+
+**⓸ BACKLOG #2 stängd utan att något dödades** (ingen `.server.pid`, exakt en vite-process som
+äger 5173). **#3 står kvar blockerad** — MOSS svarar inte på 8003.
+
+**Commits:** `8a36d34` fix(mjukkropp) V19 · `d539ae4` docs: bokforingsskuld i fyra listor ·
+`4da4385` chore(deploy): bumpa de fem actionsen
+
+**Öppet:** **V16** är nu den enda öppna ⬜ i ÅTGÄRDER (251 `destroy({ children: true })` i 89
+filer — blastradien i GPU-minne omätt, och det är grinden). V10:s 48 nollade `restitution`-tal
+väntar på migrering per spel. `unika-knytt` §9 A väntar fortfarande på ägaren: Skrället är
+grindad på hur länge ett barn dröjer i verkstan, och spelet är aldrig speltestat av ett barn.
+**Och nästa push publicerar den ändrade workflowen — håll ett öga på `gh run list` direkt efter.**
+
+## 2026-09-05 — Unika Knytt: LEVERANS 2 byggd (samlingen, skimret, boden, variationen) · v1.247.0
+
+**Gjort:** ägarens speltest var "bra", och riktningen blev *mer variation + de saknade
+funktionerna*. Hela leverans 2 (`docs/games/unika-knytt.md` §4) byggd i fyra commits, en per
+steg, i den ordning ägaren valde: `c7ccc63` (persistens) · `ce25322` (sällsynthet · folie ·
+tier-skillnader · kompisen) · `f7f8550` (Knyttboden) · `7cafd57` (variation: rekvisitapool 7
+per värld + seedad dragning, och två nya världar Öknen/Grottan vid 20/24 kläckta).
+
+**Det viktigaste fyndet kom först:** sparposten bar bara hyllans tre senaste, så varje fjärde
+kläckning kastade det äldsta knyttet för gott — boden kan bara visa det som finns på disk.
+Uppmätt `_knyttprobe` S1: fem poster + en runda gav 3 på disk på HEAD, 6 nu. Tak 200.
+
+**Sällsyntheten** är ägarens tal exakt (`dna.js:rullaTier`), rullad FÖRE spaken dras, sparad på
+plats 7; tiern rör aldrig genetiken. Ägget glöder i sin metall i F3, metallklang + flingor vid
+kläckningen; folien är ett cachat linjärt band under en mask ur fondens egen geometri; brons
+hamrad kopparlist · silver regnbågskant + gnistor · guld solkrona + **gloria på knyttet**.
+Vanliga knytt får **kompisen** (en per värld, flyger in och sätter sig på hjässan). Båda
+replikerna fanns redan som klipp sedan 2026-08-30 utan att någonsin ha anropats.
+
+**Knyttboden** (`boden.js`, ny): rullande popup som bara visar det man fått — skyltar bara för
+världar med knytt, plan bara där det finns knytt, lat byggda riggar, axellåst drag +
+96 px-pilar, favoriten först, grannprat, metallpiedestal för skimrande. Bodluckan är en stuga
+under spaken (hyllan tog vänsterhörnet); tom samling öppnar aldrig ett tomt rum. Bobo flyttad.
+
+**Sonder:** `_tierprobe.mjs` (ny), `_skimmerbild.mjs` (ny), `_bodprobe.mjs` (ny), S/T-familjer
+i `_knyttprobe` (38 → 44 armar), `_upplasprobe` 12 armar. **Tre saker bara mätningen fann:**
+⓵ `_knyttprobe`s `start()` rensade ALDRIG — `SaveService` flushar vid `pagehide`, så
+`removeItem` + `reload` skrev tillbaka förra familjens sparpost (U0 var grön av tur);
+`save.resetAll()` var fel väg (dokument utan profil → GameHost kraschar tyst); rätt väg är
+`ctx.progress.setCustom` + in i spelet igen. ⓶ `innehall.eventMode = 'none'` gjorde bodens
+bon till döda träffytor utan konsolfel (`'none'` ignorerar även barnen). ⓷ knackhandens
+1,2 s-timer visade handen ovanpå den nyfödda världen vid snabb knackning — syntes bara i bild.
+
+**Grind:** `check` 0/0 (två repliker väntade på `npm run voice`) · `test unika-knytt` 0 fel ·
+`build` grönt · alla sonder gröna · bilder i `.test-shots/knytt-*.png`.
+
+**Öppet:** spelet är fortfarande aldrig speltestat av ett barn MED leverans 2. §9 A: Skrället
+(uppehållstiden är inte rapporterad). V19/V16 i delad kod. BACKLOG #5 (Node 20). De två nya
+replikerna (öknen/grottan) fick sina klipp med `npm run voice` (2 made, 0 failed) i samma pass.
+
+## 2026-09-01 (dag) — Unika Knytt: /simplify, sömnfrågan och ögonlocket · v1.246.0
+
+**Gjort:** ÖPPET-listans punkt 1, 2 och 3 från förra passet. Fyra commits:
+`04b8e99` (/simplify) · `13c94ec` (sömntrösklarna) · `a3460cd` (ÅTGÄRDER U6) · `9c12e39` (hash).
+Dessutom publicerades förra passets fyra liggande commits (`npm run deploy`, v1.244.0).
+
+**`/simplify` — 9 fynd applicerade, 4 medvetet lämnade.** Kört med ägarens tak på **högst 2
+agenter** (fyra granskningsvinklar parade två och två). I spelkoden: `rort` var härledbar ur
+`flytt` sedan förra passet lyfte ut avståndet · `_lutMal` var ett instansfält som bara lästes på
+raden efter att det skrevs · lekzonens tre produkter räknades om varje bildruta trots att `_r`
+sätts en gång (**städning, inte mätbart** — hyllans knytt kortsluter på `!!pekare`, så det är som
+mest ETT knytt per bildruta) · `_val.r` var ett **spökfält**: `_val` är barnets UI-val medan `r` är
+genetikhärlett och lästes bara av sparposten, så `_sparaKnytt` skriver nu `_dna.val.r` direkt
+(identiska bytes på disk) · och `g.eventMode = 'none'` i `_ritaPrylar` var en no-op, `_rum` har
+redan `interactiveChildren = false`.
+I sonderna: L-familjen byggde om `rundan()`s kropp rad för rad — den tar nu `stannaPaBanken`, och
+**L får tillbaka `_klar`-väntan den saknade**. `_knyttbild` hade duk-mappningen inlinad på fyra
+ställen och två `page.evaluate` med identiskt ställningsverk, och rapporterade `e` från **sista**
+ögat medan `over` var maximum över alla — två olika ögon i samma rad.
+Lämnat med flit (motiven i commiten): delad `_pekhjalp.mjs` (kopplar ihop två mätinstrument) ·
+`_ritaPrylar` till en container (statisk rekvisita, y-taket redan mätt) · sifferraderna i
+lekbilderna (de är bildtexten) · omdöpning av L4/L5 (skulle göra två dokument inaktuella).
+
+**§9 A:s första fråga besvarad — och den var ingen fix.** Ägaren: **koden gäller** (12 s → sömnig,
+8 s till → sover). §1 "De fem slingorna" stod kvar på 20+12 och var den inaktuella halvan — §3c
+hade redan kortat trösklarna med motiveringen "två osynliga timers är ingen mekanik", och §1 följde
+aldrig med. Noll kodändring.
+
+**ÅTGÄRDER U6 — ögonlocket, och två lärdomar som är större än spelet.**
+Felet: en flat `p.bas`-lucka med rak överkant över ett `sphereFill`-tonat ansikte, och de två
+locken **möttes** (ögonen 2,93e isär, locken 3e breda) till ett band tvärs över hela ansiktet.
+Ny sond **`scripts/_lockbild.mjs`** — en blink varar 0,2 s och går inte att fånga på måfå, så
+locken tvingas till kända lägen och sex `ogonform` ställs sida vid sida.
+
+⚠️ **Mätaren var fel FYRA gånger, varje gång fångad av en kontrollarm.** ⓵ Provpunkterna lästes ur
+`getGlobalPosition()` i byggloopen, alltså **före första renderingen** — sex olika ögonformer gav
+identiska pixlar. ⓶ Referensen togs 2,2e åt sidan och landade i **grannögats lock**: locket jämfört
+med sig självt. ⓷ Kantsvepet över hela ögat mätte **⌣-bågens** mörka streck (124,3 i alla sex
+kolumnerna), inte lockets kant. ⓸ **Luminans är blind på en färgad kropp** — locket och ansiktet
+skiljer bara −8,5 lum men **−37 i BLÅ**, och ögat ser mättnad; luminansmåttet gav 1,1–1,3 och sa
+"ingen kant" om en kant som syns tydligt i bilden.
+
+⚠️ **Fixen tog tre försök, och de två första är lärdomen: INGEN FAST TON kan matcha en bakgrund som
+ytan GLIDER över.** Kalibrerad mot pannan (`tint(bas, 0.23)` träffar dess uppmätta 241,229,126 på
+pricken) försvann överkanten helt stängd, **16 → 2 kanalsteg** — men gradienten är bakad i lockets
+EGET rum, så vid `somnig` (0,7) trycker `scale.y` ner den ljusa toppen över ögat där kroppen är
+mörkare, och locken lyste som **två ljusa lådor**. Kalibrerad mot ögonhöjd i stället: halvläget
+rätt, överkanten **18** — sämre än den platta. Locket tonar därför in ur genomskinligt
+(**`fadeTopFill`, ny i `lib/form.js`**), och intoningen måste vara **färdig ovanför ögat**: första
+fadet (0,26 = 0,91e) nådde ner över ögat som lyste igenom och mätte **37**, då på ÖGATS kant och
+inte på lockets. Formen är nu en mandel — smalast vid brynet (±1,31e → 2,61e < 2,93e, locken möts
+inte längre) och bredast rakt över ögat (±1,53e, täcker `stjarna`s 1,34e) — med bryn-båge i stället
+för rak linje och en mörkare lockkant nertill.
+**Uppmätt: överkanten 16 → 4–5 · sidokanten 5 → 5 · locket fortfarande innanför kroppen (−6,1 px).**
+Båda lärdomarna står i CLAUDE.md:s tysta fällor, inte bara här.
+
+**Grind:** `check` 0/0 · `test unika-knytt` 0 konsolfel, bildkoll ren · **`test:all` 85/85** (delad
+`lib/form.js` rörd, så hela sviten kördes) · `_knyttprobe` **36/36** · `_upplasprobe` 11/11 ·
+`_variantprobe` · `_knyttbild` 0 konsolfel · `_idleprobe` 0 · noll väntande röstklipp.
+
+**ÖPPET — nästa session, i ordning:**
+1. **Publicera.** `a3460cd` och `9c12e39` ligger **lokalt och opublicerade** — ägaren bad om
+   commit + förberedelse, inte deploy. U6 är en synlig ändring i knyttets ansikte; bilden att
+   titta på är `.test-shots/knytt-lock.png` (`node scripts/_lockbild.mjs --bara
+   "runda,stora,stjarna" --lock 0,0.7 --r 128` ger stora rutor). Sedan `npm run deploy`.
+2. **§9 A — två frågor kvar, båda blockerade på ÄGARENS EGET SPELTEST:** Skrället (§4b, grindad på
+   hur länge ett barn dröjer i verkstan) och upplåsningarnas takt (16 kläckningar till sista
+   milstolpen — rimligt eller för långt?). Det är fortfarande den största omätta saken i spelet.
+3. **Leverans 2** (sällsynthet · folie · Knyttboden) — eget stort pass, börja inte i slutet av ett
+   annat.
+4. **V19 och V16** i `docs/ATGARDER.md` — delad kod, mät blastradien före ändring.
+
+## 2026-09-01 (sen natt) — Unika Knytt: §9 tömd på allt utom ägarfrågorna · v1.244.0
+
+**Gjort:** hela **B, C och E** i `docs/games/unika-knytt.md` §9 "Kvar att göra". Två commits:
+`68970d8` (B2–B5 + E + C:s tre sonder) och `86e5cf0` (B1, det lekfulla läget).
+
+**Städningen (B2–B5).** `morf` skrevs på fem ställen och lästes ingenstans — `satMorf` var hela
+mekanismen. `halvor` fylldes men itererades aldrig; svepet över `scen.removeChildren()` gör
+städningen. `Knytt.bredd`/`.hojd` lästes av ingen och kostade en `getLocalBounds()` per bygge,
+inklusive hyllans tre vid *varje* `_ritaHylla`. **B5 var däremot ingen städning:** sparpostens
+plats 5 bar `_fro % 5`, medan `dnaFromSeed` aldrig läser `val.r` utan drar motivet ur
+fröströmmen. Talen var alltså olika, och den dag någon börjar läsa fältet hade den fått **tyst
+fel motiv**. Skriver nu `_dna.val.r`; platsen är fortfarande reserverad åt Ljudtratten och
+migreringen fortfarande noll.
+
+**Bänkplatsen (E).** §4c:s tre föremål ritade som ett stilleben på golvet — burk med penslar,
+trave brickor, oljekanna (`_ritaPrylar`). Bor i `_rum` (`eventMode='none'`,
+`interactiveChildren=false`), så harnessens tryck på (800, 600) faller igenom till
+bakgrundsfångaren precis som förut, och inget ritas ovanför y 544 (knyttets träffyta på bänken
+slutar vid 494). Första ritningen läste som en andelampa i skärmdumpen; pipen går nu ut från
+axeln i stället för rakt upp.
+
+**🚨 En köad sond var FEL SOND.** §9 C ville mäta `ritaDeg()`s ~75 allokeringar per bildruta med
+`_fpsprobe --cpu 6`. Den navigerar till **menyn** och sprutar partiklar i `fxLayer` för att
+jämföra de två partikelvägarna — den öppnar aldrig ett spel och kan omöjligt se ceremonins kod.
+Posten skrevs om till den fråga som går att svara på (*spräcker degfasen bildrutebudgeten?*) och
+mättes med fyra nya armar i `_knyttprobe`: vila **17,4** · degfasen F2+F3 **17,4** · knackfasen
+**17,6 ms**, alltså **0,0 ms extra**, samma svar vid 12× strypning. **Fällan är en nivå upp från
+den vanliga:** husets regel säger *pröva köpostens premiss mot koden* — den här posten hade en
+riktig premiss men fel instrument.
+
+**⚠️ De tre P-talen var värdelösa tills barlasten fanns.** Alla tre landade på 17,4 ms, vilket
+*är* headless Chromes vsync-intervall, och ett **mättat** mått kan inte skilja "billig fas" från
+"trasig mätare". `P3` bränner 25 ms per bildruta och flyttar samma mätare till **26,2 (+8,8)** —
+först då betyder de gröna talen något. Mätaren är per konstruktion blind för allt som ryms
+innanför budgeten; den svarar på *spräcker det budgeten?*, aldrig på *vad kostar `ritaDeg`?*.
+
+**De två andra sonderna:** `_tystprobe` ger ingen kandidat — men dess flaggordlista (`_busy` ·
+`_resolving` …) är inte spelets idiom (`_fas`), så alla sju pekhanterare lästes för hand samma
+pass; var och en svarar eller är inget träffmål. `_montageprobe --cpu 4 --varv 3` ger **24,2 och
+28,3 ms** mot kontrollarmarna `pizzabageriet` 51,9/52,4 (V14b mätte 50,0 — maskinen kalibrerad)
+och `golvet-ar-lava` 31,2/41,7. Spelet är det billigaste av de tre.
+
+**B1 — det lekfulla läget, och designvalet som inte behövde hittas på.** Docen kallade det ett
+designval ("medan fingret rör sig nära knyttet? efter ett bo-tryck?"). Koden svarade själv:
+**två av lägets fyra effekter — kroppens lutning och sidoförflyttningen — står och faller med
+att `pekare` finns alls**, så läget handlar om fingret och ingenting annat. Villkoret blev
+*fingret lever nära mig*: inom `LEK_R` 2,5 knyttradier (~230 px) och med rörelse, 0,45 s
+efterglöd. **Egen rörelsetröskel (0,5 px)** i stället för sömnlogikens 6 px — den senare hade
+läst ett långsamt AVSIKTLIGT drag som stillastående och fått läget att blinka. Bara från
+`idle`, så `glad` aldrig kapas och en sovande inte väcks av ett finger som svävar förbi.
+Hyllans knytt får `tick(dt, null)` och kan aldrig gå in i läget.
+
+**Ett värde som var skrivet men oåtkomligt** rättades i samma andetag: lutningen mättade på
+`_r * 4` (368 px) medan lekzonen är 230, så kroppen kunde aldrig nå mer än **62 %** av den
+amplitud någon en gång valde — samma klass som hornet `krona`. Mättnaden är nu zonen själv
+(0,086 → 0,138 rad vid samma fingerläge; full 0,24 rad = 13,8° vid kanten).
+
+**Mätt, och §9:s egen varning gjordes till en arm.** `_knyttprobe` L0–L5: `idle` L0/L2 ·
+`lekfull` L1 · `glad` L3 · `somnig`+`sover` L4 — alla fem lägen nås fortfarande. **L5 läser
+EFFEKTEN, inte flaggan** (lutningen är signerad, så samma rörelse på andra sidan måste ge
+motsatt tecken: +0,138 / −0,140 rad, +4,1 / −4,1 px). **Barlast körd:** med `LEK_R = 0`
+(= HEADs beteende) faller L1 och L3 medan L0, L2 och L4 står kvar gröna.
+
+**Två sidofynd ur bilderna.**
+⓵ **`_knyttbild.mjs` hade varit DÖD sedan 2026-09-01** — den anropade `kn.stadKnytt`, som togs
+bort när de tre städ-looparna slogs ihop till `lib/feedback.js:stadFx`. Hela dess isolerade
+skalmätning kraschade från den dagen utan att någon märkte det. Nu rättad: 0,2 % variation i
+höjd/storlek (storleken räknas EN gång) och spannet 1,62×, precis vad kupans blobb lovar.
+**Engångssonder körs sällan nog att en refaktor hinner ruttna dem.**
+⓶ **ÅTGÄRDER U6 (ny, öppen):** varje blinkning blixtrar ett platt rektangulärt band över
+ansiktet — ögonlocket är en flat `p.bas`-lucka med rak överkant mot en skuggad kropp.
+⚠️ Min första hypotes (locket sticker ut utanför huvudet) är **mätt falsk**, och det första
+instrumentet var också fel: `view.getBounds()` med locken uppe mot nere gav **+0,0 px på sex
+frön**, men den unionen innehåller öron, svans och vingar och kan därför inte se ett lock som
+går utanför KROPPEN. Geometriskt mått mot kroppens kant: locket ligger **6,7–21,2 px innanför**.
+Det är en ton- och kantfråga, inte en utbredningsfråga — det står så i ÅTGÄRDER så nästa läsare
+inte återuppfinner fel hypotes.
+
+**Grind:** `check` 0/0 · `test unika-knytt` 0 konsolfel, bildkoll ren · `_knyttprobe` **36/36** ·
+`_upplasprobe` 11/11 · `_variantprobe` · `_idleprobe` 0 · `_knyttbild` utan konsolfel · noll
+väntande röstklipp.
+
+**ÖPPET — nästa session, i ordning:**
+1. **`/simplify` på det här passets ändringar** (ägarens instruktion, och samma villkor som
+   förra gången: **högst 2 agenter**). Ytan är `src/games/unika-knytt/{index,knytt,ceremoni}.js`
+   plus `scripts/_knyttprobe.mjs` och `scripts/_knyttbild.mjs` — sonderna växte mest
+   (`_knyttprobe` bär nu tre familjer med var sin lokala hjälpare: `svep` · `dittra` · `rutor`,
+   och `_knyttbild` har en egen kopia av `svep`/`dittra`).
+2. **§9 A — de tre ägarfrågorna.** Sömntrösklarna (koden säger 12/20 s, §1 säger 20/12) är ett
+   svar, inte en fix. Skrället och upplåsningarnas takt väntar båda på **samma sak: ägarens
+   eget speltest.** Det är fortfarande den största omätta saken i hela spelet.
+3. **ÅTGÄRDER U6** — ögonlocket. Kosmetiskt men syns vid varje blink; fixen har designinnehåll
+   och måste bedömas i BILD över flera `ogonform`.
+4. **Leverans 2** (sällsynthet · folie · Knyttboden) — eget stort pass, börja inte i slutet av
+   ett annat.
+5. **Publicera:** tre commits ligger lokalt (`1d68909` · `68970d8` · `86e5cf0`).
+
+## 2026-09-01 (natt) — Unika Knytt: verkstan som växer · v1.242.0
+
+**Gjort:** ÅTGÄRDER **U3** (upplåsningarna vid 4/8/12/16 kläckta) och **U4** (det döda
+röstklippet) — de två posterna förra passet lämnade som "nästa naturliga steg". U3 var spelets
+enda tänkta SAMLINGS-krok: den stod i spec §0 och i leverans 1:s byggplan, men fanns inte i
+koden. Nu är verkstan det första i spelet som VÄXER.
+
+**Premissen prövades mot koden först — och föll till en fjärdedel.** Spec-radens fyra belöningar
+var "ny värld, två mönster, två färger, **en röst**". Rösten går inte att låsa upp: Ljudtratten
+sköts upp 2026-08-30 och motivet härleds sedan dess ur fröet (§4c). Posten skrevs därför om till
+det som faktiskt går att bygga — bälgens fjärde steg — i stället för att en kontroll uppfanns för
+att rädda formuleringen. **Ägarens beslut samma pass** (växande spänning i stället för spec-radens
+egen ordning):
+
+| kläckta | belöning | startverkstan |
+|---|---|---|
+| 4 | två färger (rosa + sand) | 8 färger |
+| 8 | två mönster (fläckar + stjärnor) | 4 mönster |
+| 12 | **Stjärnnatten** | 3 världar |
+| 16 | största bälgsteget | 3 storlekar |
+
+**Mekanismen.** `START_TAK` · `MILSTOLPAR` · `takFor()` · `antalFranPoster()` i `dna.js` (ren
+logik, inget Pixi — det är det som gör dem mätbara utan webbläsare), `satTak()` på verktyget, och
+`_tak` i `index.js` som en **getter härledd ur `_antal`**. Tabellerna rör sig aldrig (index
+sparas), så en upplåsning kan bara lägga till i slutet.
+
+**Firandet ligger i verkstan, aldrig i ceremonin** — sist i `_aterstall`, efter att knyttet
+flyttat hem. Receptet ställs på det FÖRSTA nya läget och `laggIn(axel)` kör in det i kupan, samma
+väg som ett vanligt tryck: premissen "varje del GÖR det den ändrar" gäller även belöningen, och en
+belöning barnet inte kan se är ingen belöning. Ingen räknare, ingen procentsats, ingen låst
+siluett syns någonstans (P0 FOMO) — det enda barnet möter är att något NYTT dyker upp.
+**Gamla sparposter förlorar aldrig något:** `antalFranPoster()` härleder antalet ur vad barnet
+REDAN gjort, så den som har ett stjärnnattsknytt på hyllan har milstolpe 12 passerad.
+
+**U4 i samma andetag:** ett dygnstal i sparblobben gör att det genererade, betalade och aldrig
+anropade klippet "Titta, dina knytt har saknat dig!" nu spelas — men bara när hyllan har knytt
+OCH besöket är en annan dag.
+
+**⚠️ Två fel som bara en BARLAST kunde hitta, och båda var mina.**
+⓵ `_tak` var först ett vanligt fält, och `_provaUpplasning` glömde uppdatera det: firandet
+ställde receptet på ett läge vars tak inte hade växt. Samma familj som varje "två sanningar om
+samma axel" i den här filen — nu en getter, och det finns ingen andra plats att glömma.
+⓶ Mätarmen `U1` läste bara slutvärdet (`tak === 10`) och var därför **grön på HEAD**, där taket
+är 10 hela tiden. Den kräver nu att taket VÄXTE under rundan. Dessutom hade jag märkt `U0` som
+kontrollarm fast den FALLER på barlasten — alltså en mätarm, exakt det felmärkningsfel förra
+passet dokumenterade. U-familjens riktiga kontroll är barlasten själv (sätt `START_TAK` till hela
+tabellen = HEAD), och sondhuvudet säger nu hur man kör den.
+
+**Mätt:** `scripts/_upplasprobe.mjs` (ny, node-only, 11 armar, barlast inbyggd) tar den rena
+logiken — inklusive att `falt` läses UR `_sparaKnytt` i stället för att antas, så en omordnad
+sparpost inte kan göra migreringen tyst fel. `_knyttprobe.mjs` fick **U0–U2 + D0–D2**: tolv tryck
+på färgkranen når **7 mot barlastens 9** · en kläckning tar taket **8 → 10** · alla fyra firandena
+tända ger **0 konsolfel** (världen bygger om dioramat, bälgen skalar blobben — helt andra vägar än
+färgen) · dagshälsningen har två kontrollarmar mot en mätarm.
+
+**Sidofynd:** sessionsloggens tio senaste poster låg **inuti formatexemplets kodstaket**
+(rad 8 → 296) och renderades som en enda kodruta. Staketet omslutet nu bara mallen.
+
+**Grind:** `check` 0 fel/0 varningar (och 0 väntande röstklipp — de fyra nya replikerna
+genererades offline med F5-TTS, 3,43–4,49 s, alla under `_narTyst`-taket) · `test unika-knytt`
+0 konsolfel, bildkoll ren · `_upplasprobe` 11/11 · `_knyttprobe` 26/26 med alla gamla armar orörda.
+
+**ÖPPET — allt som återstår på spelet står nu samlat i `docs/games/unika-knytt.md` §9 "Kvar att
+göra"**, sorterat i A–F med storlek per post och med ett förslag på vad som ryms i ett kort pass.
+Den skrevs i det här passet just för att nästa session ska kunna plocka upp spelet utan att läsa
+chatthistorik. Punkterna om död/oinkopplad kod är **verifierade i koden samma dag**, inte lästa ur
+en äldre plan — bland dem att läget `lekfull` är byggt men aldrig anropat, och att sparpostens
+plats 5 bär ett `r` som inte är det `r` genetiken använder. I korthet:
+- **Spelet är fortfarande aldrig speltestat av ett barn** — och nu finns dessutom en progression
+  vars TAKT bara ett riktigt speltest kan döma: är 16 kläckningar rimligt eller för långt?
+- Tre av §7:s obligatoriska sonder har aldrig körts på spelet (`_tystprobe` · `_montageprobe` ·
+  `_fpsprobe`), och degfasens ~75 allokeringar per bildruta är därför omätta.
+- §4b:s uppehållsmätning väntar fortfarande på ägarens eget speltest (Skrället är grindad på den).
+- Kvar sedan tidigare: leverans 2 (sällsynthet · folie · Knyttboden), ÅTGÄRDER V19
+  (`Mjukkropp.tyngdpunkt`), V16 (`destroy({ children: true })` river inte kontexten).
+
+## 2026-09-01 (kväll) — Unika Knytt: den oberoende kvalitetskritiken · v1.241.0
+
+**Gjort:** ägarens stående instruktion från förra sessionsavslutet — 1–3 granskningsagenter på
+`unika-knytt` med frågan *"är det roligt för ett barn?"*. Spelet hade aldrig fått en oberoende
+kritik: `spelkritiker`-steget stoppades när det byggdes, och kritik-workflown 2026-08-30 dog på
+sessionsgränsen med noll utfall. **Tre granskare med var sin lins** (verkstan · ceremonin ·
+återkomsten), varje fynd verifierat i koden av orkestratorn innan det skrevs ner. **Fem buggar
+rättade, tre ägarbeslut inhämtade och byggda, två frågor lämnade öppna.**
+
+**Ingen av de tre hittade en P0-överträdelse**, och det är värt att bära vidare: maskindelarna
+UTFÖR verkligen det de ändrar (blobben målas om när paketet fysiskt når den, `kupan.js:800` —
+inte när variabeln sätts), varje del har egen ton OCH eget sfx, knackfasen är äkta obligatorisk
+agens (`_idleprobe` = 0), exit-säkerheten är ovanligt grundlig, och "världen kommer ut" är en
+riktig händelse med fyra ritade rekvisita.
+
+| fynd | före | efter |
+|---|---|---|
+| Konsolfel under två rundor | **22** | **0** |
+| Knådning under ett drag | 1 (bara släppet) | 8 av 12 flyttar |
+| Vilohjälpen, fyra vilostunder | `– → SPAK → SPAK → SPAK`, ton 392 | fyra olika delar, var sin ton |
+| `_narTyst`-taket mot längsta klipp | 3,5 s mot 5,12 s | 7,0 s |
+| Taglinen "…hela världen kommer ut!" | kapad vid 82 % | 3,31 s mot klippets 3,23 |
+| Recept efter en orörd runda | `f 0→0 · m 0→0 · v 0→0` | `f 0→1 · m 0→1 · v 0→1` |
+
+**Den dyraste buggen hittades av att spela en ANDRA runda** (ÅTGÄRDER U5). `_tillBanken` skickar
+knyttet mot bänken i en 0,9 s flygtur och föder träffytan i samma andetag. Trycker barnet direkt
+— vilket ett otåligt barn gör — startade `_hemTillBoet` en andra tween på samma nod (gsap
+överskriver inte per automatik) och rev noden via `_aterstall` medan flygturen hade tid kvar.
+Den döda tweenen skrev sedan `.y` på en riven nod **varje bildruta resten av rundan**, och
+eftersom ett gsap-fel kortsluter bildrutan tappades tryck EFTER det tyst. Hade passerat varje
+grind i två dygn. **`destroy()` gjorde redan rätt — EXIT var säkert hela tiden, det var
+ÅTERSPELET som brann.** De är olika egenskaper, och en sond som bara mäter exit rapporterar
+allt-klart. Ägaren till tweenen namngavs genom att haka på **appens egen** `gsap.to` och spara
+skapelse-stacken; en nyimporterad kopia har egen global tidslinje och rapporterar 0 oavsett.
+
+**Varför ingen sett det:** harnessens nio autotryck maxar på **x = 950** (`test-game.mjs:51-53`)
+medan spaken står på **1160**, så ceremonin, ägget, kläckningen, knyttet och hyllan aldrig körts
+automatiskt — bekräftat två vägar (geometri + **noll `takt/spak`** i båda loggarna). Det är
+*avsiktligt och dokumenterat* (§1b, så en skärmdump aldrig landar mitt i en ceremoni), alltså
+ingen bugg — men följden är densamma: grönt betydde bara att den nåbara halvan monterar.
+**`scripts/_knyttprobe.mjs`, som §7 kallat obligatorisk sedan spelet byggdes, är nu byggd** och
+spelar hela kedjan: spak → ceremoni → fyra knackningar → bänken → spaken igen → ny runda.
+
+**Ägarens tre beslut** (inhämtade mitt i passet, inte gissade): U1 receptet cyklas **bara** när
+barnet inte rört någon del den rundan · U2 `pa('klar')` 1,5 → 2,15 s · U3+U4 ligger kvar.
+
+**⚠️ Mätaren var fel SEX gånger mot tre kodfixar.** Fyra fångades av kontrollarmar — och två av
+dem var **gröna på HEAD utan att mäta någonting** (`knad > 0` passerade på den avslutande tappen
+ensam; tonkontrollen var *vakuöst* sann eftersom ingen del någonsin lockades på HEAD). Dessutom
+hade jag **felmärkt en mätarm som kontrollarm** — `B0` faller på HEAD, alltså mäter den; en
+riktig kontroll (ingen vilostund → inget lockas) står nu i dess ställe. De två sista mätfelen
+var fel för att **spelet hade rätt**: rundan återställs med flit inte av sig själv (barnet
+skickar hem knyttet), och spaken vägrar med flit att nollställa före `_tillBanken` eftersom
+`avtack` börjar redan vid kläckningen. Allt står i sondhuvudet och docens §5.
+
+`_variantprobe.mjs` (ny, ingen webbläsare) avgjorde en tvist mellan två granskare med ett tal:
+med fryst recept varierade **1,00 av 4** synliga axlar (kulör/värld/mönster identiska i 100 % av
+paren, största hue-avstånd 6,4° mot spelets egen ±8°-klamp). Granskarens *stödpåstående* att
+formlotteriet ofta träffar samma favorit i 30–60 % var däremot **mätt falskt** — 15 843 unika
+siluetter på 20 000 drag. Siluettlotteriet är utmärkt; det bar bara hela lasten ensamt.
+
+**Grind:** `check` 0 fel/0 varningar · `test unika-knytt` 0 konsolfel · `_knyttprobe` alla elva
+armar gröna med båda kontrollarmarna rätt.
+
+**Commits:** `c0517ed` (rösttaket · vilohjälpen · knådningen + `_knyttprobe` + `_variantprobe`) ·
+`cda87dd` (U1 · U2 · spöktweenen).
+
+**ÖPPET — nästa naturliga steg:**
+- **ÅTGÄRDER U3** — "nya delar låses upp vid 4/8/12/16" står i **leverans 1:s** spec men finns
+  inte i koden (noll träffar). Det är spelets enda tänkta SAMLINGS-krok; utan den är svaret på
+  "varför göra ett till?" bara ceremonin själv. I praktiken ett eget pass.
+- **ÅTGÄRDER U4** — "Titta, dina knytt har saknat dig!" är ett genererat, betalat klipp som
+  aldrig anropas; ingen datumlogik finns i modulen. Antingen en minimal dagräknare i
+  `progress`-custom, eller stryk frasen så nästa läsare inte tror funktionen finns.
+- **§4b:s uppehållsmätning väntar fortfarande på ägarens EGET speltest.** Harnessens 2,55 s är
+  harnessens tidtabell, inte ett barns, och Skrället är grindad på det talet.
+- **Spelet är fortfarande aldrig speltestat av ett barn.**
+- Kvar sedan tidigare: leverans 2 (sällsynthet · folie · Knyttboden), ÅTGÄRDER V19 (`Mjukkropp.tyngdpunkt`).
+
+## 2026-09-01 — Unika Knytt: /simplify · tre MOSS-klipp · v1.239.0
+
+**Gjort:** ⓵ `/simplify` på `unika-knytt` — ägarens stående instruktion sedan leverans 1, den
+stod kvar eftersom passet 2026-08-30 körde `/felsok` i stället. ⓶ De tre SFX-klipp som legat i
+kön sedan 2026-08-06 genererades offline. Ingen ny funktionalitet i något av dem.
+
+**Först: en återhämtning.** Förra sessionen dog på sessionsgränsen mitt i en kritik-workflow och
+trodde att den producerat en plan. Det hade den inte: körningen rapporterade `completed · 4m 34s ·
+7 agenter · 865 894 tokens` men `result` var `{ plan: null, linser: 0, antalFynd: 0 }` — **alla
+sju agenterna dog på gränsen**. Körningen låg kvar på disk och gick att läsa
+(`~/.claude/projects/<projekt>/<session>/workflows/wf_*.json` + `subagents/.../journal.jsonl`).
+Lärdomen är minnesförd: `completed` betyder att SKRIPTET gick klart, inte att agenterna svarade.
+
+**`/simplify` — två granskare, fyra linser, högst 2 agenter enligt ägaren.** Spelet 5 476 → 5 310
+rader, `lib` +43.
+
+- **Tre städloopar blev en.** `stadTrad` (ceremoni) · `stadNod` (kupan) · `stadKnytt` (knytt) var
+  samma mekanism i tre stavningar, och var och en bar en egenskap de två andra saknade
+  (flaggnollning · `position` som eget gsap-mål · djuptak). Nu **`stadFx()` i `lib/feedback.js`** —
+  rätt höjd, för modulen äger själv de `_fx*`-handtag som städas. Ceremonins egna `_wPuls`
+  deklareras vid anropet, eftersom lib bara kan känna sina egna. 79 rader duplicering borta.
+- **`locka()` var skriven men aldrig returnerad.** `this._spak?.locka?.()` svaldes tyst, så
+  handpiktogrammet svävade över en död spak precis när barnet fastnat. Båda granskarna hittade det
+  oberoende. **§5 påstod att det var fixat i `/felsok`-passet** — fixen hade landat till hälften.
+  Doket är rättat med en generell lärdom: en fix som består i att SKRIVA en funktion är inte klar
+  förrän anroparen bevisligen når den.
+- **Per bildruta:** `mjukKurva` var byte-ekvivalent med `silhuett` men allokerade en closure + 15
+  objekt per anrop och anropas 3 ggr/bildruta i degfasen → allokeringsfri, **−45 objekt/ruta**.
+  `_pekPrev` allokerade ett nytt `{x,y}` varje ruta så länge ett finger rör skärmen → skalärer.
+- **Död kod:** fyra namnlistor i `dna.js` som påstod sig äga ORDNINGEN men lästes av ingen (det är
+  mekanismen bakom `krona`-glidningen i §5), `_hylla`, `_eviga`, `post.slot/wr`, `skalarer` och
+  `rullaOm` ur kupans publika API, och ett `* s * s` där `s` var literalen `1`.
+
+**Sonden var själv det trasiga — två gånger.** `scripts/_stadprobe.mjs` mäter levande tweens efter
+rivning. Version 1 navigerade bort och väntade 1,4 s, och då hade de korta tweenarna tagit slut av
+sig själva. Version 2 mätte bara `gsap.isTweening(noden)` och såg **2 av 16** — de flesta tweens
+ligger på PROXY-objekt som bara nås via `_fx*`-handtagen, vilket är hela skälet till att `stadFx`
+finns. **Båda gav samma svar som en barlastarm med `stadFx` urkopplad**, alltså mätte de ingenting.
+Med rätt mått (handtagens `tw.parent`, rivning i SAMMA evaluate): **barlast 9 → 7 levande (läcka),
+riktig kod 9 → 0**. Barlasten kräver en rads redigering i `feedback.js`; sondhuvudet säger vilken.
+
+**Ljudet: tre klipp, och en laddad mina som sköt.** `duns` (0,46 s · golvet-ar-lava, klambubblor,
+knuffa-tornet) · `kristall_klirr` (1,36 s · glittergrottan) · `borsta_skrubb` (1,95 s ·
+borsta-tanderna). Nivåerna ligger i familjen (topp −0,7…−1,1 dB mot befintliga −0,8…−1,2), så
+topp-normaliseringens kända fälla bet inte. **Men `gen-sfx.py` byggde om manifestet platt som
+`{stem: filnamn}` och RADERADE varje varianserie** — `klunk`, `pappa_prutt`, `svalj`, `traff_hard`,
+`traff_mjuk` och `tugg_mjuk` försvann som nycklar och varje variant blev en egen. Det hade tystat
+`mata-munnen`, `vakna-pappa` och `borsta-tanderna` **utan ett konsolfel**, eftersom en saknad
+nyckel faller tyst till syntesen. Minan laddades 2026-08-13 när serierna importerades men sköt inte
+förrän nu — den hade smällt vid VARJE framtida körning. Fixen ligger i GENERATORN (**ÅTGÄRDER
+V20**), med kravet att suffixet är ett TAL så `pappa_prutt_lang` och `plopp_av` inte sugs in som
+varianter. Manifestet 51 → 54 poster, diffen enbart de tre nya nycklarna.
+
+**GPU-anteckning värd att bära:** MOSS behöver ~16 GB och ComfyUI höll 19,4 GB fastän dess kö var
+tom. `POST http://127.0.0.1:8188/free {"unload_models":true,"free_memory":true}` gav **19,4 → 0,9
+GB** utan att döda processen. `llama-swap` var oskyldig (ingen modell laddad, 8001 lyssnade inte).
+
+**Grind:** `check` 0 fel/0 varningar · `test unika-knytt` 0 konsolfel · de sju ljudberörda spelen
+7/7 gröna · `test:all` kört efter `lib`-ändringen.
+
+**Commits:** `14261ef` (ljud + V20) · `5a015dd` (simplify + v1.239.0).
+
+**NÄSTA STEG — ägarens instruktion vid sessionsavslut:** kör **1–3 granskningsagenter** på
+`unika-knytt`. Spelet har fortfarande **aldrig fått en oberoende kvalitetskritik** —
+`spelkritiker`-steget stoppades när spelet byggdes, och kritik-workflown 2026-08-30 dog på
+sessionsgränsen med noll utfall. `/felsok` (buggar) och `/simplify` (kodkvalitet) är båda körda;
+det som saknas är frågan **"är det roligt för ett barn?"**.
+
+**Sex fynd som `/simplify` medvetet INTE tog** — de ändrar bild, ljud eller kräver mätning, och är
+alltså `/polera`-material och ett färdigt utgångsläge för granskarna:
+
+⓵ `satPalett` (kupan) och `dnaFromSeed` (dna) räknar paletten med **olika formler** (drag 0,20
+oklampad mot 0,14 klampad ±8°, och `matt` skiljer i tre av fyra världar) — förhandsvisningen lovar
+en färg knyttet inte föds med.
+⓶ Frö-härledda kontinuerliga nyanser **bakar en ny `FillGradient` per kläckning** in i en
+modulcache utan eviction, ~40–70 KB GPU per kläckning. `kupan.js` löste redan samma sak för sig med
+kvantisering till fem steg och dokumenterar varför i en kommentar.
+⓷ `ritaDeg` ritar EN geometri **tre gånger per bildruta** — `degBak` är samma väg, `degLjus` är
+bevisligen `scale(0,62)` + offset. Största kvarvarande vinsten; kräver `_fpsprobe --cpu 6` mot HEAD.
+⓸ Samma rekvisita **beter sig olika inne i kupan och ute i världen** (solen 11,4 s/varv inne mot
+24 s ute, månen guppar 60 % högre) — vilket tal som är rätt är ett designbeslut.
+⓹ `AXEL.steg` hårdkodar tabellängder, så en elfte färg vore permanent onåbar utan ett enda fel;
+världsantalet står som literalen `3` på tre ställen medan `dna.js` gör rätt.
+⓺ Vilohjälpen spelar **fel ton** (392 Hz = bälgens, inte färgkranens 523) och når in i kupans
+nodträd med `view.children[0]` i stället för det `tryck()` modulen exporterar. Den är en BUGG och
+hör till `/felsok`, inte hit.
+
+**Övrigt öppet:** leverans 2 (sällsynthet · folie · Knyttboden) står kvar i planens §4, och §4b:s
+uppehållsmätning väntar fortfarande på ägarens EGET speltest — harnessens 2,55 s är inte ett barns.
+Spelet är fortfarande aldrig speltestat av ett barn.
+
+## 2026-08-30 — Unika Knytt: /felsok · v1.238.0
+
+**Gjort:** granskning av `unika-knytt` (5 248 rader, fem filer) efter buggar. **Tio fel
+hittade och rättade**, alla verifierade före fix. Ingen ny funktionalitet.
+
+**Genomgående mönster:** spelet byggdes på en kväll av fyra parallella byggare med en ägare
+per fil, och felen ligger nästan alla i FOGARNA — en mekanism byggd i två halvor där ingen
+kopplade ihop dem. Tre av tio är exakt samma form: en färdig väg som aldrig matades
+(`_pekare`), en metod som aldrig exporterades (`locka`), en tabell vars andra halva aldrig
+kunde nås (hornet `krona`).
+
+**De två som barnet märkte mest:**
+- **`this._pekare` sattes till null i `init()` och skrevs aldrig** — medan tre moduler läser
+  den varje bildruta: kupans blobb följer fingret med blicken, knyttet räknar fingerrörelse
+  som liv, ceremonin räknar om koordinaten åt knyttet den håller. Uppmätt: pupillsvängning
+  **0,00 px**, `_pekare` satt i **0/48** prov → **8,04 px** av tak 9,2 efter fixen, med den
+  stillastående musen kvar på 0,00 som kontrollarm.
+- **Spaken var en tyst, verkningslös träffyta i fas `klacka` och `avtack`** — och i `avtack`
+  säger spelet högt "Tryck på spaken igen så gör vi ett nytt knytt!". Uppmätt: trycket
+  LANDADE på spaken men gav 0 ljud över tomgången, armrörelse 0,000 och oförändrad fas, medan
+  ett tryck på bart golv i samma fas kvitterade.
+
+**Metodanteckning värd att bära vidare:** sonden fångade en bugg i MIN EGEN fix. Första
+versionen lät spaken nollställa rundan i hela `avtack` — men fasen börjar redan vid
+kläckningen, 2,6 s före `_tillBanken`, och där hade den **kastat bort knyttet barnet just
+gjort**. Det syntes bara för att mätaren skrev ut ljudNAMN och inte bara ett antal:
+`_hemTillBoet`s `whoosh` saknades, alltså hade en annan gren körts. Ett rent antal hade sett
+grönt ut. Samma pass bar två andra mätfel som fångades i tid: ett ljudantal utan tomgång
+bredvid sig läste scenens egen bakgrund som ett svar från spaken, och knyttets höjd i ett
+LEVANDE varv går inte att jämföra mellan körningar (nytt frö = andra öron och horn) — den
+mätningen fick byggas om till samma dna med bara storleken varierad.
+
+**Resten:** dammpuff vid fel bo · föremål som ramlade ner i den tömda kupan och stod kvar
+nästa omgång · löv/snö/gnista som slocknade i luften vid full opacitet (de behöver 248–278 px
+till marken men hann högst 240) · fisken som poppade upp i stället för att ramla in (tick ägde
+`nod.y`) · knyttet som fick två skuggor och lämnade en kvar på gräset · storleken som räknades
+två gånger (spann 2,63× mot kupans utlovade 1,62×; isolerat mätt konstant inom 0,2 % efter
+fixen) · andra spaktrycket som gav ljud utan bild · knyttets motiv på `tone({ delay })` som
+spelade vidare på menyn efter exit · två per-bildruta-kostnader.
+
+**Sonder:** `_pekprobe.mjs` · `_spakprobe.mjs` (fas för fas, med tomgång och kontrollrader) ·
+`_knyttbild.mjs` (födelsebilder — harnessens nio tryck rör aldrig spaken, så ceremonins
+slutbild hade ingen mätare alls).
+
+**Grind:** `check` (hela appen) 0 fel/0 varningar · `test unika-knytt` 0 konsolfel · exit mitt
+i ceremonin 0 konsolfel · `_idleprobe` 0 · `build` grön.
+
+**Commit:** `efc0421 fix(unika-knytt): pekaren nadde aldrig fram, spaken var dod i tva faser`
+
+**Öppna trådar:** sex medvetet ej åtgärdade fynd står i `docs/games/unika-knytt.md` §5 som
+`/polera`-kandidater — hornet `krona` som aldrig kan ritas (0 av 20 000 frön), `dna.js`
+döda `rekvisita`-fält med fel id:n, `val.r` som doc:en säger läses men inte gör det,
+sömntrösklar som motsäger §1 (fråga till ägaren), `ritaDeg()`s ~75 allokeringar per bildruta
+(omätt), och läget `'lekfull'` som aldrig nås. Spelet är fortfarande aldrig speltestat av ett
+barn, och §4b:s uppehållsmätning väntar fortfarande på ägarens eget speltest.
+
+## 2026-08-30 — Unika Knytt (leverans 1) · v1.237.0
+
+**Byggt:** `unika-knytt` — spelet nr 85, hela leverans 1 ur den plan som skrevs 2026-08-30.
+Barnet fyller en glaskupa med en liten värld via fem ritade maskindelar, drar i spaken, knådar
+degen med fingret, knackar fram ägget — och ur ägget strömmar världen ut och ett unikt knytt
+föds stående i den. 5 201 rader över fem filer.
+
+**Så byggdes det:** exportkontraktet mellan filerna spikades FÖRE fan-outen, sedan fyra
+parallella byggare med en ägare per fil (`dna` · `knytt` · `kupan` · `ceremoni`). `index.js`
+skrevs av orkestratorn, eftersom `check.mjs` bara läser den filen och alla grindregler biter
+just där (naken `ageRange`, literala `voice.say`, förbjudna strängar även i kommentarer,
+svartlistade Pixi-fältnamn). Före allt: en recon-fan-out över lib-API:erna, grindarna och
+närmaste mall — den betalade sig direkt, se nästa stycke.
+
+**Två saker i planen var fel mot koden och rättades före bygget:** det finns inget snö- eller
+skogstema i `scene.js` (bara sky·meadow·sunset·candy·water·night·warm, och en okänd sträng
+faller TYST till blå himmel), så Snölandet blev ett eget tema-objekt; och verkstaden kunde inte
+använda `'warm'` rakt av eftersom det temat bär gräs.
+
+**Mjukkroppsmorfen** (repots första kund som ändrar en viloform): lerpa `_kant`/`_eker`/
+`_viloArea` direkt och väx DISPLAY-nodens `scale` — `Mjukkropp.skala()` hade överskrivit morfen
+ur byggmåtten varje bildruta, och dess `if (s === this._skala) return` hade dessutom gjort ett
+anrop med samma värde två rutor i rad till en nullhandling. Uppmätt 0,09 px från en kropp byggd
+direkt på äggformen; kontrollarmen utan `_kant` gav kvot 1,01, alltså nästan rund.
+
+**Fyra fel som bara bilden och loggen hittade** (alla med grönt test): spakens kvadrantplåt var
+en tunn skära i järnton och läste som ett LIEBLAD · takbjälken slutade tvärt i luften · skal-
+halvorna ritades i äggets fulla 390 px mot ett 110 px knytt · och en KÖAD replik ("Knacka en
+gång till på ägget!") fyrade EFTER kläckningen och trängde undan belöningsraden. Den sista är
+en ny variant av den kända röstfällan: `_narTyst` väntar in narratorn, och under väntan kan
+spelet ha gått vidare — `_sag` tar nu en fas-vakt och kastar repliken som blivit inaktuell.
+
+**Andra halvan var grön och omätt tills den drevs för hand.** Harnessens nio standardtryck rör
+aldrig spaken (en avsiktlig layout-invariant i §1b), så ceremoni, kläckning och födelse hade
+noll täckning i den vanliga körningen. Driven med `--taps`: ägg 11,4 s → kläckning 14,2 s →
+`setCustom` + `complete` + stjärna 15,9 s → namnet "Flisa" sagt 18,0 s, 0 fel.
+
+**Öppet:** V19 i `ATGARDER.md` — `Mjukkropp.tyngdpunkt` summerar n+1 punkter men delar med n,
+så den är ringens mitt × (n+1)/n och felet växer med koordinaternas storlek (uppmätt 46 px fel
+mitt på scenen). Att FÖRANKRA mot den är driftfritt (`flyttaTill` räknar likadant); att RITA mot
+den lägger föremålet snett. `ceremoni.js` går runt den, `lib/` är orört tills blastradien mätts.
+
+**Leverans 2 är INTE byggd:** sällsynthet (guld/silver/brons), foliegradienterna och Knyttboden
+står kvar i planens §4. Uppehållsmätningen (`takt/spak`) är igång och är underlaget för §4b —
+men talet måste komma ur ägarens eget speltest, inte ur harnessens tidtabell.
+
+**Commits:** `8440b1f` · `cd0abf0`.
+
+**Nästa steg (ägarens instruktion vid sessionsavslut):** kör `/simplify` på `unika-knytt`,
+med **högst 2 agenter** — och bara om uppgiften tjänar på dem. De fem filerna skrevs i ETT
+pass av fyra parallella byggare som inte såg varandras kod, så duplicerade rithjälpare, egna
+klamp/lerp-funktioner som redan finns i `lib/`, och tre stavningar av samma städ-loop
+(`stadNod` · `stadKnytt` · `stadTrad`) är de mest sannolika fynden. Grinden är redan grön —
+`/simplify` är kvalitet, inte buggjakt. Därefter `/felsok unika-knytt`, eftersom
+`spelkritiker`-steget stoppades i det här passet och spelet aldrig fått en oberoende kritik.
+
+
+---
+
+## 2026-08-21 · v1.235.0 · V17/V18 stängda + tre ägarrapporter om SKALET (publicerat)
+
+**Byggt:** ingen spelkod alls — hela passet låg i **delad kod och skalet**, och fyra av fem
+fynd handlade om att en mätning saknades, inte om att en fix saknades.
+
+**Commits:** `37243a0` fix(karaktarer) · `27e2448` docs(atgarder) · `67a5ff9` docs(claude) ·
+`21edf89` fix(skal) V18 · `2bb9ead` fix(skal) ägarrapporterna · `95ea904` docs · `7d8abc0` docs(claude)
+— **publicerat på Pages** (bygg 37 s, publicera 11 s, båda gröna).
+
+**V17 höll inte som den var skriven.** Rubriken (spöktweens som skriver på rivna Pixi-noder)
+gick inte att återskapa på någon **spelbar** väg — den krävde sondens egen sekvens, och
+mekanismen bakom felen är Navs mount-före-destroy (→ V18), inte `_snapHome`. `DragController`
+lämnades orörd. Kvar stod bokföringsfelet i `Karaktar._track` (`isActive()` är falsk för en
+VÄNTANDE tween), rättat till `t?.parent` + `killTweensOf(nod.scale)` i `destroy()`.
+**Premissen mättes med `_riggprobe.mjs` (ny)** — en skugglista med HEADs predikat vid sidan av
+den riktiga, så båda mätarna ser samma tween-ström i samma körning: taket 48 nås bara i **1 av
+4 spel** (`elementlekplatsen` max 49; `balanstornet` 16, `borsta-tanderna` 23, `leksakslada` 32),
+och 120 s hård lek där tappar 11 väntande tweens — men `missadeAvHead = 0` och
+`kvarEfterRivning = 0` vid **varje** exit. **Rätt bokföring till noll kostnad, mätt effekt på
+läckan 0.**
+
+**V18 visade sig vara en kapad replik, inte bara en efterhängsen ljudslinga.** `_bytprobe.mjs`
+(ny) tidsstämplade skärmbytet: nästa skärm är monterad och talar **1–3 ms** efter trycket,
+medan `GameHost.destroy()` — timers, `voice.cancel()`, `stopAllLoops()` — kör först vid
+**273–283 ms**. Den sena `voice.cancel()` sköljde alltså bort bibliotekets *"Välj ett spel!"*
+**varje gång barnet lämnade ett spel**. Fix: `Nav.go()` kallar `old.pause?.()` **före** fabriken
+(ordningen är hela poängen — en paus efter fabriken hade kapat den NYA repliken i stället), och
+`GameHost.pause()` tystar timers/röst/slingor men lämnar **tickern igång** så bilden glider
+undan levande. Växelvis A/B: **HEAD kapade i 3 av 3 armar, fixen 0 av 3**; kontrollarmen
+meny→bibliotek läser 0 i båda. `_navprobe` grön i båda armarna.
+
+**Tre ägarrapporter från speltestet, alla mätta mot HEAD innan en rad skrevs:**
+⓵ *"måste uppdatera två gånger i rad"* — orsaken satt i **vite-plugin-pwa**: i prompt-läge
+fästs omladdningslyssnaren först INNE i `showSkipWaitingPrompt`, som körs på workbox
+`waiting`-händelsen, alltså samma stund som `pending` sätts. Första trycket skickade SKIP_WAITING
+utan att någon lyssnade på `controlling` — arbetaren bytte, sidan gjorde det inte. Plus en
+**4-sekundersgräns** mot **1 911 precachade filer / 35 MB**. `forceUpdate()` äger nu hela kedjan
+själv. Uppmätt: **HEAD 2 rundor, fixen 1**, och det nya bygget körs verkligen
+(`index-DkOOqngJ.js` → `index-BGwsrB8B.js`).
+⓶ *"ska gå på ett enkelt tryck"* — grind + bekräftelsedialog borta från versionspillen
+(P0 GRIND räknar upp inställningar/avsluta/ta bort/nollställ/länkar; en uppdatering är inget av
+det). Hittas ingen ny version laddas sidan inte längre om — den säger till.
+⓷ *"avbryt-knappen är för liten, barnet blir fast"* — uppmätt träffyta **112×28 px** mot P0:s
+≥96. Nu en riktig knapp **300×112 px**, och tryck **utanför** kortet stänger också. Kortet fick
+`eventMode = static` så ett tryck PÅ det inte faller igenom till bakgrunden.
+
+**Två sidofynd som rättades i CLAUDE.md:** PWA-flödet **går** att mäta lokalt — `localhost` är
+en säker kontext, så `npm run build && npx vite preview --port 4173` ger en riktig service
+worker (påståendet om motsatsen gällde LAN-adressen). Och `npm run serve` måste startas från
+PowerShell; via Bash-verktyget faller `start.ps1` på ett teckenkodningsfel.
+
+**Öppet:**
+- **Plattan behöver troligen två rundor EN sista gång** — den kör fortfarande det gamla bygget
+  med den gamla knappen. Snabbaste vägen förbi: stäng appen helt och starta om från
+  hemskärmen, så aktiverar `applyPendingUpdateAtMenu()` den väntande arbetaren av sig själv.
+- V16 (`destroy({ children: true })` river inte `GraphicsContext`, 251 anrop i 89 filer) står
+  kvar orörd — blastradien är fortfarande **omätt**, och det är villkoret för att röra den.
+- V10 (48 nollade `restitution` på statiska kroppar i 19 spel) står kvar som avsiktlig skuld.
+- Ingen spelfil rördes, så inget `docs/games/<id>.md` eller indexstatus ändrades.
+
+## 2026-08-20 (sen kväll) · v1.232.0 · `borsta-tanderna` KRITIKERRUNDAN körd och åtgärdad
+
+**Byggt:** steg 6–7 i `/spel`. Kritikern spelade spelet som ett krävande 3-åring och dömde
+**"behöver åtgärd"** — fem av sju kvalitetspunkter höll, agens och variation bara delvis.
+Allt blockerande är åtgärdat och spelet står nu som ✅ i indexet.
+
+**Commits:** `9051bba` feat(borsta-tanderna)
+
+**P0-brottet:** tub-knapparnas träffytor låg **20 px isär** (140 px platsavstånd − 2 × 60 px
+halvbredd) mot kravet ≥24 — samma sorts fynd som kylens hyllplan i `mata-munnen`. Ytan är nu
+112 px → 28 px lucka. Konsten rördes inte.
+
+**Två löften i spec-kortet som koden aldrig infriade.** Tungbonusen fanns inte alls (0 träffar
+i full grep), och spec-kortets läsning gick inte att bygga — synlig mun-inre är 186 × 37 px, en
+tungzon där blir ~15 px. **Ägarbeslut:** bonusen hänger på motgångens EGEN tunga, som nu
+parkerar och viftar 1,56 s efter svepet. Ertappar barnet honom uteblir motgången helt.
+**Motgången blev en möjlighet — agens där det förut bara fanns otur.** Wow-tandkrämens
+"regnbågsskum" var enfärgat vitt och glimten föll under de 1,46 s då munnen är låst stängd;
+båda infriade nu.
+
+**Och fixen öppnade sitt eget hål:** för att munnen ska stå öppen sväljer `_visaMin` varje min
+medan tungan är ute — ett barn som tryckte på en tub mitt i retandet fick ljud och skum men
+INGEN grimas. Tyst borta var åttonde sekund, med grönt test. `_tungStors` täpper det.
+
+### ⚠️ TRE MÄTFEL I SONDEN — de kostade mer tid än hela speländringen
+
+1. **Fel skede.** Tungarmarna sköts in efter arm E, men brädet var redan rent och fasen stod
+   på `skolj` där tungan aldrig startar. Att skriva tillbaka smuts där gav ett tillstånd
+   spelet inte kan nå själv — och sabbade en arm som fungerat i månader.
+2. **Ett felantal utan ägare.** 172 konsolfel i en klumpsumma sa inte vilken arm som födde
+   dem. En rad som ger varje arm sitt eget felantal pekade direkt på rätt arm.
+3. **Ett felmeddelande utan stack.** "Cannot set properties of null (setting 'y')" namnger
+   ingen rad — och en typlista ("_Graphics{x,y,alpha}") gör det inte heller. Först när
+   **`scripts/_nullprobe.mjs`** (ny) hakade på spelets EGEN `gsap.to` och sparade
+   skapelse-stacken på varje tween gick spöket att peka ut.
+
+**Och spöket var inte spelets.** Samma läcka mättes på **HEAD** med dagens filer utcheckade
+(4 fel mot 10–13) → `docs/ATGARDER.md` **V17**: `DragController._snapHome` sparar aldrig sin
+hemtween, och `Karaktar._track` filtrerar listan på `isActive()` — den kända FEL mätaren, som
+kastar ut väntande tweens så just de aldrig dödas. `t?.parent` är måttet som håller, och
+`badrum.js` bär det redan. **Delad kod, app-bred — inte fixad i den här commiten.**
+
+**Röst (v1.232.0):** `/rost` kört — **9 klipp gjorda, 0 misslyckade** (F5-TTS, 1766 hoppade
+över som redan fanns). Testkörningen är nu helt utan loggfynd: `rost-utan-klipp` är borta, så
+spelet talar med riktiga klipp i stället för Web Speech. Två av de nio är finalens if/else-par
+("…pappa har!" respektive "…och extra fräsch tunga!") — de får aldrig sägas efter varandra,
+`say()` kapar den förra repliken.
+
+**Öppet:** V17 (delad kod, väntar på `/fixa`) · `borsta_skrubb` väntar på `npm run sfx` ·
+autosvepets tröskel behöver ett speltest på riktig platta · handduken går fortfarande inte att
+trycka på (nu ett önskemål, inte en falsk affordans).
+
+---
+
+## 2026-08-20 (kväll) · v1.230.0 · `borsta-tanderna` BYGGT — kritikerrundan återstår
+
+**Byggt:** spelet ur morgonens godkända spec-kort. Femte spelet i ansiktssektionen.
+Barnet väljer en tandkräm på hyllan, drar tandborsten till pappas gapande mun och skrubbar;
+smutsen försvinner där borsten går, skummet växer och svämmar ut över läpparna, ansiktet
+reagerar på VAR borsten är, och när allt är rent lyser vattenglaset → han gurglar, spottar i
+handfatet och ler. Fyra filer: `index.js` · `layout.js` · `badrum.js` · `verktyg.js`
+(de två sista byggda av `spelbyggare`-agenter).
+
+**Commits:** `4b9e361` feat(borsta-tanderna) · `655a04d` docs(borsta-tanderna)
+
+### ⚠️ SPEC-KORTETS PREMISS FÖLL PÅ EN MÄTNING — läs `borsta-tanderna.md` §3
+
+Kortet sa att munnen blir **191×155 px** vid `hojd: 880`. Det är manifestets mun-RUTA, och
+den är till tre fjärdedelar skymd av överläppen och käken. Ny sond **`scripts/_gapprobe.mjs`**
+bytte mun-lagret mot en magenta platta i samma läge och samma index och mätte den yta som
+faktiskt SYNS: **186 × 37 px** vid fullt gap (kontrollarm gap 0 = 0 px).
+
+Munnen är alltså ingen HÅLA att föra in en borste i — den är en bred, låg **TANDRAD**, vilket
+också är vad tandborstning är. Kärnloopen överlevde oförändrad; det som flyttade sig är var
+belöningen bor: **skummet**, som svämmar ut över läppar och haka där det finns plats.
+37 px rymmer inget lödder som växer.
+
+`hojd: 1100` prövades för nio extra pixlar remsa och **föll på BILDEN** (590 px brett ansikte
+i en 1280-ruta tränger undan hyllan, kranen och maskoten). Tillbaka på kortets 880 — nu av ett
+mätt skäl. **Ett tal ensamt kunde inte avgöra den frågan.**
+
+### Fyra buggar som bara `scripts/_borstprobe.mjs` (ny) kunde hitta
+
+Harnessen rörde aldrig borsten: `drag/foremal 1`, **noll** `drag/ratt`. Hela kärnloopen var
+grön och omätt — exakt `mata-munnen`s läxa. Sonden spelar spelet med två kontrollarmar
+(vila, och samma sveprörelse vid VÄGGEN med draget bevisat levande). Alla fyra hade grönt
+test och noll konsolfel:
+
+1. **Borsten gick inte att TA I.** `verktyg.js` sätter `eventMode = 'none'` på alla innernoder
+   och en bar `Container` utan `hitArea` träfftestar aldrig sig själv. Permanent död träffyta
+   i spelets enda dragbara föremål. → explicit `hitArea` 112 × 220 px.
+2. **Gapet öppnade sig aldrig.** Borsten förs in NERIFRÅN → kittlingen sköt igång första
+   bildrutan → och `min()` anropar `gap(0)`. Uppmätt `gap 0,00` med borsten på raden.
+3. **Kinden åt upp det barnet gjorde** — genomfarten mot munnen utlöste `skratt`, som stängde
+   munnen vid framkomsten. Zoner kräver nu 0,3 s DRÖJANDE.
+4. **P0-ÅTERVÄNDSGRÄND:** tungans svep (0,62 s) kunde landa EFTER att sista fläcken blev ren.
+   Då står fasen på `skolj`, `_arbeta` bailar, och fläcken går aldrig att borsta igen.
+   Uppmätt **rena 3/4, fas skolj, 26 extravarv utan att talet rörde sig.**
+
+`_borstprobe` står nu 9/9 · `check` 0/0 · `npm run test` grön, ingen `tom-scen`.
+
+**Läxa om arbetssättet:** jag gissade orsaken till gap-nollan TVÅ gånger och byggde en fix på
+varje gissning innan jag lade in `minKvar`/`_gapNu`/`iRad` i sondens avläsning — den ena raden
+diagnostik avgjorde frågan direkt. Båda gissningarna råkade peka på riktiga buggar, vilket är
+precis varför de kändes bekräftade. Ordningen var ändå fel.
+
+### Öppet — NÄSTA SESSION BÖRJAR HÄR
+
+**Körningen `.claude/state/korning.json` är MEDVETET kvar**, på steg **`kritik`**
+(klara: `plan`, `bygg`). Plocka upp med **`/aterta`** — den går direkt in i `/spel` steg 6.
+
+- **Steg 6 `kritik`:** kör `spelkritiker`-agenten mot `borsta-tanderna`. Spelet är testat men
+  aldrig granskat som LEK. Därför står indexraden som kvalitet 🔧 / polerad ⬜, inte ✅.
+- **Steg 7 `fix`:** åtgärda kritiken + de tre art-fynden som redan syns i skärmdumpen
+  (`.test-shots/borsta-tanderna.png`, `_borstprobe-skum.png`):
+  - **borsthuvudet läser som ett förstoringsglas** (stor rund vit skiva) — `verktyg.js`
+  - **handduken läser som en jättetub tandkräm** — mer tub-lik än de riktiga tuberna, och den
+    går inte att trycka på. Ett barn kommer att peka på den. — `badrum.js`
+  - **tuberna läser som burkar**, inte hoprullningsbara tuber — `verktyg.js`
+- **Steg 10–11:** leverans + logg. **Inget är pushat** — appen på Pages är kvar på v1.229.0.
+- `TUBER` bär ett **oanvänt `replik`-fält** (6 repliker). Koppla in dem OCH lägg dem för hand i
+  `voice-phrases.json` (`check.mjs` ser inte tabellbyggda strängar), eller ta bort fältet.
+- `pappa_slurp` / `pappa_gurgla` finns inte inspelade (faller på stämd ton, tas i bruk av
+  `harSample()` när de landar). `borsta_skrubb` ligger i `sfx-phrases.json` → `npm run sfx`.
+- 7 repliker väntar på `/rost`.
+- **`samlaNoder`/`rivTrad` är nu skriven en TREDJE gång** (`borsta-tanderna` ·
+  `flugan-pa-nasan` · `vakna-pappa`). Hör hemma i `lib/feedback.js` — delade filer rördes inte
+  under bygget.
+
+---
+
+## 2026-08-20 · v1.229.0 · SPEC-SESSION: `borsta-tanderna` godkänd, ingen kod
+
+**Byggt:** ingen kod. Sessionen svarade på ägarens fråga *"har vi några spelidéer som inte är
+gjorda än?"* och slutade i ett godkänt spec-kort.
+
+- **Idébanken inventerad:** 21 obyggda idéer i `docs/IDEER.md` — 15 i post 1 (Pappa får en
+  KROPP), 3 kvar i ansiktssektionens tabell (post 4), `egna-ansikten` (post 3), plus de två
+  ägaruppgifter som blockerar post 1 (fotomaterialet + `_kroppbild`-frågan). Inget id ur
+  listan finns i `src/games/`.
+- **`borsta-tanderna` valdes och specades.** Kortet är **godkänt av ägaren 2026-08-20** och
+  ligger i `docs/games/borsta-tanderna.md` §0 med hela planen. Fjärde spelet i
+  ansiktssektionen. Kärnloop: välj tandkräm → dra borsten i det gapande munhålet → ansiktet
+  reagerar på VAR borsten är → skölj. Motgång: tungan slickar bort skummet från en fläck
+  (`retas`-minen, tak 1 åt gången / var 8:e sekund).
+- **Två designval är mätta ur manifestet, inte gissade** (står i doc §0 och ska inte ändras
+  utan ny mätning): ⓵ ansiktet ritas på **`hojd: 880`**, inte `mata-munnen`s 520 — mun-lagret
+  är `170×138` i en `733×800` ruta, så vid 520 blir munnen **110×90 px** (under P0:s 96 med
+  noll marginal) medan 880 ger **191×155 px** för bara 1,13× uppskalning. ⓶ munnen är EN yta
+  med generös borstradie, inte sex tandknappar — enskilda tänder blir ~30 px och kan aldrig
+  bli träffytor.
+
+**Ägarnotis:** pappa-fotona i ComfyUI:s `output/` ligger numera i en egen undermapp
+**`output/pappa/`**. Noterat på båda ställena i `docs/IDEER.md` (post 1 ⓶ och post 4).
+
+**Commits:** `1ee34d3` docs(borsta-tanderna): godkant spec-kort + plan infor bygget
+
+**Öppet:** `/spel borsta-tanderna` står på **steg `bygg`** i `.claude/state/korning.json` —
+plocka upp med `/aterta` nästa session. Spec och plan är klara, ingen kod är skriven.
+Läs `docs/games/mata-munnen.md` §3 först (vad riggen klarar + återvändsgränden som bara en
+sond som SPELAR spelet hittade). Ovidkommande i övrigt: idébankens post 1 väntar fortfarande
+på ägaruppgiften (kopiera in resten av fotoshooten) och på `scripts/_kroppbild.mjs`.
+
+## 2026-08-16 · v1.225.0 → v1.226.0 · ÄGARUPPDRAG: sex spel, tre av dem ombyggda
+
+**Byggt:** ägaren gav en lista på sex spel. Tre var små rättningar, tre var ombyggnader.
+
+- **`elementlekplatsen` 🔥** — sjätte elementet **Tomrummet**, sandlådans suddgummi. Egen
+  `sudda()` i automaten som tömmer en HEL cirkel: penseln skriver bara 72 % av cellerna med
+  flit, och ett suddgummi som lämnar en fjärdedel kvar läser som trasigt.
+- **`balanstornet` ⚖️** — höbalarna vid sidorna borta. De hade klossarnas exakta silhuett
+  (rundad rektangel med band) och lästes som byggbitar. Ersatta av buskar UTAN fysikkropp.
+- **`leksakslada` 🧸** — dubbla högen (8–11 → 16–22). Två stödändringar, båda räknade:
+  mynningen 300 → 244 och leksakerna ×0,76 — med densiteten delad med 0,76² så MASSAN, och
+  därmed hela den mätta tyngdkänslan i tågloket, är oförändrad.
+- **`flugan-pa-nasan` 🪰** — **fem verktyg** i en utdragen skrivbordslåda (flugsmälla ·
+  spray · pilbössa · tidning · slemhand). Rummets föremål reagerar på VERKANSTYPEN, inte på
+  verktyget, så kaffet skvätter av ett slag men inte av en spray. En träffad fluga plattas
+  mot ytan, glider ner på bordet, ligger 1–3 s och flyger sedan RAKT ut genom fönstret.
+  Ansiktet 300 → 380 px. Rundan eskalerar 300 → 540 px/s och 2 → **6 flugor samtidigt**.
+- **`vakna-pappa` 😴** — sex verktyg → **tolv**, en per busskategori (lukt · ljud · ljus ·
+  slag · blött · vind · djur som sätter sig · insekt som kryper · djur som pruttar · täcket
+  av · saker som ramlar · väder). Tre vägar in: välj+VÄCK-knapp, drag med tre släppzoner,
+  och sju klickbara rumssaker. Sömnmätaren och taken oförändrade — allt nytt ligger ovanpå.
+- **`titt-ut-pappa` 🫣** — 6 gömställen → en **katalog om 11 möbler, 7 i bild** (288 olika
+  startrum), djupskala per plats (`0.72 + 0.28·djup`, samma tal på möbel, huvud och kompis)
+  och platsbyten mellan rundor. Ny `layout.js` utan pixi-import: hela geometrin går att
+  mäta i ren Node, och det är enda skälet att träffytorna går att påstå något om alls.
+
+**Fyra nya sonder:** `_verktygprobe.mjs` (spelar flugan med riktiga muspekningar) ·
+`_busprobe.mjs` (alla tolv sakerna isolerade) · `_gombild.mjs` (en bild per gömställe med
+pappa avslöjad) · `_fotokant.mjs` (syns fotorutans raka underkant?).
+
+**Vad passet lärde ut — mätaren var fel oftare än spelet.** Elva av de sexton första
+"fynden" var fel i SONDEN, inte i koden: möblering utan rivning som staplade möbel på möbel,
+spelets egen rundtimer som sköt in mellan mätning och skärmdump, verktygsplatser som gissats
+i stället för lästs ur spelet (11 av 12 saker valdes då aldrig, och deras tal var den förra
+sakens verkan som låg kvar), en baslinje på 0 där spelets egen nivågrind gav en ärlig nolla,
+ett mätfönster kortare än kattens promenad, och ett mått som jämförde mot fotorutans
+underkant i stället för mot hakan och rapporterade "dold" för alla elva medan bilden visade
+motsatsen. **Kontrollarmen först, alltid** — och sonderna räknar numera sidladdningar, för
+Vite skickar full-reload vid varje filändring och en omladdning mitt i mätningen byter ut
+hela spelet under fötterna på en.
+
+**Och en riktig rättning avslöjade en gammal dold bugg:** `feedback.liv()` skriver `y` OCH
+`rotation` varje bildruta, så tvättkorgens och leksakslådans lock TIPPADE ALDRIG. När
+`livHylsa()` gjorde att de äntligen rörde sig syntes att de rörde sig **tvärs över pappas
+ansikte** — locken satt i `fram`-lagret trots att gångjärnet sitter i bakkanten. En
+fungerande mekanism kan dölja en kompositionsbugg i månader.
+
+**Öppet:** inget är pushat — sajten publiceras av `npm run deploy` och det är ägarens beslut.
+Klibbet i flugan drar flugor men inte rumsföremål (de står på fasta koordinater i `rummet.js`
+och behöver ett eget lägestillstånd först). `vakna-pappa` har fortfarande två katter i bild
+när verktygskatten och den gående katten reagerar samtidigt.
+
+## 2026-08-16 · v1.224.0 → v1.225.0 · NATTPASSET: tre ansiktsspel byggda på en natt
+
+**Byggt:** hela `docs/NATTPASS.md` genomfört — de tre spec-korten i IDEER post 2 är nu tre
+spelbara spel, alla ✅. Ansiktssektionen är uppe i **fyra** spel (83 totalt).
+
+- **`titt-ut-pappa` 🫣** — pappa gömmer sig i ett av sex gömställen och gömstället SKVALLRAR
+  (bukt i andningstakt · ögon över kanten som tittar dit barnet senast tryckte · fniss med
+  synlig skakning). "Fel" gömställe är en belöning: där bor en av sju roliga saker som blir
+  en insamlad kompis och jublar i finalen.
+- **`vakna-pappa` 😴** — sömnmätaren ÄR andningstakten (`liv({ takt })` 3,4 → 1,1 s), och
+  fönstrets måne/sol är den man ser. Sex verktyg med olika verkan och egna skämt. **Två
+  riggfunktioner används för första gången i hela appen:** ett öga i taget och ett långsamt
+  gap (gäspningen).
+- **`flugan-pa-nasan` 🪰** — blicken följer flugan varje bildruta, `traffar()` ger zonen, och
+  landar hon på näsan används `blick_ner` (han tittar ner på sin egen näsa).
+
+**Riggen fick en ny delad funktion:** `Ansikte.blunda({ v, h })` — håll ögonen slutna per öga,
+ett TILLSTÅND till skillnad från `blink()` som är en puls. `mata-munnen` omtestad grön.
+
+**Tre nya sonder**, och de bar hela kvaliteten: `_gommaprobe.mjs` · `_somnprobe.mjs` ·
+`_blickprobe.mjs`.
+
+**Vad natten faktiskt lärde ut — samma fel om och om igen:** *en mekanism kan vara byggd,
+inkopplad, korrekt skriven och ändå aldrig hända*, och testet är grönt hela tiden.
+
+- `titt-ut-pappa`: ett gemensamt fram-lager lade fönsterskåpet över pappas ansikte i krukan —
+  **runda 3 var i praktiken osynlig** (avslöjandet 6 639 px mot 28–33 000 för de andra).
+- `vakna-pappa`: **återinsomnandet hade en klippkant som var ett P0-brott** — 12 s mellan
+  tryck klarade målet, 15 s fastnade för alltid (16 tryck, aldrig förbi läge 1).
+- `flugan-pa-nasan`: flugan **föddes inne i målzonen** (spelet klart på en sekund), landade
+  **2 gånger på 240 s** och nådde aldrig näsan, **nysningen var död kod** (`NYS_TID` 6 s >
+  `SITT_MAX` 4,6 s), och kaffekoppens `kladdig()` var byggd men aldrig inkopplad.
+
+**Och sonderna hade själva fel tre gånger** — alla tre fångade av kontrollarmen: ett tidssteg
+större än spelets egen `dt`-klämma (klockan gick fem gånger för fort), en kontrollarm som
+kodifierade buggen som ett krav ("60 s ska aldrig klara det"), och en kontrollarm vars
+riktning inte gick att sluta sig till (den prövar nu båda och tar den friaste).
+
+**Mätfrågan i spec-kortet föll åt andra hållet:** blickflimret mättes till **1,55 byten/s**
+mot gränsen 3 (kontrollarm 0,55). Lågpassfiltret är därför medvetet INTE inkopplat — det
+hade fördröjt blicken, och blicken är själva själen i spelet.
+
+**Commits:** `4213191` feat(titt-ut-pappa) · `dd8e0af` feat(vakna-pappa) · `918da0f`
+feat(flugan-pa-nasan)
+
+**Grind:** `npm run check` 0/0 · `npm run test:all` **83/83 gröna** · alla 22 röstklipp
+genererade (0 failed).
+
+**Öppet:**
+- **INGEN PUSH** — ägarens uttryckliga beslut: varje push publicerar sajten publikt, och
+  ägaren tittar på bilderna och kör `npm run deploy` själv.
+- Ägarbeslut som väntar: ansiktssektionen har nu passerat tröskeln 2–3 spel (beslut 5 i
+  IDEER post 4) — ska den lyftas till en **egen flik** i biblioteket?
+- Inspelningslista som växte: `snark` · `god-morgon` · `gaspning` (`vakna-pappa` har
+  procedurell reserv och är grönt utan dem).
+- Per-spel-planer i `docs/games/<id>.md` §4.
+
+## 2026-08-15 · v1.217.0 → v1.224.0 · appen ligger uppe: GitHub Pages i stället för min dator
+
+**Byggt:** BACKLOG post 1 stängd. Telefonen har hittills krävt att datorn är påslagen —
+`npm run serve` + `tailscale serve` ger HTTPS bara så länge skriptet kör. Nu publicerar varje
+push till `master` sajten automatiskt, och den ligger uppe dygnet runt:
+**<https://s1esset.github.io/bjorkvallens-varld/>** (publikt repo `s1esset/bjorkvallens-varld`).
+
+- **Noll kodändringar behövdes**, precis som utredningen 2026-08-09 påstod: `base: './'` plus
+  manifestets `start_url`/`scope` `'./'` gör att bygget fungerar på undervägen
+  `/bjorkvallens-varld/` utan omskrivning. Enda tillägget är workflowen.
+- `.github/workflows/deploy.yml`: `npm ci` → `npm run build` → `upload-pages-artifact` →
+  `deploy-pages`, node 22, `concurrency: pages` med `cancel-in-progress: false` så en halvfärdig
+  sajt aldrig hamnar ute. **Bygger bara** — grinden körs lokalt som förr, eftersom testsviten är
+  dokumenterat flaky under last och GitHubs långsammare runners hade gett falska röda deployer.
+- **Verifierat på den riktiga adressen, inte antaget:** `index.html` (`text/html`), `sw.js`
+  (`application/javascript`, 147 kB) och `manifest.webmanifest` (`application/manifest+json`)
+  svarar alla 200 med rätt content-type — precis det `raw.githubusercontent.com` inte klarar och
+  som hade gjort PWA:n ominstallerbar. Appen startades i webbläsare: splashen renderar, **noll
+  konsolmeddelanden**, service workern registrerad på scope `…/bjorkvallens-varld/` och
+  precachen igång (268 → 411 av 1851 filer under mätningen).
+- **`CLAUDE.md`-regeln skrevs om, inte bort:** push är nu tillåten till `origin master` och
+  ingenting annat — och eftersom varje push publicerar måste grinden vara grön **före** den.
+
+**Sedan, samma pass (v1.218.0): föräldrasida + ett publiceringsverb.**
+
+- **`public/start.html`** → `…/start.html`: sidan en VUXEN öppnar en gång. Stor knapp till appen,
+  adressen utskriven ur sidans egen URL (stämmer även om sajten flyttar), installationssteg för
+  iOS/Android/dator, vad som händer vid en uppdatering, och en rad om föräldragrinden. Sidan
+  känner av `display-mode: standalone` och byter då ut instruktionerna mot "redan installerad" —
+  annars ger den fel råd till den som redan kör från hemskärmen. P0:s "ikon-först, noll läsning"
+  gäller barnets skärmar; det här är en föräldrasida, men knappen följer ändå P0 (≥96 px).
+- **`npm run deploy`** (`scripts/deploy.mjs`): vägrar publicera på fel gren, med ocommittat
+  arbete eller med röd `check` — grinden ligger före pushen eftersom pushen går rakt till barnens
+  telefon. Bygget deployar **inte** av sig självt: `npm run serve` och testharnessen bygger också,
+  och en publicering får aldrig bli en bieffekt av att någon tittar på appen lokalt.
+- **Uppdateringsvägen krävde noll kod.** `forceUpdate()` i `src/lib/pwa.js` gör redan
+  `reg.update()` → aktivera → ladda om, och `pending` appliceras vid menyns lugna gräns. Den
+  saknade bara ett HTTPS-ursprung som alltid finns.
+
+**Commits (15, i ordning):** `c69f220` feat(pages) workflow + regeländring + v1.217.0 ·
+`18d746c` docs · `32faa9b` feat(pages) startsida + `npm run deploy` + v1.218.0 ·
+`6972cf2` fix(deploy) följ rätt körning · `b4561b8` fix(start) layout · `9dcc692` docs ·
+`30782d3` chore tailscale bort + v1.219.0 · `5348f35` feat(start) installationsknapp ·
+`d54a331` fix(start) knappram + sw-mätningen + v1.220.0 · `6a73612` feat(start) knapphierarki
++ v1.221.0 · `b78ce87` feat(skal) helskärm + landskapslås + v1.222.0 · `7cab877` docs ·
+`9e477be` fix(start) släpp låset + "redan installerad" + v1.223.0 · `2e4c537` fix(pwa)
+navigateFallbackDenylist + v1.224.0 · `27df909` docs
+
+**Till sist: Tailscale-vägen borttagen (v1.219.0).** Ägaren ville inte ha två vägar att hålla
+levande. Ur `scripts/start.ps1`: proxy-anropet, MagicDNS-uppslaget och det hårdkodade
+värdnamnet · ur `vite.config.js`: `allowedHosts: ['.ts.net']` · plus omnämnandena i
+`start.cmd`, `stop.ps1`, `CLAUDE.md`, `LYFTPLAN.md` och två skills.
+
+`npm run serve` finns kvar men är nu ärligt **lokal**: bannern skriver localhost, LAN-adressen
+och Pages-adressen, och säger rakt ut att utan HTTPS finns **ingen PWA-install, ingen service
+worker och inget uppdateringsflöde** att pröva där. Det var exakt det Tailscale-lagret gav.
+LAN-adressen tas från kortet som har en **default gateway** — "första IPv4 som inte är 127.*"
+hade lika gärna gett ett virtuellt kort (Hyper-V, WSL, VPN) som telefonen inte kan nå.
+Kört och verifierat: bygge → fönster → `http://localhost:4173` svarar 200 → `stop.ps1` städar.
+
+Kvar på maskinen med flit: `tailscale serve`-mappningen `8445 → 4173` (ägarens beslut, den
+ligger bland andra projekts mappningar) — den ger bara 502 när ingen lokal server kör.
+
+**Och en installationsknapp på föräldrasidan (v1.220.0).** `beforeinstallprompt` → egen grön
+knapp → `prompt()` → `userChoice`. Avbryter föräldern göms knappen igen (prompten går bara att
+använda EN gång — en kvarstående knapp hade varit död vid nästa tryck), och `appinstalled`
+växlar sidan till "redan installerad". **iOS får aldrig knappen** — Apple har inget API — så
+Dela-steget är enda vägen där, och en knapp som inte kan göra något vore sämre än ingen.
+
+**Det dyra antagandet som INTE gjordes:** den gamla regeln "en PWA måste ha en registrerad
+service worker för att få erbjudas för installation" gäller inte längre. Uppmätt i Chrome
+2026-08-15: `beforeinstallprompt` avfyrades på `start.html` med **noll** registrerade service
+workers (`kanInstallera: true`, `swRegistrerade: 0`). Hade jag gissat "sw krävs" och registrerat
+den hade appens **33 MB börjat laddas ner så fort en förälder öppnade sidan för att läsa**.
+Dokumentationen svarade inte — varken Chromes egen sida eller MDN säger vad kravet är idag.
+Manifestet måste däremot vara länkat från sidan; `start_url` är `'./'` relativt MANIFESTETS
+plats, så en installation härifrån öppnar spelet, inte föräldrasidan.
+
+**Helskärm + landskapslås i webbläsarfliken (v1.222.0) — bekräftad på telefon.**
+Ägaren märkte att appen inte längre var låst i landskap efter att ha gått in via föräldrasidans
+"Öppna appen". **Det var inget fel:** manifestets `display: fullscreen` + `orientation:
+landscape` gäller bara en app som startats från hemskärmen, och appens kod anropade aldrig
+`screen.orientation.lock()` eller `requestFullscreen()` (noll träffar i hela `src/`). En flik
+kan inte låsa orienteringen alls utan att först vara i helskärm.
+
+`enterImmersive()` i `lib/pwa.js` begär nu helskärm och låser sedan landskap, anropad synkront
+från splashens första tryck. No-op i den installerade appen, på iOS (båda API:erna saknas) och
+i DEV (harnessen kör där, och en helskärm mitt i en körning byter viewport för 80 bildkollar).
+
+⚠️ **Verifieringen misslyckades i webbläsaren — men ägaren bekräftade den på telefonen.** I
+automatiserad desktop-Chrome avvisas begäran med `TypeError: not granted` trots att
+`hasBeenActive` är sant (känd begränsning när en extension driver fliken, inget bevis om en
+riktig enhet). Det som gick att mäta där: rätt bygge kör, `requestFullscreen` finns i den
+levererade JS-filen, tappet går fram, och avslaget ger **noll konsolfel**. Läxan står kvar:
+hade jag skrivit "klart" efter den gröna delen hade påståendet varit obelagt — det var **ett
+finger på en Android-telefon** som avgjorde. Samma tysta `catch` dolde också orsaken till
+avslaget; den fick tas fram med en tillfällig lyssnare som sparade felet.
+
+**Ägarens två rapporter efter första telefontestet — helskärmen FUNGERAR (v1.223–1.224).**
+Landskapslåset slog till på riktig enhet; det var alltså bara automatiserad desktop-Chrome som
+inte kunde pröva det. Båda rapporterna hade samma rot: **föräldrasidan ligger inne i appens
+scope** (`scope: './'`).
+
+1. **"startsidan ska inte vara låst i landskap".** Öppnas `start.html` i det installerade
+   appfönstret ärver den manifestets `orientation: landscape`, och kommer man tillbaka från
+   spelet i samma flik kan appens eget lås ligga kvar. En **textsida** i tvingat landskap är
+   oanvändbar i handen. Sidan släpper nu låset själv: ur helskärm om den är där, `lock('any')`
+   (släpper i ett appfönster) med `unlock()` som reserv.
+2. **"installera-knappen är borta".** Den *ska* försvinna — Chrome erbjuder aldrig samma app
+   två gånger — men sidan blev **tyst** om det, och tystnad läses som en bugg. Nu sägs det rakt
+   ut: appen är redan installerad, starta den från hemskärmen. Display-mode-kollen omfattar
+   dessutom `fullscreen` och inte bara `standalone` — appen kör i `fullscreen`, så den grenen
+   hade aldrig kunnat slå till i appfönstret.
+
+**Och en tredje bugg som ingen letade efter:** `…/start.html?m5` visade **SPELET** — canvas,
+ingen installationsknapp — med installationssidans adress kvar i fältet. `navigateFallback:
+'index.html'` fångar varje navigering i scope som inte finns i precachen, och posten heter
+`start.html` utan frågesträng; workbox ignorerar bara `utm_*` och `fbclid`. En delad länk med
+`?ref=` eller en QR-generators parameter hade alltså landat föräldern i spelet.
+`navigateFallbackDenylist: [/start\.html/]` släpper igenom den till nätet. **Uppmätt i båda
+riktningarna:** före fixen `sidaAr: 'SPELET'`, efter fixen `sidaAr: 'FORALDRASIDAN'` med
+service workern `activated` och kontrollerande i båda fallen.
+
+Fyndet kom av att en sond letade efter fel sak: den frågade efter `.klar` och fick `null`. Först
+när jag frågade **vad dokumentet var** syntes att sidan var appen. En sond som bara rapporterar
+"elementet saknas" hade lika gärna kunnat läsas som ett trasigt CSS-namn.
+
+**Två fynd, båda från att TITTA:**
+
+1. **`gh run watch` utan run-id dör i ett skript** ("run ID required when not running
+   interactively") — och mitt skript tolkade det som att BYGGET failade och skrev "sajten står
+   kvar på förra versionen". Fel diagnos: pushen hade gått igenom och bygget rullade på. Id:t
+   slås nu upp på den commit som just pushades (`headSha`), inte "senaste körningen", så en
+   gammal grön körning aldrig kan räknas som svar på den här pushen.
+2. **`.rad p b { display: block }` träffade varje fett ord i brödtexten**, så iOS-steget blev nio
+   rader — "Safari", "Dela", "Lägg till på hemskärmen" på var sin rad mitt i en mening. Ingen
+   kontroll i repot läser layout; det syntes bara i skärmdumpen. **Och första omtagningen såg
+   likadan ut** — där hade jag nästan bokfört fixen som verkningslös. Den var deployad: en
+   direkthämtning utan webbläsare visade `b:first-child` i filen på servern, alltså var det
+   webbläsarens HTTP-cache (Pages sätter 10 min) som visade den gamla. Samma läxa som sonderna:
+   **läs det oberoende innan du tror på vad skärmen visar.**
+
+**Öppet:**
+- **Token-hygien — inte bekräftad gjord.** Ägarens PAT klistrades in i chatten och ska raderas på
+  <https://github.com/settings/tokens>. Den bar dessutom långt fler scopes än de tre som behövdes
+  (`repo`, `workflow`, `read:org`) — `admin:org`, `admin:public_key`, `write:packages` m.fl.
+  Raderas den loggas `gh` ut; sajten och repot påverkas inte, men nästa push kräver en ny token.
+- **Spardatan följer inte med.** Pages är ett annat ursprung än den gamla Tailscale-adressen, så
+  localStorage delas inte — barnens klistermärken börjar om. Den gamla installationen ligger kvar
+  på hemskärmen tills den tas bort och får aldrig fler uppdateringar (adressen ger 502 nu).
+- **Telefonen behöver hämta v1.224** för att få startsidans landskapsfix — den ligger i den nya
+  service workerns precache, så den gamla versionen sitter kvar tills appen uppdaterats
+  (meny → **Hämta senaste**).
+- **Tailscale-vägen är BORTTAGEN** (senare samma pass, se nedan) — inte bara ersatt. Kvar på
+  maskinen med flit: `serve`-mappningen 8445 → 4173, ägarens uttryckliga beslut.
+- Ingen speländring gjordes i passet — inga `docs/games/*` rörda, ingen indexstatus ändrad.
+  Skalet ändrades (splash + `lib/pwa.js`); fyra spel testade gröna efteråt som stickprov,
+  `test:all` kördes INTE.
+
+---
+
+## 2026-08-15 · v1.215.0 · `/polera bygg-en-kompis` — kompisen märker att du är där
+
+**Byggt:** en polera-omgång mot kvalitetsgrindens punkt 3 (juice) och 4 (mottagare). Spelet
+hade sex kontrollrader som fungerade, men **kompisen själv var ett föremål**: den enda saken
+på skärmen ett barn pekar på först var den enda som inte svarade med något eget, bara skalets
+generiska bottenkvitto. Och rummet runt den var en tom beige yta.
+
+- **Kittling.** Egen träffyta på kompisen → ögonen kisar ihop till skrattstreck (skala 0,30),
+  munnen blir bred, kroppen vinglar och vinkar, ett stigande fnitter ur samma pentatona skala
+  som bygget, gnistor vid fingret. Ytan är **storleksmedveten** — bredden är `min(156,
+  136/storlek)` i varelsens rymd, vilket är exakt vad P0 tillåter mot kamerans träffyta
+  (x 704) och vänsterkolumnens halo (x 348): uppmätt 28–42 px marginal i alla tre storlekarna.
+- **Blick.** Ögonens ritfunktioner tog en `look`-parameter; pupillen klampas som VEKTOR (x och
+  y var för sig hade lagt den utanför ögat så fort blicken pekade snett) plus ett huvudvridande.
+  Kompisen tittar på pilen som trycktes, kameran, ramen på väggen, fjärilen som landar på
+  huvudet och fingret som kittlar.
+- **Materialklang** per kroppsform ovanpå delens stämda ton — klot mjukt, kloss trä, moln ett
+  luftigt svep. Grundtonen är orörd, så melodin i bygget står kvar.
+- **Verkstadsrekvisita:** hylla med färgburkar och penselkrus, en trälåda med reservdelar
+  (skaftöga, antenner, spetsigt öra) och en färgpyts. Rummet säger nu var man är och var
+  delarna kommer ifrån.
+
+**Commits:** `d6e15b2` feat(bygg-en-kompis) · `d96b373` docs+v1.215.0 · `a264f48` sessionslogg ·
+`bfc72f2` docs (två app-breda fällor i CLAUDE.md + `_kompisbild` i sondtabellen)
+
+**Tre fynd:**
+
+1. **En tween mot en riven nod skriver konsolen INGENTING om.** `_vinka` tweenar armnoder som
+   är **barnbarn** till figuren, och `killTweensOf(figuren)` når bara roten. Så fort kompisen
+   blev tryckbar hann en vinkning alltid vara igång när nästa pil rev figuren — testharnessen
+   larmade `tween-mot-forstort`, men i sonden var det helt tyst. Först när sonden räknade
+   *levande tweens på de undanplockade barnbarnen före och efter `destroy()`* blev det ett tal:
+   **2 → 0**. Ett "0 konsolfel" bevisar ingenting om städning; gsap skriver bara på en nollad
+   transform.
+2. **En träffyta kan gömma sig under en bild.** Vingarnas spännvidd var en gång satt mot
+   kamerans **stativ** — men kamerans träffyta börjar 100 px till vänster om benen, och
+   150 × 1,12 lade vingspetsen på **x 708, inne i kameraknappen**. Ett barn som siktade på
+   vingspetsen tog kortet i stället för att kittla. Ingen ser det i en bild; bara två riktiga
+   muspekningar mot den ritade geometrin hittar det.
+3. **Sonden hade vingspetsen hårdkodad till 150** och rapporterade därför exakt samma tal
+   efter att vingen krympts — en mätning som inte kunde se ändringen den skulle mäta.
+   Att i stället läsa `toppNod.getBounds()` (den RITADE vägen) gav tal som rörde sig:
+   0,78× och 0,94× kittlar nu vingspetsen, 1,12× gör det inte men träffar heller aldrig
+   kameran. Kritikeragenten föreslog en yta på ±170 — den hade brutit P0-avståndet till
+   kameran, och räkningen visade det innan en rad skrevs.
+
+**Öppet:**
+- `bygg-en-kompis` §4: kvar är fyra [Medium]-punkter (dra en del till kompisen, gyllene del,
+  egen mönsterrad, upplåsnings-affisch) och Bobos kombinationskommentarer.
+- Vingspetsen kittlar inte på 1,12× (x 694 mot ytans 676). Går inte att rätta med en bredare
+  yta — P0 väger tyngre. Skulle kräva en smalare vinge.
+- Genomgången av de 7 nyare spelen är fortfarande halvvägs: kvar är `passa-formerna`,
+  `leksakslada`, `elementlekplatsen`.
+
+## 2026-08-15 · v1.214.0 · `/polera mata-munnen` — pappa önskar sig något, kylen minns
+
+**Byggt:** en polera-omgång vald mot kvalitetsgrinden, inte mot docens kö (§7-arbetsordern var
+redan körd). Spelets två svagaste ben var **punkt 1 (agens)** och **6 (progression)**: målet
+räknade "N tuggor", aldrig VILKA, så varje matbit var exakt lika rätt — och tallrik 7 såg
+likadan ut som tallrik 1.
+
+- **Önskan.** Pappa får en lust till EN bit på brädan: varm ring som följer biten, blicken
+  låser sig vid den, generisk replik ("den där" — aldrig ett matnamn, så 64 saker inte kräver
+  64 klipp). Rätt bit → glitter + hjärtat pulserar + "Precis den pappa ville ha!". Fel bit →
+  äts precis lika glatt, **mätarsteget mätt identiskt (0,167 mot 0,167)**, önskan står kvar.
+  Belöningen ligger i ceremonin, aldrig i framstegen — annars är önskan en uppgift man kan
+  misslyckas med (P0).
+- **Kyldörrens klistermärken.** Åtta handritade motiv, ett per mättad mage, sparade i
+  `progress.custom` och verifierade över en omladdning. Burken måste nollas varje omgång;
+  kylen är det enda i rummet som minns.
+
+**Commits:** `c78e894` feat(voice) · `5fa2835` feat(mata-munnen) · `e55edbc` docs+v1.214.0 ·
+`c703790` sessionslogg · `79b1bc5` docs (CLAUDE.md-fällan + `ljud-och-rost`-skillen)
+
+**Tre fynd som är värda mer än sina fixar:**
+
+1. **En röst som aldrig får tala till punkt är samma bugfamilj som två röster på en gång.**
+   `VoiceService.say()` kallar `cancel()`, och de neurala klippen är **2,28–4,06 s** medan
+   spelens schemaläggning står på fasta tal kring 2–3 s. Introt (3,65 s) kapades av första
+   önskan och belöningsrepliken (2,71 s) hann höras till ~54 %. Repot hade redan fällt det
+   här åt andra hållet (v1.194: "två pappor"), men aldrig åt det här. Nya
+   `VoiceService.kvar`/`talar` gör att ett spel kan **vänta in rösten i stället för att
+   gissa** — och bilden (ring + nick) kommer fortfarande genast, bara orden väntar.
+2. **Ett ANTAL kan inte skilja "det läckte" från "något nytt föddes".** Ringräknaren stod på
+   1 i båda fallen, och tidsfönstret skiljde dem inte åt eftersom föregående tuggas
+   `later()` fyrade mitt i mätningen. Ringarna fick id, och frågan blev *"finns den GAMLA
+   ringen kvar"*. Samma familj som `_stillaprobe`s identitetsfälla.
+3. **Ett mätfönster som bryter på första bildrutan efter händelsen mäter ingenting — och är
+   grönt.** `elapsed > 3000` när märket stämplas 12 s in gav EN sampling av den nya noden
+   (spann 0) och noll av den gamla under pulsen. Båda raderna gröna, båda tomma. Med
+   fönstret räknat från händelsen: 14,9 px puls mot 0,0 px drift.
+
+**Öppet:** genomgången av de tre oprövade spelen (`passa-formerna` · `leksakslada` ·
+`elementlekplatsen`) står kvar sedan förra sessionen. `_kokprobe`s rad "pölens bulk" flakar
+på HEAD (251 · 381 · 314 mot taket 340) — inte attribuerbar, men tröskeln är för snäv.
+`leksakslada` loggar `snal-snappyta` i `test:all`.
+
+---
+
+## 2026-08-14 (kväll) · v1.213.0 · Genomgången av de sju nya spelen — fyra klara, tre kvar
+
+**Byggt:** arbetsordern i `.claude/state/nasta-session.md` påbörjades. **Fyra av de sju nya
+spelen är genomgångna och fixade, tre är helt oprövade** (`passa-formerna` · `leksakslada` ·
+`elementlekplatsen`). Röstkön tömdes helt. Registret står still på 80 spel.
+
+| spel | fynd | commit |
+|---|---|---|
+| `bygg-en-kompis` | galleriet klippte mot överkanten på två sätt (spik 2 px utanför designytan · ramen lyftes till y −42 och åkte halvvägs ur bilden) | `62de459` |
+| `balanstornet` | mållinjen började 66 px till höger om plankans mitt — i tom himmel, utanför den enda plats ett torn kan växa på | `dfe52aa` |
+| `skattjakt-i-morkret` | **ägarrapport:** ficklampan fastnade när man greppade den själv — permanent död träffyta utan ett enda konsolfel | `d15fe21` |
+| `roliga-snurran` | **ägaruppdrag:** lägesväljare (hand/gnista), tre lika = vinsten med ceremoni, trofehylla | `d7a99af` |
+
+**Två fynd som är värda mer än sina fixar, båda nu i `CLAUDE.md`:**
+
+⚠️ **Ett släpp når ALDRIG ett syskon — och en bubblande förälder måste vara `static`.**
+`skattjakt-i-morkret` har två greppytor men lyssnade på `pointerup` bara på den ena.
+Pixis **båda** släppvägar går uppför en föräldrakedja, aldrig i sidled (`mapPointerUp`
+längs släpp-målets kedja, `mapPointerUpOutside` bara uppför pressTargets **egen** —
+`EventBoundary.mjs:559,634`), så `_slapp` kördes aldrig: `_drar` stod kvar `true` och
+`_pekId` på ett dött finger-id, och eftersom varje ny fingerpekning får ett **nytt**
+pointerId avvisades allt därefter som "andra fingret". Andra halvan var inte gratis:
+`notifyTarget` (`:370`) bortar tyst på allt som inte är `static`/`dynamic`, så utan
+`_rot.eventMode = 'static'` fastnade **även kontrollarmen**. Bara en sond med två olika
+finger-id hittar det här (`scripts/_lampprobe.mjs`, ny). Grönt test hela tiden.
+
+⚠️ **Kör ALDRIG två webbläsarsonder samtidigt — de förfalskar varandras svar.**
+`_elementprobe` och `_snurrprobe` startade i samma tool-block mot samma dev-server, och
+`_elementprobe` rapporterade då **noll lera** på `jord+vatten`: en av `elementlekplatsen`s
+sex reaktioner såg stendöd ut. Ensam ger samma sond `lera=24`. Sonderna väntar i fasta
+fönster och två headless Chrome svälter varandras ticker. Kostnad: ett halvt pass jagande
+av en bugg som aldrig fanns.
+
+**Ett spelfel som bara en sond kunde se:** `roliga-snurran` använde `liv` i `_placeTrophy`
+utan att importera det — spelet kraschade vid start för varje profil som **redan hade en
+trofé**, alltså först vid andra besöket. En testkörning på tom profil ser det aldrig.
+
+**Röstkön är tom:** 109 väntande repliker fick riktiga klipp (`af9966e`, 0 misslyckade) plus
+6 nya för snurran. De sju nya spelen läses därmed av den svenska rösten på telefonen i
+stället för Web Speech.
+
+**Commits:** `52db1af` sondfix (port) · `62de459` bygg-en-kompis · `dfe52aa` balanstornet ·
+`af9966e` röst 109 klipp · `727b71b` docs sonder · `d15fe21` skattjakt-i-morkret ·
+`e6cfdcf` + `0bda206` docs släppvägar · `829b5ef` `_lampprobe --url` · `d7a99af` roliga-snurran
+
+**Nya mätare:** `_lampprobe.mjs` (två finger-id via CDP) · `_vinstprobe.mjs`.
+
+**Öppet — arbetsordern står kvar i `.claude/state/nasta-session.md`:**
+- **`passa-formerna`, `leksakslada`, `elementlekplatsen` är inte genomgångna.**
+  `elementlekplatsen` är köns största spel, landade sist, och dess cellautomatkostnad är
+  omätt (`_fpsprobe.mjs --cpu 6`) liksom om de sex reaktionerna går att upptäcka på 10 s.
+- **Bygget för telefonen är INTE omgjort efter fixarna** — ägaren testar gammal kod via
+  Tailscale tills `npm run build` + `npm run serve` körts om.
+- **Inget av de sju spelen är speltestat av ett barn.** Alla balanstal är sondmätta.
+- **ÅTGÄRDER V16** (omätt), **V14b** (GL-kontext under parallell last), **V10/V10b** — nästa
+  studs-kund är utredd och klar att bygga: `bowling`s kantstöd, där banförhandsvisningen
+  lovar 0,75 medan klotet får 0,18, alltså ett sikte som ljuger just för barn som slagit på
+  tillgänglighetshjälpen.
+- **BACKLOG 1** väntar fortfarande på ägarens beslut (GitHub Pages → sajten blir publik).
+
+---
+
+## 2026-08-14 · v1.210.0 · Sju nya spel på en autonom kö
+
+**Byggt:** ägaren lämnade en lista på 8 spel och bad om en kö som kör hela vägen utan stopp.
+Två av posterna (mörkt rum + ficklampa) var samma spel och slogs ihop → **7 spel**, byggda i
+tre omgångar med parallella `spelbyggare`, granskade av `spelkritiker`, och committade ett i
+taget. Registret gick 73 → **80 spel**. Full spec per spel: `.claude/state/spelko.md`.
+
+| id | titel | flik | commit |
+|---|---|---|---|
+| `passa-formerna` | Passa Formerna 🔺 | pussel | `480afd9` |
+| `balanstornet` | Balanstornet ⚖️ | fysik | `2384aed` |
+| `skattjakt-i-morkret` | Skattjakt i Mörkret 🔦 | pussel | `6b0388c` |
+| `leksakslada` | Leksakslådan 🧸 | fysik | `494b0b9` |
+| `bygg-en-kompis` | Bygg en Kompis 👾 | roligt | `ac9dc5f` |
+| `roliga-snurran` | Roliga Snurran 🎰 | roligt | `b590fd9` |
+| `elementlekplatsen` | Elementlekplatsen 🌪️ | fysik | `91bd589` |
+
+**Det dyraste i hela körningen var inte spelen — det var mätarna.** Sju gånger var sonden det
+trasiga, inte spelet, och varje gång såg talet trovärdigt ut:
+- `_dragspel.mjs` läste `summary.counts`, ett fält som inte finns (rätt källa är `timeline`),
+  och patchade en modulinstans Vite hade bytt ut under HMR. Rapporterade **0 rätt på ett spel
+  som bevisligen lägger föremålet i tunnan**. Kontrollarmen mot `sortera-skrap` fångade det.
+- `_leksakprobe.mjs` läste `w`/`h` på leksaker som bara har `r` → `NaN` → "0 % täckning i 10 av
+  10 rundor". Och när radien var lagad mätte den fortfarande fel sak: **"begravd" räknades som
+  genomträngning mellan cirklar, men saker som VILAR på varandra rör vid varandra utan att
+  tränga in.** Både min och granskarens mätning gav därför motsatt svar mot verkligheten
+  (7 av 10 rundor HAR något ovanpå den beställda saken, 29 % av bredden täckt). Det avslöjades
+  av att en smalare låda och 40 % fler leksaker inte rörde talet en tiondel.
+
+**Fyra buggar syntes BARA i skärmdumpen** och var gröna i testet hela tiden: bygghyllan halvvägs
+utanför bildkanten (`balanstornet`), lockets spikar 64 px från lockets beslag så locket svävade
+(`leksakslada`), rutnätets trappsteg i ljuskäglan (`skattjakt-i-morkret`), och galleriramarna
+ovanpå knappraden (`bygg-en-kompis`).
+
+**Tre P0-brott som `check.mjs` inte kan se** — den mäter ingen geometri: 0 px mellan träffytorna
+i `bygg-en-kompis` (raderna låg exakt en träffytehöjd isär), 15 px i `balanstornet`s hylla, och
+en kolumn rakt över `balanstornet`s vridpunkt som gav noll vridmoment — "lägg allt i mitten"
+vann alltid, vilket gjorde balansen, hela spelets idé, frivillig.
+
+**En designfråga ägaren hade rätt att vara rädd för:** `roliga-snurran`s belöning skalade med
+sällsyntheten (34 mynt vid tre lika, 10 vid två lika, **0** vid den vanligaste utgången). Det är
+den variabla belöningsstrukturen som lär in en spelautomatsloop, även utan insats och utan
+förlust. Mängden är nu i praktiken lika i alla tre; de skiljs åt i karaktär.
+
+**Commits:** `480afd9` passa-formerna · `2384aed` balanstornet · `6b0388c` skattjakt-i-morkret
+· `494b0b9` leksakslada · `ac9dc5f` bygg-en-kompis · `b590fd9` roliga-snurran · `91bd589`
+elementlekplatsen
+
+**Nya mätare i repot:** `_dragspel.mjs` (spelar vilket dragspel som helst) · `_skattprobe.mjs`
+· `_leksakprobe.mjs` · `_snurrprobe.mjs` + `_snurrkontroll.mjs` · `_kompisbild.mjs` ·
+`_elementprobe.mjs` · `_formbild.mjs`.
+
+**Svitens läge:** `npm run check` 0 fel. `test:all` **78/80 i första svepet, 80/80 i andra** —
+de två röda var `spara-linjen` och `spindel-zacke-svingar` med `Could not retrieve shader source
+(WebGL context may be lost)`, båda gröna ensamma, och andra svepet loggade `tom-bild-omtagen`
+med **gl-kontext FÖRLORAD** i `tvatta-djuret`. Det är exakt V14b:s signatur, och sviten växte
+just 73 → 80 spel, alltså mer parallellt GPU-tryck. Ingen regression attribuerad till de nya
+spelen — men frekvensen bör hållas under uppsikt.
+
+**Öppet:**
+- **Genomgång i en NY session** — ägaren har bett om det: `.claude/state/nasta-session.md` bär
+  arbetsordern (vad som ska köras, vilka sonder som finns, vad jag inte hann pröva).
+- **109 röstrepliker väntar på klipp.** Kör `/rost` när narratorn i `C:
+epos\storygen` är uppe.
+- **ÅTGÄRDER V16 (ny):** `destroy({ children: true })` river INTE en `Graphics` egen
+  `GraphicsContext` i Pixi v8 — 251 anrop i 89 filer. Mekanismen är läst i Pixis källa,
+  GPU-effekten är OMÄTT. Raden bär ett mätuppdrag, inte en fix.
+- Inget av de sju spelen är speltestat av ett barn; alla balanstal är sondmätta.
+
+---
+
+## 2026-08-13 · v1.204.0 · Blicken, variantminerna och halsen — arbetsordern körd i sin helhet
+
+**Byggt:** hela `docs/games/mata-munnen.md` §7 (A1 · A2 · A3), plus en sondfix. Utfallet med
+alla tal står i **§7b** i samma dokument; det här är sammanfattningen.
+
+**A1 — blicken (`aecb18c`).** Tre nya lager i fotoriggen, `blick_v` · `blick_h` · `blick_ner`,
+klippta ur samma ögonruta som blinkningen men ur foton där han tittar åt ett håll. 6 kB på
+disk och **0,12 MB GPU per riktning**, mot 1,04 MB för en hel min — blicken är billig just för
+att den är en lapp och inte ett ansikte, och går därför att kombinera med gap, tugg och min.
+Materialet kommer ur ägarens andra fotoshoot via `kallor` i `roller.json`.
+- **Lappen är PÅ eller AV — utslaget väljer riktning, aldrig alfa.** Det är inte en förenkling
+  utan mekanismens villkor: under blicklappen ligger `ovre` med sina egna ögon som tittar rakt
+  fram, så en lapp på halv alfa visar **två irisar i samma öga**. Att låta styrkan styra alfan
+  hade alltså gett en dubbelexponering exakt i det läge den var tänkt att göra finast. Vid byte
+  korsbleks lapparna på 0,13 s, och just den blekningen läser som att ögat rör sig.
+- **Lagerordning:** `ovre` → blick → `ogon`/`ogon_v`/`ogon_h` → miner. Ligger blicken över
+  blinkningen blundar han med öppna ögon.
+- Kunden är oskalad av närheten, till skillnad från gapet och lutningen: att han följer maten
+  redan medan den lyfts på andra sidan bänken är hela inbjudan.
+
+**A2 — variantminer (`d60e5c4`).** Sju roller bär nu 2–3 foton var (`sur` · `lycksalig` ·
+`forvanad` · `aj` · `gasp` · `skeptisk` · `retas`): 10 extra lappar, 508 kB disk, och
+**GPU-minnet står still på 13,5 MB** eftersom `laddaAnsikte()` väljer EN lapp per roll vid
+inläsning — samma mönster som ljudets `_sampleUrls`, slumpen i tjänsten och inte i spelen.
+Varianten är låst per **app-session**, inte per anrop; barnet får ett ansikte som skiljer sig
+mellan omgångar, inte mellan grimaser. Råvaran var redan betald (fyra kandidater per roll,
+skriptet använde en). Två pass, primärpasset först, så alla 13 `min-*.webp` kom ut byte för
+byte identiska.
+
+**A3 — halsen (`94aecb3`).** Köksön skar förut mitt i skägget (ruta 616) och pappa läste som
+ett huvud på ett fat. Nu går hakan och halsens översta 19 px ner bakom bänkkanten.
+**Planens båda halvor föll på mätning:**
+- `hakaTon` kan inte lösa halsen alls — **axelsömmen börjar på ruta 614, alltså OVANFÖR hakan
+  (683)**, så en vågrät ton kan per definition inte skilja hals från tröja.
+- Front-on-ritningen av köksön behövdes inte. `ANS` 268/470 → **250/460** (ansiktet upp 18 px,
+  ner 2 % i storlek) flyttar skärlinjen in i halsen utan att röra bräda, mat, fysik eller öns
+  front — alla tre fullt budgeterade (luckorna slutar 706 av skärmens 720, brädan 558 av
+  bänkkantens 566). Bänkdjupet blir 126 px, under det gamla "146 läser som ett fat", men det
+  talet mättes UTAN hals: en hals som försvinner bakom en bänk ÄR en person.
+
+**Tre fynd som inte fanns i planen — de är sessionens verkliga behållning:**
+
+⚠️ **POSE-MÅTTET ÄR BLINT FÖR MIMIK, och det slog till tre gånger.** `rest` (silhuett-IoU) i
+`ansikte.mjs` är byggt för att ignorera minen — det är hela poängen — och därför kan det aldrig
+avgöra vilket foto som ska väljas när kandidaterna delar pose. Tre gånger gav det två
+kandidater **identiska tal** och rätt svar avgjordes i bild: `blick_h` (#95 och #98 båda 0,025,
+men #95 drar ner vänsterbrynet och läser som misstänksam, dessutom i annat brynläge än `vila`),
+fyra variantminer **under** rest-taket som läser som fel min (`chock` #105 blev en gäspning och
+krockade med `gasp`; `skeptisk` #9 blev `aj`; `fundersam` #111 och #65 blev "blåser" — hela den
+rollens restlista är samma sömniga bild, så den får ingen variant alls). Bortvalen ligger som
+DATA med skäl i `roller.json` (`variant_bort`, `__blick_en_kandidat`).
+
+⚠️ **TVÅ STICKPROV ÄR INTE ETT SPANN.** Halsmasken skulle nyckla på ljushet, och två mätpunkter
+såg ut att bevisa att det gick (tröja 21, mörkaste skägg 101). Mätt som spann över hela ytor
+**överlappar de helt**: skägget går ner till 19 och tröjans veck upp till 152. Tröskeln 18 %
+låg på 46 medan tröjan vid (200,650) låg på 45, och den enda pixelns marginal blev ett 11 %
+genomskinligt spöke av hela axelpartiet. Det som faktiskt skiljer dem är POSITION, profilerad
+rad för rad → en avsmalnande pelare i masken.
+
+⚠️ **TVÅ TYSTA PASSAGERARE PÅ `KANT_Y`, båda gröna i `npm run check`.** `BUS.ryNer` var
+`KANT_Y − ANS.y` och växte 127 → 190 när bänkkanten flyttades, utan att någon rört buset —
+`_kasta` läste därmed VARJE kast som bus: **0 av 8 kast nådde pappa**, noll konsolfel. Ellipsen
+räknas nu ur fotot (`BUS_NER`) och kastet är tillbaka på 7/7. Och lagerdelningen
+`st.yta.y > KANT_Y` hade flyttat `lador` mellan lager av sig själv; villkoret är nu en
+tillhörighetsflagga (`pa: 'on'`), inte en höjdjämförelse.
+
+Dessutom: `-compose Lighten` på två ALFA-lappar ger **snittet, inte unionen** — masken krympte
+till halspelarens bredd och `bas` kom ut 429 px bred i stället för 553, hela ansiktets sidor
+bortklippta utan felmeddelande. Masken byggs därför i gråskala på svart duk och blir alfa sist.
+
+**Sondfix (`0c8042d`).** `_vaxelprobe`s kontrollarm krävde `forvanad` exakt, men spelet slår
+sedan v1.199 slant mellan `retas` och `forvanad` för en fläck under ögonlinjen. Raden föll i
+ungefär varannan körning utan att något var fel (uppmätt 1 rött av 4; HEAD var grön på ren tur).
+
+**Sonderna växte där mätningen saknades:** `_kokprobe` +3 rader som låser skärlinjen mot hakan,
+halsen och brädan och kontrollerar att busellipsen är frikopplad · `_munprobe` läser blicken med
+vänster och höger som varandras kontrollarmar (både vald lapp OCH dess alfa — namnet ensamt är
+mekanismen, inte fenomenet) · `_ansiktebild` laddar om sidan 12 gånger och räknar unika
+variantlappar, med enlappsrollerna som kontrollarm.
+
+**Commits:** `0c8042d` fix(sond) · `aecb18c` feat(mata-munnen): blicken · `d60e5c4`
+feat(ansikte): variantminer · `94aecb3` feat(mata-munnen): halsen
+**Kontroll:** `npm run check` 0 fel · `npm run test:all` **73/73 gröna** · `_kokprobe` alla
+mätningar gröna · `_munprobe` · `_kastprobe` 7/7 · `_vaxelprobe` 15/15 (3 körningar) ·
+`_handelseprobe` 8/8 · `_ansiktebild` 0 konsolfel, andning 1,38 ‰ före och efter 40 gester.
+
+**Öppet:**
+- **Bygget är INTE omgjort.** Telefonen kör fortfarande v1.157.0. `npm run build` + `serve`
+  (+ Tailscale 8445) är nästa naturliga steg om ägaren ska speltesta blicken och halsen.
+- **Ägarens front-on-önskan om kranen och spisen** ("ser bättre ut") är ogjord. Den var
+  motiverad av utrymmet i A3, och utrymmet löstes på annat sätt — den står kvar som en ren
+  utseendepost i `mata-munnen.md` §7b.
+- Tuggklippens och klunkens snittpunkter är fortfarande valda på ljudstruktur och längd, inte
+  på gehör (`KLIPP`-tabellen i `scripts/importera-ljud.mjs`).
+- 147 bilder ur shoot 2 finns bara i `C:\repos\ComfyUI_Windows_portable\ComfyUI\output`.
+- Tre gamla `saknat-ljudklipp` kvarstår i `test:all`-loggen (`skratt` · `flakt` · `blubb`) —
+  aldrig inspelade, orörda av den här sessionen.
+
+---
+
+## 2026-08-13 · v1.200.0 · Ägarens ljudleverans: 33 klipp, slumpade varianter, tre nya händelser
+
+**Byggt:** steg 1 och 3 av ett godkänt sexstegsuppdrag (se **Öppet** — tre steg återstår).
+Ägaren gav fyra punkter: (1) kunna **kasta** mat på ansiktet, (2) ansiktet är **för dolt bakom
+köksön** — höj det och rita en hals, (3) **33 nya ljudfiler**, och där flera klipp har samma
+syfte ska ett **slumpas fram**, (4) finns klipp till händelser som inte finns — **bygg
+händelsen**. Under sessionen levererade ägaren dessutom en **helt ny fotoshoot på 158 bilder**
+(`s1face2_*`) med blickriktningar, och bad om många fler uttryck som också slumpas.
+
+**Ljudet (`20feffa`).** Slumpen ligger i TJÄNSTEN, inte i spelen: ett värde i
+`public/audio/sfx/manifest.json` får vara ett **fält**, `_sampleUrls`/`_samples` bär listor,
+`_valjBuffert()` slumpar bland de FÄRDIGAVKODADE och `_senast` minns valet så
+`sampleDuration()` svarar för det som just spelades. Enkla namn beter sig exakt som förut. En
+slinga väljer variant EN gång, vid start. Ny `scripts/importera-ljud.mjs` (mätt trimning +
+nivåsättning): 34 klipp, 18 nycklar, 6 med varianter.
+
+Tre mätningar styrde utfallet, alla tre sådant som inte syns i kod:
+- **Tuggklippen är SERIER.** `chewing_cracker` är 7,15 s ≈ 8–12 tuggor och `chew_smack` 5,53 s.
+  Spelet spelar ett tuggljud per sammanbitning (3 för mjuk mat, 2 för seg), så ett helt klipp
+  hade gett trettio tuggor för tre. Snittpunkterna lästa ur `silencedetect`.
+- **Reservmåttet för klipp < 0,45 s får INTE vara toppen.** R128 kan inte mäta under 400 ms
+  (gate-blocket), och en kort smäll toppar nära 0 dB vid en RMS 20 dB under rösten:
+  topp-normalisering gav **+16,6 dB på en knapring som redan låg i nivå**. Nu RMS mot −19 dB,
+  mätt ur de klipp som redan ligger på −18 LUFS (pappa_mmm −18,0 · djur_hund −19,8).
+- **Avslutande tystnad är den som når filens SLUT**, inte "den sista som hittades".
+  `cabinet_open` har en paus mitt i och inget tyst slut; regeln kapade 1,77 s → 0,29 s och
+  lämnade ett nästan tyst fragment som behövde +35,9 dB.
+
+**Händelserna (`d3a0c64`).** Två av dem FANNS inte — ägaren hade spelat in ljud för dem, så
+händelsen byggdes (punkt 4). **Tryck på pappa** → "huh?", tvekan, blink. **Maten lades
+tillbaka** → besviket "ehh" (pappa gapade ju på vägen, så tystnaden läste som att ingenting
+hänt). **Prutten** → nya `bonor` + `kal` i katalogen pruttar alltid, fyra saker ibland (35 %),
+med `skratt`-min och puff; kostar ingenting i mätaren. Luckan, geggans plopp och sväljningen
+fick sina klipp. `svalj` är en hög av **fyra** där pappas EGEN sväljning ligger bland tre
+foley — samma syfte = samma hög.
+
+⚠️ **P0-fynd, det viktigaste i sessionen:** `_mun` är släppmålet och en `static` nod med 130 px
+radie, alltså **mitt över pappas ansikte**. Ett tryck rakt på honom hade `e.target === _mun`
+och `_tomtTryck` bailade — den mest lockande ytan i hela bilden svarade INTE på en pekning.
+Det är `dod-traffyta`, samma familj som stationen som svalde en pekning under finalen i
+v1.190, och det syntes först när en sond tryckte där. Håller barnet redan en bit är samma
+tryck tap-tap-matning och får inte kapas.
+
+⚠️ **En nyckel som råkade fullborda ett ANNAT spels väntan.** `test:all` visade
+`saknat-ljudklipp` i fyra spel; tre var gamla (`skratt` · `flakt` · `blubb`, aldrig
+inspelade), men den fjärde avslöjade att `bajs-och-kiss` rad 859 redan anropar
+`sample('prutt')` som **knip-signal** och faller på en ton: 0,14 s, vol 0,08 — en kort
+fnissig stånka. Mina klipp hette `prutt` och hade alltså tyst bytt den mot en inspelad
+prutt på upp till 2,3 s vid −18 LUFS, i ett spel som inte bett om något. Nyckeln heter nu
+`pappa_prutt`, och `bajs-och-kiss` är tillbaka på sin ton (verifierat: samma loggfynd som
+före ändringen). **Ett nytt klippnamn måste alltid prövas mot
+`grep -rn "sample?\.('<namn>')" src/`** — manifestet är app-brett och delas av 73 spel.
+Övriga nio nya nycklar är exklusiva för `mata-munnen`, kontrollerat.
+
+**Sonder:** `_klippprobe` utökad till 14/14 (varianter, med kontrollarm FÖRE mätarmen: `kast`
+= EN fil ger 1 unik längd över 40 spelningar, `prutt` 5/5 och `traff_hard` 5/5 över 80).
+`klunk` är med flit utelämnad — dess två varianter är båda 0,38 s, så längden kan inte skilja
+dem åt. Ny `_handelseprobe` 8/8, varje rad med kontrollarm. Ny `_matbild` för att se
+katalogen — och den behövdes.
+
+**Tre sondläxor:**
+- `_matbild` visade att **kålen var en sköldpadda**: fyra symmetriska bladflikar i silhuettens
+  hörn läste som öron och fötter. Blad viker sig nedåt av egen tyngd, aldrig uppåt i par.
+- `_handelseprobe` läste `_ans._minNamn`, **ett fält som inte finns** — den gav `null` varje
+  gång och skrevs ut bredvid ett grönt kryss. En rad som ser mätt ut men mäter ingenting.
+- En **blicksond byggdes och kastades**. Den skulle mäta irisens läge automatiskt, men föll på
+  sin egen kalibrering två gånger: först mätte den bakgrunden (`-background white` gjorde den
+  genomskinliga omgivningen till "ögonvita"), sedan gav bilder som bevisligen tittar rakt in i
+  kameran ±0,35. Blickriktningarna assignas i stället för hand ur stora ögonurklipp och
+  verifieras i `_ansiktebild`, där en felvänd blick syns direkt.
+
+**Commits:** `20feffa` feat(ljud): 34 klipp + slumpade varianter · `d3a0c64` feat(mata-munnen):
+tre nya händelser, två nya matbitar och en död träffyta · `75ea435` chore: ignorera `.tmp-ljud`
+· `<voice>` chore(rost): två klipp
+
+**Byggd och serverad:** v1.200.0 ligger på `https://andreas-psai1.tail4e6703.ts.net:8445`
+(telefonen körde v1.157.0 före det). Ägaren testar ljudet.
+
+**Öppet — tre av sex steg återstår** (planen är godkänd, se `docs/games/mata-munnen.md` §6):
+- **Steg 0+2, riggen.** 158 nya bilder ligger i `ComfyUI/output` som `s1face2__000NN_.png`.
+  Kontaktkartor gjorda och lästa; blickserien finns i **åtta riktningar** (block 94–104 med
+  neutral mun, 139–158 med "oh"-mun), så beslutet i `mata-munnen.md` §0 att ögonföljningen är
+  omöjlig **gäller inte längre**. Kvar: ny `roller.json` med kandidatlistor som blir
+  VARIANTER, diff-beskärning av minerna (GPU-budgeten: 13 miner à 423×641 = 13,5 MB idag, och
+  3 varianter × 16 roller vore 50 MB), blicklappar à ~0,07 MB, `min()` som slumpar variant och
+  ny `blick(dx, dy)`.
+- **Steg 4, kastet.** Opt-in `onKast` i `DragController` (släppfart ur ringbuffert) →
+  `_gorLos` som redan tar en starthastighet. Svept segmenttest mot mun/ansiktsellips, inte
+  punkttest. Ljuden finns redan (`kast`, `traff_mjuk`×4, `traff_hard`×5).
+- **Steg 5, köket.** Ägarens metodval: ändra **perspektivet** på köksön, diskbänken och spisen
+  mer framifrån — då försvinner yta nertill och halsen får plats. Nya shooten har hals OCH
+  axlar i bild med **en enda tröja** genom serien (uppmätt på 17 bilder: 49,7–58,9 % neutralgrå,
+  inget tryck — en indikation, inte ett bevis), så halsen kan **fotograferas** i stället för
+  ritas genom att `RUTA.h` i `ansikte.mjs` utökas nedåt.
+- **Ej verifierat av mig:** tuggklippens och klunkens snittpunkter är valda på ljudstruktur och
+  längd, inte på gehör. Låter en tugga avhuggen är det en siffra i `KLIPP`-tabellen i
+  `scripts/importera-ljud.mjs`. `bottle_blow.mp3` importerades medvetet inte — det finns ingen
+  flaska att blåsa i.
+
+---
+
+## 2026-08-13 · v1.199.1 · Fler ansiktsuttryck och ljud som följer maten
+
+**Byggt:** ägaruppdraget *"kör allt du kan"* på fler miner och mer ljud, medan ägaren tar
+nya foton och spelar in klipp.
+
+**Ansiktet.** Hela fotoshooten (129 bilder) visade sig ligga kvar i
+`C:\repos\ComfyUI_Windows_portable\ComfyUI\output` — `assets-src/` bar bara de 45 kandidater
+som redan användes, alltså var **84 bilder oanvända**. Kontaktkartor gjordes över alla 84 och
+fyra nya roller valdes: `gasp` (#124) · `chock` (#129) · `skeptisk` (#7) · `retas` (#15).
+Inriktningen blev rest **0,015–0,024**, bättre än de nio gamlas median (0,024), och de gamla
+rollerna behöll exakt samma foton. **Tre kandidater förkastades i bild innan de kostade
+något:** `blas` (#115) är samma pluta som `sur`, `gapskratt` (#101) samma vidöppna mun som
+`het`, `mums` (#98) samma slutna leende som `nojd`/`lycksalig`. Kravet är att minen är
+distinkt mot de befintliga, inte att den har ett eget namn — och varje min kostar ~1,04 MB
+GPU-minne (disken är inte taket: 799 kB av 3072).
+
+**Winken byggdes INTE som en min.** Materialet har fem wink-foton, men de är hela miner som
+bär sin egen mun — en wink hade uteslutit alla andra munlägen och kostat 1,04 MB. Samma
+blund-bild maskad till en mjuk oval per öga (`ogon_v`/`ogon_h`, 0,12 MB) går i stället att
+kombinera med gap, tugg och vilken min som helst. Ögonlägena avlästa i `ogon.webp`.
+
+**Riggen fick huvudet:** `nick` · `tveka` · `ryck` · `lutaMot` på en ny nod `_gest` som
+roterar kring HALSEN, plus `kyla()` och `liv(pa, { takt })`. Varje gest äger ett eget fält i
+`_g` och en funktion lägger ihop dem.
+
+**Ljudet.** `TUGG`-profilerna (knaprig · seg · mjuk · dryck) styr antal, takt och djup, och
+knastret ligger på käkens egen takt via riggens nya `onTugg`-krok — de tre fasta
+triangelvågstonerna är borta. Sväljning tillagd. `AudioService.loop/stopLoop/stopAllLoops`:
+kranen rinner, spisen puttrar och fläkten brummar så länge de står på (fläkten snurrade förut
+helt tyst efter klicket). Städas av `GameHost.destroy` som yttersta säkring.
+I spelet: isbiten är `chock` + kyla + huttring i stället för `het`, hälften av all
+`fundersam`-mat blir `skeptisk`, gäspning och wink i vilo-cue:n, andningstakt efter mättnad.
+
+**Två buggar som bara mätningen kunde ge:**
+- `Ansikte._track` kastade den ÄLDSTA tweenen vid 24 st — och det är `liv()`s eviga andetag.
+  Kontrollarm med den gamla koden inlagd: **1,66 ‰ svängning före 40 gester → 0 ‰ efter**.
+  Med rensning av färdiga tweens + skydd för `repeat: -1`: 1,66 → 1,66.
+- **Kylan läste som ett grått lik**, och orsaken är `tint`-aritmetik: multiplikation kan bara
+  ta bort färg. Hettan fungerar för att huden redan är rödast i rött; åt andra hållet finns
+  inget att förstärka. Uppmätt: (230,180,160) × (139,211,255)/255 = (125,149,160). Köld är
+  därför en BLEKHET (−45 rött, −14 grönt), och betydelsen bärs av huttring + frostglimtar.
+
+**Mätt** (sonderna utökade, ingen ny fil — `_ansiktebild` fick andningsmätningen, gest-rutorna
+och `--bara`; `_munprobe` fick LUTA · TUGG · LJUD · EXIT och `--trace`):
+andning 1,66 → 1,66 ‰ · lutning 0,007 rad → 0,000 efter släppet · tuggprofilen når käken
+(mjuk 3/3, seg 2/2 mot spelets EGEN tabell, importerad) · fläktljudet 0 → 1 → 0 källor ·
+ljud vid exit 1 → 0. `_vaxelprobe` 15/15 · `_kokprobe` grön isolerat · `check` 0/0 ·
+`test:all` **73/73** · röstkön tömd (6 klipp genererade).
+
+**Två sondläxor, båda av samma familj som tidigare:** mätfönstret låg före släppet (gapet
+följer fingret ända till 1,00 vid munnen — den flanken är inte en tugga), och även med rätt
+fönster räknades en stängning för mycket. Den råa gapkurvan (`--trace`) visade varför:
+`9876432111111 | 13677751577774267876` — den första nedgången är DRAGET som slutar, ~200 ms
+innan `onCorrect` ens fyrar. **Utan kurvan hade "4 mot väntat 3" lika gärna kunnat läsas som
+en bugg i spelet** — och den rättelse jag först skrev i koden (`_gapNu = 0` i `_ata`) visade
+sig vid mätning inte fixa något observerat; raden står kvar som en spärr, med en kommentar
+som säger just det.
+
+**Commits:** `134bc4f` feat(mata-munnen): fyra nya miner, huvudgester och ljud som följer
+maten · `6a7b732` fix(ansikte): kylan är en BLEKHET — tint kan inte lägga till blått
+
+**Öppet:**
+- **Ägaren gör nya foton och spelar in nio ljudklipp** — `pappa_gasp` · `pappa_chock` ·
+  `pappa_hmm` · `pappa_retas` · `pappa_svalj` · `tugg_knaprig` · `tugg_seg` · `tugg_mjuk` ·
+  `klunk` (+ valfritt sömlöst loopbara `kran` · `koka` · `flakt`). Namnen finns redan i koden
+  och `harSample()` frågar först, så varje fil aktiveras när den läggs i
+  `public/audio/sfx/` + `manifest.json`. Syfte per fil: `docs/games/mata-munnen.md` §4 Ljud.
+  ⚠️ Tuggklippen ska vara ETT tugg var, inte en serie — spelet spelar dem en gång per
+  sammanbitning.
+- Kommer nya foton: lägg dem i `assets-src/ansikte/pappa/`, komplettera kandidatlistorna i
+  `roller.json` och kör `npm run ansikte --kontroll`. 68 bilder ur shooten är fortfarande
+  oanvända. **GPU-minnet är taket, inte disken** (~1,04 MB per min; riggen ligger på ~17,5 MB).
+- Bygget är fortfarande INTE omgjort — telefonen kör v1.157.0.
+
+## 2026-08-13 · v1.198.0 · Kökslyft 2 — volym på allt, rikare kök, stationer som växlar
+
+**Byggt:** ägarens polera-uppdrag för `mata-munnen` i tre delar, via tre parallella
+`spelbyggare` (kok.js · skafferi.js · de delade ritfilerna) medan huvudloopen tog index.js.
+**Assets:** volympass via form.js-cacherna på skafferiets 13 prylar, brädmaten (19/20),
+hamburgerbyggets 48/63 och pizzabageriets 49/65 — silhuetter/API orört, alla fyra spelen
+gröna. **+10 nya saker** (katalogen 54 → 64): glass, räka, ketchup, paj, popcorn, pepparkaka,
+saltgurka, senap, sylta, leksaksbil. **Köket:** gardiner, drivande moln, klocka, barnteckning,
+ugnsgaller+vred, kryddhylla, krukväxt, handduk, ljusband — dörrdetaljer PÅ dörrarna (följer
+öppningen); solen visade sig ha legat begravd bakom glasfyllningen sedan kökets bygge.
+**Variation:** fönstret roterar fågel→fjäril→regnbåge · kastrullen kokar över efter ~9 s och
+läker sig själv · micron plingar · ketchup+senap hällbara · gegga-trappan (femte fläcken →
+skratt) · burk-bågning · gegga-glid · skymten mellan tänderna i tugget.
+**Kritikern gav fem fynd, alla åtgärdade** — viktigast: skräphögen kunde STJÄLA pekningen
+från en aktiv matbit (lösa vyer ligger nu under maten i pekordningen), och den nya dekoren
+hade mätts mot spelets stationer men aldrig mot SKALETS hem/ljud-knappar som täckte den.
+Ny sond `_vaxelprobe.mjs` 15/15 (tillståndsläsning, kontrollarmar först). `_munprobe` +
+`_kokprobe` gröna (mjuk-raden flakade 1 gång under trippel-sondlast, 2/2 isolerat — känd
+lasttransient). 5 nya repliker i pending-kön (`/rost` när narratorn är uppe).
+
+**Commits:** `d709ca8` feat(mata-munnen): kokslyft 2 · docs-commit (denna)
+
+**Öppet:** §4 kvar: fler roller (Mamma — kräver fotoset), tugg/smask som riktigt klipp,
+pappas ev. nya klipp för senapen. Kritikerns riktning för nästa omgång: det som GÖR något
+slår passiv dekor — bygg vidare på stations-utfallen (fler växlar per station), inte på fler
+prydnader.
+
+---
+
+## 2026-08-13 · v1.197.0 · Ägarens speltest — "den flytande skuggan" var ingen skugga
+
+**Byggt:** ägaren spelade köket på telefonen och rapporterade fem saker. Alla fem är byggda
+(ÅTGÄRDER #8–#12), plus en sjätte som föll ut på vägen. **Fyra av mekanismerna hade ingen
+kodläsning gissat rätt**, och två av rapporterna visade sig vara två olika fel var.
+
+**#9 var den lärorikaste: det fanns ingen skugga att ta bort.** `Mjukkropp.knuff` flyttar
+`p.x/p.y` men inte `p.px/p.py` — och i verlet **är** det en fart. Med `grav: 0`, inga pinnar
+och inget golv fanns ingenting som höll emot, så kleten gled **62 px rakt ner** från sin matbit
+och blev en fristående oval under den. Det ägaren såg som "en flytande skugga oavsett var saken
+är placerad" var alltså en fläck som glidit ifrån det den hörde till, och offseten var konstant
+just därför. Fix: `knuff(…, { form: true })` drar bort den genomsnittliga förflyttningen (noll
+rörelsemängd, formen kvar) och `flyttaTill()` förankrar fläcken varje steg. **0,0 px mot 62,1 i
+kontrollarmen.**
+
+**#8 var två fel med olika rot bakom en mening.** Munnen accepterar allt, så `_resolveDrop`
+låste även en utspottad gaffel (`placed` **och** `eventMode: 'none'` — och `_onDown` bailar
+dessutom på `placed`); ett tryck på gaffeln greppade då en ANNAN sak. Den andra halvan satt i
+`_ploppa`, som skickade geggans **miniatyr** (0,62) till bänken via en syntetisk `rec` som
+aldrig fanns i dragets register. ⚠️ **Skalan i spott-vägen var aldrig fel** (1 → 1) — halva
+rapporten hade en helt annan orsak än den såg ut att ha.
+
+**#10 prövades mot premissen först, och premissen höll:** maten går inte att deformera (4–7
+lagrade `Graphics` per rätt, ingen silhuett, `generateTexture` förbjudet). "Sekundärt utseende"
+byggdes därför som en BEHANDLING av den ritning som finns, inte som en töjning eller 20 nya
+konstverk.
+
+**#11** vätskan går att hälla — håller du bäraren lutad över ansiktet eller diskhon rinner det.
+⚠️ Lutningen skrivs på `rec.restRot`, aldrig på `view.rotation`: `_dragTick` skriver det fältet
+varje bildruta, och en tween där hade varit två skrivare till samma tal.
+
+**#12** chilin rodnar ansiktet och röken går ur öronen.
+
+**#13, inte rapporterat men hittat:** bus-ellipsen nådde y=518, alltså ut på skärbrädan där
+maten ligger (y=505). Mat som lades TILLBAKA klassades som ansiktsträff och ritades bakom öns
+förgrund — den bara försvann. Det förklarar en del av ägarens "förvirrande och plottrigt".
+
+⚠️ **Sonderna var fel tre gånger innan koden var det**, alla tre av den kända familjen: en drift
+mätt mot fel nollpunkt (kroppens tyngdpunkt ligger 15 px från det `(x, y)` man ber om, så
+"−15,4 px drift" var skillnaden mellan två nollpunkter), ett prylfilter som var en namnlista i
+stället för `atbar`, och ett symmetrikrav kring fotorutans mitt när huvudet ligger 3 px höger i
+den. **Och två av de "befintliga sonder" jag trodde fanns i repot var en läsande agents egna
+tillfälliga filer** — mätningarna stod sig, men de var inte repots verktyg.
+
+**Commits:** `a50d738` fix(mata-munnen) #8–#10 + #12 · `f36bef0` feat(mata-munnen) vätskan
+går att hälla
+**Kontroll:** `check` 0/0 · `_busprobe` 8/8 · `_hettaprobe` 7/7 · `_hallprobe` 6/6 ·
+`_munprobe` grönt · `test:all` **73/73** i två svep.
+**Öppet:** MOSS nere (`saknat-ljudklipp` i fyra andra spel). Bygget omgjort och serverat.
+
+---
+
+## 2026-08-13 · v1.195.0 · Citronen fick sin egen röst — och två röster slutade prata i mun
+
+**Byggt:** ägaren spelade in det nionde klippet direkt efter förra passets fråga, så `sur`
+delar inte längre röst med `fundersam`. `ROST`: `sur` → `pappa_surt`.
+
+**Klippet är 1,90 s — det längsta av de nio** — och består av tre partier med pauser emellan.
+Till skillnad från fem av de åtta förra fanns här **inget andetag att kapa**: alla tre partierna
+ligger inom **4 dB** av varandra, alltså är det röst hela vägen. Nivå −18,5 LUFS, i linje med
+de övriga.
+
+**Och längden avslöjade två fel av exakt den familj förra passet skrev upp som lärdom.** Båda
+är fall av att *en schemaläggning som stämmer mot en 0,3 s stämd reserv inte är prövad mot
+klippet som ska ersätta den*:
+
+1. **`_sag` och `_replikEfterMin` startade i samma ögonblick**, och för `sur` är
+   berättarrepliken ovillkorlig (*"Oj! Vad surt det var!"*). Med en ton var det ofarligt; med
+   en 1,90 s inspelning är det **två svenska röster samtidigt** för ett barn som ska förstå vem
+   av dem som pratar. Repliken väntar nu ut pappa — och det gäller alla nio klippen, inte bara
+   det sura.
+2. **Minen hölls 1,4 s medan klippet är 1,90 s**, så ansiktet hann bli neutralt mitt i hans
+   egen sura reaktion. Hållet har nu ett golv på klippets längd.
+
+Båda talen kommer från nya **`AudioService.sampleDuration(namn)`** som läser den avkodade
+buffertens längd — ett hårdkodat tal hade drivit isär från filen vid nästa omtagning. Sonden
+bevakar den: en nyckel som finns måste ge > 0,3 s, en okänd måste ge 0.
+
+⚠️ **Ett 72/73-svep som INTE var en regression, och hur det avgjordes.** Första svepet föll på
+`golvet-ar-lava` (konsolfel) och `glittergrottan` (`tom-scen`), båda med *"WebGL context may be
+lost"* — ÅTGÄRDER V14b/V15:s kända signatur. Tre oberoende skäl att inte skylla på ändringen:
+båda gröna ensamma, **andra fulla svepet 73/73 med samma kod**, och svepet FÖRE ändringen bar
+redan åtta av de nio klippen (bara det nionde + `sampleDuration` var nytt, och ingen av dem rör
+en GPU-resurs). "Grön ensam" räckte inte som argument — det är precis vad V14b redan säger om
+flaket.
+
+**Commits:** `1e2b630` feat(mata-munnen) citronen får sin egen röst
+**Kontroll:** `check` 0/0 · `_klippprobe` **8/8** · `_munprobe` grönt · `test:all` **73/73**.
+**Öppet:** ägarkön tom, nattkön tom, röstkön tom. MOSS fortfarande nere (`saknat-ljudklipp` i
+fyra ANDRA spel). **Bygget är INTE omgjort** — telefonen kör v1.157.0, så ingen av de nio
+rösterna hörs där än. Det är det enda som återstår för att kunna bedöma dem på riktigt.
+
+---
+
+## 2026-08-13 · v1.194.0 · Pappa fick sin röst — och tidtabellen gick sönder av den
+
+**Byggt:** ägaren spelade in alla åtta uttrycksljud på telefonen (sju `.m4a` + rapen som `.mp3`)
+och de är nu i spelet. Jobbet var inte "konvertera filerna" — det var tre mätningar.
+
+**① Klippunkterna kan inte sättas av en regel.** Fem av åtta bar ett andetag eller fingerljud
+**23–30 dB under rösten** före själva ljudet. `Fniss` bar tvärtom sitt **starkaste** skratt först
+(−9,9 dB) med svagare fniss efter — en regel som "hoppa fram till det ljudstarka partiet" hade
+kapat just den filens skratt. Varje klippunkt är mätt med `silencedetect` per fil. Längder efter
+klipp **0,72–1,28 s**, alla inom minens fönster.
+
+**② Nivån tog tre försök, och de två första var mätbart sämre.** `loudnorm` i dynamiskt läge
+komprimerar rösten själv på ett 0,7-sekunders klipp, och lade ändå tre klipp på 0,0 dB topp —
+dess −1 dBTP mäts FÖRE mp3-kodningen och lame skjuter över. Fast förstärkning med hårt topptak
+gav ingen kompression men **topp-begränsade fyra klipp**, så `pappa_aaah` (chilin!) och
+`pappa_aj` landade **4,6 dB under** det neutrala "ohh". Tredje försöket — fast förstärkning till
+målet + mjuk begränsare — gav **alla åtta inom 0,4 dB** (−18,4…−18,8 LUFS) mot en
+ursprungsspridning på **17 dB**. Målet är `djur_hund.mp3`s nivå, appens enda andra inspelade klipp.
+
+**③ Finalens tidtabell var byggd för toner.** Extrarapen och skrattet startade i **samma
+ögonblick** (0,5 + 0,7 = 1,2 s, och skrattet stod på 1,2 s). Med 0,3 s stämda toner lät det som
+ett ackord; med `pappa_rap` (1,10 s) och `pappa_fniss` (1,26 s) lät det som två pappor. Det är
+ett fel som inte FANNS förrän klippen blev riktiga, och som inget grönt test kan se.
+**Lärdom att bära:** en tidtabell som stämmer mot en syntes-reserv är inte prövad mot klippet
+som ska ersätta den — läs reservens längd innan du litar på avstånden.
+
+**Ny sond `scripts/_klippprobe.mjs`, 6/6 gröna.** Ett manifest bevisar ingenting: det hämtas vid
+körning och avkodningen är asynkron, så `sample()` kan svara false fast filen finns. Sonden
+räknar båda vägarna — 8/8 i `harSample()`, 8/8 `sample()` = true, **0 tone-fallback** — med
+kontrollarm åt båda hållen: en okänd nyckel måste både nekas och vara ospelbar, annars mäter
+räknaren inte det den påstår.
+
+**Commits:** `9bb3400` feat(mata-munnen) pappa har fått sin egen röst
+**Kontroll:** `check` 0/0 · `test mata-munnen` grönt · `_munprobe` grönt · `test:all` **73/73**.
+**Öppet:** ⬜ **ägarbeslut:** `pappa_ohh` bär fortfarande båda minerna `sur` (citronen) och
+`fundersam` (fyra grönsaker) — ett nionde klipp `pappa_surt` är en rad i `ROST`. MOSS är
+fortfarande nere (`saknat-ljudklipp` i fyra ANDRA spel). **Bygget är INTE omgjort** — telefonen
+kör v1.157.0, alltså hörs pappas röst inte där än.
+
+---
+
+## 2026-08-13 · v1.193.0 · Röstkön tömd och N12 stängd — svansen var mest gradienter
+
+**Byggt:** de två öppna posterna från förra passet, båda hela vägen klara.
+
+**① Röstkön är tom (v1.191.0, `cdf3761`).** De 7 replikerna från köksrundan genererade med
+F5-TTS: **7 gjorda, 1579 överhoppade, 0 misslyckade.** `check` gick från "♪ 7 väntar" till noll.
+
+**② N12 — platthetens svans (v1.192.0, `5430a5b`).** Punkten namngav två fält. Båda är ur
+vägen, men bara det ena ledde till kod:
+
+- **`hamburgerbygget`s bänkskiva var mycket riktigt ett INAKTUELLT tal** — köns egen varning
+  höll. Ommätt i dag: **26 456 px**, alltså **plats 40 av 73**, och de två fälten närmast under
+  är dels en panel, dels en GRANNTON till det största. Avskrivet utan en rad kod.
+- **`pizzabageriet`s ugnsinsida byggd.** Hålan låg i EN ton över 240×232 px — **50 656 px**,
+  svitens åttonde plattaste fält. Nu fyra väggar i perspektiv mot en bakvägg med lodrät toning,
+  plus ett galler. Ljussättningen är den enda fysiskt sanna i en låda man tittar in i: taket
+  mörkast, golvet ljusast, bakväggen mot golvets studs. **Mätt: tonen 50 656 → 0 px, spelets
+  största fält 50 656 → 40 139 (−21 %)**, och ugnen ligger inte kvar på listan alls.
+  Spelets egen §5-rad från 08-10 slutade med *"spelets topp är nu ugnens mörka insida"* — det
+  var alltså en förutsägelse som stämde, tio dagar gammal.
+
+**Och därmed är N12 slut, för svansen är inte platt längre — den är GRADIENTER.** Av topp 14 i
+dag är i stort sett allt kvar antingen en panel som ska förbli platt (`trollblandning`), ett
+medvetet undantag (`natskott-pa-stan`s hand) eller en redan korrekt fylld yta vars gradient
+kvantiserats till 256 band. Det kostade tre `_bbox`-körningar att avgöra för hand, så
+**`_plattprobe` flaggar det numera själv**: `~band` när största fältet har ett JÄMNSTORT fält
+på nästan samma färg (avstånd ≤ 6 per kanal OCH grannen ≥ 35 % av toppen).
+
+⚠️ **Storleks-villkoret är det som bär, och det valdes av ett kontrollfall.** En platt yta bär
+ofta en egen ljusning ovanpå — den gamla pizzaugnens glasreflex låg 7 steg från hålan, och utan
+35 %-regeln hade sonden friat just det fält den skulle peka ut (reflexen är 9,5 % av hålans
+yta). Validerad mot kända fall: flaggar `gravmaskinen` (d=1), `folj-sparet` (d=2) och
+`rulla-bollen-hem` (d=1, som sondens eget filhuvud sedan länge säger ska toppa listan), och
+lämnar `trollblandning`s äkta platta panel oflaggad. **Den friar aldrig ett fält den inte mätt
+en granne till:** `snobollen` (63 577 px) går fri fast den *ser* ut som banding — dess närmaste
+färggrannar finns men är bara 22/18/11 % så stora, alltså dominerar toppbandet på riktigt.
+Flaggan är en ledtråd om var man ska titta SIST, inte en dom.
+
+**Commits:** `cdf3761` feat(voice) sju nya klipp · `5430a5b` feat(pizzabageriet) ugnen är en låda
+**Kontroll:** `npm run check` **0 fel / 0 varningar** · `npm run test:all` **73/73 gröna** ·
+arbetsträdet rent · backup körd.
+**Öppet:** **nattkön har ingen ⬜-punkt kvar** — N12 var den sista, och den är stängd med
+mätning. Kvar i ⏸ (kräver en människa): `npm run sfx` väntar på att MOSS-SoundEffect kommer upp
+(`bajs-och-kiss` ×3 · `sapbubblor` ×9 · `kittla-figuren` ×1 · `peka-pa-kroppen` ×2, alla
+loggade som `saknat-ljudklipp` i svepet) och pappas inspelade uttrycksljud i `mata-munnen`.
+**Bygget är fortfarande INTE omgjort** — telefonen kör v1.157.0.
+
+---
+
+## 2026-08-13 · v1.190.0 · Kritikerrundan på köket — ett P0-brott, en lögnaktig kran
+
+**Byggt:** `spelkritiker` spelade det nybyggda köket och hittade fyra saker som ledde till kod.
+
+**Ett riktigt P0-brott jag missat:** kylens tre hyllplan låg **120 px** isär medan ett dragbart
+föremåls träffyta är `GRIP_R` 52 — alltså **104 px i diameter**, inte 96 som kommentaren påstod.
+16 px luft där P0 kräver 24. Rättat till 130 px, och kylen växte 40 px neråt för att rymma det.
+**Sonden mätte bara stationernas ytor, aldrig föremålens** — den kontrollen finns nu.
+
+**Kranen ljög.** Den skalade en ritad stråle medan samma fil bar en fungerande vätskemotor 80
+rader längre ner. Den häller nu riktigt vatten i diskhon, som blivit ett kärl med avlopp: 7
+partiklar i hon efter 2,6 s, **0 nedanför bänkkanten**, 0 kvar 2,6 s efter avstängning. En värld
+bär alla fyra vätskorna via `FluidView.palette`. ⚠️ Första försöket gav 0 partiklar med kranen
+bevisat på — `_vatskaTick` kallar `clearColliders()` varje bildruta och tog med diskhon i
+rensningen, så vattnet rann rakt igenom porslinet.
+
+**En station svalde en pekning tyst under finalen** (`kvittera` låg efter upptagen-spärren, och
+en station svarar inte via `_tomtTryck`). Det är `dod-traffyta`, och `_tystprobe` fångade det
+inte — den letar efter kända handlarnamn.
+
+**Kökets egna noder städades aldrig** i `destroy()` — fågeln, strålen, plattorna, fläkthjulet.
+
+**Två fynd ledde inte till ändring**, och det är också ett svar: "bänkhögen kryper 8,0 px" var
+läst ur en KODKOMMENTAR om det gamla cirkel-beteendet (aktuell mätning 0–3 px), och pappas
+saknade röst är ägarens egen inspelningsuppgift.
+
+**Två tillägg** på kritikerns iakttagelse att köket var svårupptäckt: var tredje vilo-cue pekar
+nu på en **stängd lucka** i stället för på maten, och **fläkten suger upp ångan** från spisen när
+båda står på.
+
+**Fyra sondfel av samma familj** rättades på vägen, och de är värda att minnas: en kontrollarm
+som läses EFTER mätarmen mäter mätarmen (hände två gånger — "tom bänk: 1 lös kropp", "före spill:
+101 partiklar"), och en loop som blint klickar för att växla hamnar ur fas mot något som redan
+står på. Det senare fick besticklådan att aldrig öppnas på tio varv **medan `pointertap`
+bevisligen kom fram** (down=1 up=1 tap=1): "klicket når inte fram" och "klicket gör tvärtom" ser
+likadana ut utifrån.
+
+**Öppet:** LYFTPLAN N12. Pappas inspelade uttrycksljud + 7 repliker väntar på `/rost`.
+Bygget är **inte omgjort** — telefonen kör v1.157.0.
+
+## 2026-08-13 · v1.189.0 · Ägaruppdraget KÖKET byggt — miljö, luckor och tre motorer
+
+**Byggt:** hela ägaruppdraget från `727cacb` i tre commits, ett steg i taget med en mätning
+mellan varje.
+
+**① Köket och det svävande huvudet.** `kok.js` — vägg, golv, kakel, bakre bänkrad, kylskåp,
+fönster, diskho med kran, fläkt, spis med kastrull och stekpanna, ugn, högskåp med micro,
+skafferi och lådor, och en köksö mitt i rummet. **Skärlinjen är mätt, inte vald:**
+`magick bas.webp -alpha extract` ger radernas medeltäckning (122 vid ruta-y 592, 101 vid 616,
+79 vid 632, 47 vid 648) och köksöns bakkant ligger på 616 — sista raden med ~82 % täckning,
+precis innan fotots utfadning börjar synas. Ansiktet krympte 500 → 470, inte av estetiska skäl:
+skärlinjen ligger på en FAST ANDEL av höjden, så ett större ansikte trycker ner ön och gör
+bänkskivan till en list att balansera hakan på (uppmätt bänkdjup 146 px mot 171).
+
+**② Maten** flyttades från tallriken till en skärbräda på ön. `_munprobe` hade **x=455
+hårdkodat** som munnens läge och mätte glatt vidare när köket flyttade ansiktet till 620 — den
+rapporterade ett gap 0,12 → 0,74 för ett drag som landade i kinden och räknades som bus. Den
+läser nu spelets egen målnod.
+
+**③ Tolv klickbara stationer.** Kyl, frys, skafferi, micro, ugn, lådor och öns två skåp öppnas
+och innehåller saker att mata med; kran, spis, fläkt och fönster gör något. `skafferi.js` bär
+**54 nycklar** — ingen ny matritning gjordes, de två matspelens 128 föremål lästes in rakt av,
+och bara ägarens egen lista (kastrull, stekpanna, fat, glas med saft, mugg, bestick, redskap)
+ritades. Oätliga saker **spottas ut** och mättar aldrig.
+
+**④ Tre motorer, alla där de syns.** matter.js för högen på bänken (sjuhörningar — cirklar
+rullade så lätt att högen kröp 8,0 px per 700 ms långt efter sista nedslaget), SPH för pölen när
+ett glas saft töms över bänken, och `Mjukkropp` för den nyaste geggans splat. Tak: 2 öppna
+luckor · 8 lösa saker · 1 mjuk kropp.
+
+**Sonden var poängen igen.** `scripts/_kokprobe.mjs` trycker på luckorna — harnessen rör dem
+aldrig. Fyra fynd som bara mätningen kunde ge: `drain()` tar ett **centrum, inte ett hörn** (halva
+pölen låg utanför avloppet, 57 → 29 partiklar på elva sekunder); en **rund** mjuk kropp som
+knuffades ut var tillbaka i viloform efter SEX steg och alltså osynlig (kontrollarmen välte den —
+viloformen är nu redan utsplattad och det mjuka är vobbeln, 14,3 px mot 0,0); en utspottad sak låg
+kvar i sitt skåps lista så vyn revs under fysikkroppen; och sonden mätte en gång **sin egen
+kontrollarm efter mätarmen**.
+
+**Commits:** d56bea3 köket + köksön · d63d409 luckorna + skafferiet · 246c69d fysiken
+
+**Öppet:** LYFTPLAN N12. Pappas inspelade uttrycksljud (`pappa_mmm` m.fl.) väntar fortfarande på
+ägaren; 6 nya repliker väntar på `/rost`. Bygget är **inte omgjort** — telefonen kör v1.157.0.
+
+## 2026-08-13 · v1.186.0 · Ansiktssektionen öppnad — `mata-munnen` byggt och spelat
+
+**Byggt:** riggens första kund. **Spel nr 73, `mata-munnen` (Mata Pappa)** — ett riktigt foto
+som spelfigur: barnet drar mat från en tallrik till munnen, som **gapar mer ju närmare maten
+kommer**, tuggar tre gånger, sprutar smulor i matens egen färg och korsbleknar in en **hel
+grimas efter smaken** (citron → sur, chili → het, kaka → lycksalig, grönsak → fundersam).
+Släpps maten i pannan **fastnar den** som gegga med en klet under. Mättnadsburken fylls, och
+full mage ger rapfinalen. Två commits.
+
+**Sonden var poängen.** `node scripts/_munprobe.mjs` spelar spelet på riktigt, och skrevs för
+att **testharnessens auto-drag aldrig rörde en enda matbit** — den drar mellan generiska
+punkter, så hela kärnloopen var grön och omätt (loggen: fyra `drag/foremal`, **noll**
+`drag/ratt`). Varje tal har en kontrollarm bredvid sig: gapet mättes både långt bort och vid
+munnen (**0,00 → 1,00**), mätarsteget mot väntat `1/antal`, bus mot mätaren före/efter.
+
+**Sonden hittade en återvändsgränd som ingen kodläsning gav.** Första körningen slutade
+`mätare 0,833 · äten 5/6` med **tom tallrik**: busad mat lämnade tallriken men räknades ändå
+in i mättnadsmålet, så ett barn som busar EN bit av sex kunde tömma tallriken utan att finalen
+någonsin kunde komma — precis det P0 förbjuder. Tallriken fyller nu på sig själv så länge magen
+inte är full; **bus kostar tid och en fläck, aldrig omgången.**
+
+**Skärmdumpen hittade två till** som inget grönt tal såg: maten låg på tallrikens KANT (läste
+som utspilld) och bordsskivan slutade mitt i luften medan tallriken svävade ovanför den.
+
+**Delad kod som följde med:** `games/mata-monstret/food.js` → **`src/lib/mat.js`** (andra
+kunden), med `lemon` och `chili` som nya ritningar i `MAT_STARK` — medvetet UTANFÖR `FOODS`,
+eftersom `mata-monstret` väljer favoritkategori ur den listan och en fjärde kategori tyst hade
+ändrat balansen i ett spel som inte bad om något. `Ansikte.slappMin()` (min-lagret ligger
+överst och bär sin egen mun — ett tugg bakom en kvarhängande grimas syns inte alls) och
+`AudioService.harSample(namn)`, utan vilken varje tugg hade flaggat `saknat-ljudklipp` och
+dränkt de fynd som är riktiga.
+
+**⏸ NYTT UPPDRAG FRÅN ÄGAREN, EJ PÅBÖRJAT — läs `docs/games/mata-munnen.md` §4 först.**
+Ett **kök** som miljö: ansiktets nederkant mot kanten på en **köksö** mitt i rummet (så
+huvudet inte svävar), köket fyllt med kastruller, stekpannor, fat, glas med vätska, kylskåp,
+skåp, fönster, micro, ugn, skafferi, bestick, muggar, redskap, spis. Mat- och busobjekt tas
+från `pizzabageriet` och `hamburgerbygget`, objekten ska interagera (vätska, kollisioner,
+mjuka kroppar, massa), och köket ska gå att klicka runt i (kylen öppnas och har mer inuti,
+likaså skåp, ugn, micro, lådor, kran, spis, fläkt). **Kontrollerat samma dag:** de två
+matspelen bär **128 färdiga ritningar**, och hela busregistret (bajs · strumpa · spindel ·
+snigel · tandborste · kackerlacka · kalsonger · toapapper · mask · mygga · disksvamp · prutt
+· snor · fiskben · lera …) finns redan — ingen ny ritning behövs för att komma igång.
+Docen bär sex frågor som måste besvaras före bygget och en föreslagen ordning i fem steg.
+
+**Öppet:** ⓵ **ägarens inspelningsuppgift** — pappas uttrycksljud (`pappa_mmm` · `pappa_blaa` ·
+`pappa_aj` · `pappa_oj` · `pappa_ohh` · `pappa_aaah` · `pappa_rap` · `pappa_fniss`). Kopplingen
+finns och tar klippen i bruk i samma sekund de läggs i `public/audio/sfx/`; tills dess spelar
+varje min sin stämda reserv. ⓶ Sektionens nästa spel: `harma-grimasen` · `borsta-tanderna` ·
+`prat-ansiktet`. ⓷ Nattkön: **N12**. ⓸ **Bygget är fortfarande inte omgjort** — telefonen kör
+v1.157.0 och ingen av de senaste trettio versionerna syns där.
+
+---
+
+## 2026-08-13 · v1.185.0 · Fotoshooten landade — och riggen mätte sig fram
+
+**Byggt:** ägaren levererade fotoshooten som `ansiktssektionen` väntat på sedan 2026-08-07
+(⏸-postens sista rad). **Ansiktsriggen är byggd och syns i appen.** Två commits.
+
+**Vad som kom:** 129 frilagda PNG i ComfyUI:s output, **768×1024** (inte 1024×1024 som det
+sades), ren alfakant, stort grimasregister. De 49 som används ligger nu i repot under
+`assets-src/ansikte/pappa/`.
+
+**Tre ägarbeslut, ställda när materialet visat vad som gick:** ⓵ rigg först, spelet sedan;
+⓶ **ögon-följningen struken** — blickserien finns inte i materialet (jag gick igenom
+ögonbandet i alla 129: alla tittar mot kameran eller blundar); ⓷ egna uttrycksljud finns
+inte än, spelet byggs utan dem.
+
+**`scripts/ansikte.mjs` — klippet (`e55db82`, v1.184.0, `npm run ansikte`).** 129 foton in,
+15 inriktade lager ut på **586 kB** av budgetens 3072. Uppriktningen VAR jobbet: huvudet
+driver mellan bilderna (hjässan y 159–319, höjd 705–865, flera lutar), så en korsblekning
+hade fått ansiktet att hoppa. Varje roll riktas in mot neutralbilden genom en sökning över
+skala · rotation · läge, i två steg. **KALIBRERING: referensen mot sig själv ger skala
+1,000 · vinkel 0° · rest 0,000**; övriga ligger på silhuett-IoU **0,013–0,034** (96–99 %).
+
+**`src/lib/ansikte.js` — riggen (`b477d0a`, v1.185.0).** `gap(0–1)` · `tugga(n)` · `blink()`
+· `min(namn)` (korsblekning) · `liv()`. Yttre container åt spelet, andningen i den inre.
+Sond: `node scripts/_ansiktebild.mjs` — 14 lägen i ett rutnät + exit-koll, **0 konsolfel**.
+`P0 KARAKTÄRER` fick sitt fotoundantag: `theme.js` bär nu `ROLLER = ['Pappa', 'Mamma']`.
+
+**Passets lärdom: jag mätte fel storhet två gånger innan jag mätte pose.** Uppriktningen
+prövades först med intensitet i ögonbandet, sedan med gradient. Båda blandar ihop "fel läge"
+med "annan min" — **brynen rör sig mellan miner** — och överlagringen mot neutralbilden
+visade **5 av 11 ansikten dubbelexponerade**. Silhuettens överlappning är samma kontur oavsett
+min, och först med den blev talen jämförbara. Två fällor till: fem foton gick inte att rätta
+alls (personen hade lutat sig fram — en 3D-rotation som ingen 2D-transform når), så en roll
+måste vara **flera kandidater** som väljs på pose; och urvalet får aldrig göras på
+utseendelikhet, då vinner den blekaste minen. När `sur` och `aj` båda hade #50 i sin lista
+valde sökningen samma bild åt bägge — ett foto bär nu en roll.
+
+**Och tre fel i verktyget, alla gröna innan de mättes:** ⓵ `-resize` träffar HELA bildlistan
+i ImageMagick, alltså även duken — en 128×108-duk blev 26×22 och rådumpen 572 bytes i stället
+för 13 824 (källbilden måste stå inom parenteser); ⓶ `-compose CopyOpacity` **ersätter** alfan,
+så friläggningens genomskinliga bakgrund blev opak och `ovre`/`undre` kom ut identiska — masken
+måste skära med `Dst_In`; ⓷ `Math.round(-0.3)` är `-0` som skrivs "0", vilket gav geometri-
+strängen "0-77" och "invalid argument".
+
+**Bilden avgjorde två designfrågor som koden inte kunde:** käken **translateras** (en
+2D-rotation kring käkleden svänger käken i SIDLED i frontvy — provat och förkastat), och ett
+**bas-lager** måste ligga underst, annars syns bakgrunden som ett ljust streck tvärs kinderna
+så fort käken sjunker.
+
+**Tidigare samma session (natt VI, N5):** `spindelnatet`s nättråd blev ett rep och
+`spindel-zacke-svingar` ströks med mätning — se posten för v1.183.0 nedan.
+
+**Commits:** `e55db82` feat(ansikte) klipp-pipelinen · `b477d0a` feat(ansikte) riggen.
+**Kontroll:** `check` **0 fel / 0 varningar** · `_ansiktebild` 0 konsolfel, 14 riggar rivna ·
+`test:all` **72/72** — kört EFTER ansiktscommittarna också, eftersom `theme.js` (delad kod)
+fick en ny export; enda loggfynden är de kända parkerade `saknat-ljudklipp` (MOSS nere) ·
+arbetsträdet rent · backup körd. Röstkön orörd.
+**Öppet:** ägarkön tom. **Nästa är spelet `mata-munnen`** — spec-kortet ligger i
+`docs/IDEER.md` post 2 och har ägarens ja; riggen har allt det behöver. Ögon-följningen i
+kortets kärnloop är struken. Nattköns egen kö står på **N12**. **Bygget är INTE omgjort** —
+telefonen ser v1.157.0 tills någon kör `npm run build`.
+
+---
+
+## 2026-08-12 · v1.183.0 · N5 klar — och premissen höll bara i det ena spelet
+
+**Byggt:** nattköns **N5**, båda spelen. **LYFTPLAN B3 (rep/kedja) är därmed slut** — alla fem
+kunder byggda eller avskrivna med mätning bakom sig. Med B1 och B2 stängda sedan tidigare är
+hela spår B avgjort.
+
+**`spindelnatet` — nättråden är ett REP, inte ett streck (`aa29fd8`, v1.183.0).** Tråden var en
+rak `lineTo` från handen till spetsen: lika spänd på väg ut som när bytet halades in, och framme
+innan den hunnit resa sig. Nu ligger `lib/rep.js` under den i samma läge som `natskott-pa-stan`
+(`spann()`, båda ändar spikade varje bildruta, mitten fri), ritad med `repPath`. Två skeden med
+olika `sag`: **1,12 på väg ut** (överskottslängd ingen relaxation kan ta bort) och **0,92 vid
+indraget** (kortare än avståndet → kedjan MÅSTE bli rak). **MÄTT** (`_tradprobe.mjs`, ny): bågen
+**13,4–14,1 % av kordan** ut mot HEADs **0,0 %**, **2,7–6,2 %** vid indraget — 2–5× stramare —
+och ritad längd högst **1,11–1,15× kordan**. **Ändpunkterna och livslängden är identiska i båda
+armarna** (0,00 px från handen i samma bildruta, 25–26 bildrutor), alltså är mekaniken orörd:
+fångsten avgörs fortfarande vid `pointerdown` i `_shootAt`, och ingenting läser tråden.
+⚠️ **Punktantalet var lösningen, inte fler varv.** Med 10 punkter konvergerade indraget aldrig
+(10,0 % vid 6 varv, 6,2 % vid 14) — en spänd kedja rätas ut som en diffusion, ~n² varv.
+**7 punkter** gav 3,1 % vid samma 14 varv, och den kvadratiska kurvan gör att färre punkter inte
+syns i bilden.
+
+**`spindel-zacke-svingar` — STRUKEN, med mätning (`_pendelprobe.mjs`, ny, 5/5).** Raden kallade
+den "handrullad pendel", alltså en dubblett att porta. Ett verlet-rep löser **slack**, och det
+finns ingen: Zacke hänger per konstruktion på exakt `_L` från fästet, och nätet mätte **0,0000 px
+slack över 433 sving-rutor** — den räta linjen ÄR den korrekta formen för en otöjbar tråd. Det
+finns heller inget fritt piskande skede (0 ritade rutor av 27 i flykt/moln). Och längden är
+**spelmekanik i sluten form**: nät-knappens löfte "långt nät = långsammare" mättes till
+**2,50 → 3,05 s = 1,22×** mot 2π√(L/G):s 1,24×, samma `_L` bär spök-bågen, och no-fail-garantin
+(`_ensureAmplitude`, golv 1,10 rad — uppmätt max θ 1,10–1,11) räknas ur `G/L`. En kedja punkter
+har ingen längd att sätta in i den formeln. Kvar som [Quick]-idé i §4, men som ett NYTT moment:
+nätet fäster i dag ögonblickligen vid `_attach`.
+
+**Passets metodlärdom: mät den RITADE geometrin när armarna inte delar tillstånd.** HEAD har
+inget rep att läsa, men båda armarna ritar en väg — `_tradprobe` hakar på `_thread`s egna
+`moveTo/lineTo/quadraticCurveTo/stroke` och mäter den. Kontrollarmen kördes **först** och gav
+precis det den skulle: 5/7 med de tre kalibreringsraderna gröna och de två bevisen på exakt 0,0.
+**Tre mätfel som kontrollarmen eller nästa körning avslöjade:** ⓵ "tråden börjar i handen" mätte
+**29,3 px** fel — skjut-armen flaxar 0,55 rad under skottet, så handens läge måste läsas i SAMMA
+bildruta som vägen ritades; ⓶ "ritad längd / korda" är en kvot vars **nämnare flyttar sig** —
+i skottets första rutor är kordan ~0 px medan tråden ligger hopbuntad i handen, vilket gav
+**2,46×** utan att en enda pixel var fel; ⓷ `_pendelprobe`s "ingen tråd utanför svinget" var
+**grön på en TOM mängd** (0 av 0 rutor) — spelet lämnar aldrig svinget av sig självt inom
+fönstret, så släppet måste utlösas.
+
+⚠️ **En nästan-miss värd att bära: `_svingprobe.mjs` fanns redan** (7/7, spök-bågen) och skrevs
+över av min nya sond med samma namn. Återställd ur HEAD, den nya heter `_pendelprobe.mjs`, och
+båda är verifierade gröna efteråt. **Lista `scripts/_*probe*` innan du döper en ny sond.**
+
+**Commits:** `8a517f3` docs (kvällspassets två fällor) · `aa29fd8` feat(spindelnatet) nättråden
+som rep.
+**Kontroll:** `check` **0 fel / 0 varningar** · `test:all` **72/72** · `_tradprobe` 7/7 (HEAD
+5/7) · `_pendelprobe` 5/5 · `_svingprobe` 7/7 orörd · loggfynd 0 för `spindelnatet`. Röstkön
+orörd (inga nya repliker).
+**Öppet:** ägarkön tom. **N5 är slut, och därmed hela LYFTPLAN spår B.** Nästa ⬜ är **N12**
+(platthetens svans, låg avkastning — `hamburgerbygget`s bänkskivetal är inaktuellt, mät om
+först). **Bygget är INTE omgjort** — telefonen ser en äldre version tills någon kör
+`npm run build`.
+
+---
+
+## 2026-08-12 · v1.182.0 · N4 klar — och en skriven invändning som var ett antagande
+
+**Byggt:** nattköns **N4**, båda halvorna. Två commits, en per spel. **LYFTPLAN B2 (mjuka
+kroppar) är därmed slut** — alla sex kandidater är byggda eller avskrivna med mätning bakom sig.
+
+**`mata-monstret` — maten går att TUGGA (`8c2d9f5`, v1.181.0).** Radens motiv var "tuggbar mat",
+och det gick **inte** att bygga som en deformation av MATEN: konstverket i `food.js` är 5–7
+lagrade `Graphics` per rätt i 18 varianter, det finns ingen enda silhuett att töja, och att baka
+den till en textur är förbjudet (`generateTexture` destabiliserar `test:all`). Det som gick att
+bygga är det tugget faktiskt ÄR — en **tugga** i matens egen färg (`foodColor()`, ny) mellan
+tandraderna. **MÄTT** (`_tuggprobe.mjs`, ny): **68,6 → 14,8 px** hög vid gap 0,22, och den
+hoptryckningen **ÄR** käkens gap (14,8 mot tandradernas beräknade 14,8) — inte en tween; samtidigt
+buktar den ut **90,0 → 109,5 px**. Munnen ritas nu i **två lager** med tuggan emellan (bakom
+munnen är maten helt dold, framför täcker den tänderna), och käkens gap bor i ETT tal
+(`this._jaw`, ett rent `{}`) — två `Graphics` som delar en gsap-tween hade glidit isär en bildruta
+mitt i ett 0,09 s-tugg. Tuggan **syns**: 3 272 px isolerat mot **0 px** i kontrollen.
+**Magen** blev också en mjuk kropp: viloform 226×184 px (exakt den gamla ellipsen), `rorelse`
+**0,0000** i vila, växer **226 → 258 → 291 → 326 px** bit för bit och kommer aldrig under den
+tomma magens underkant (224,0 mot golvet 224) — den breder ut sig i stället för att hänga ut över
+fötterna som den skalade ellipsen gjorde. Nytt i libbet: **`skala(k)`** (absolut mot byggmåttet;
+arean är kvadratisk, annars håller det gamla trycket emot hela växten).
+
+**`pruttbad` — bubblan ligger an mot ytan innan den brister (`5f6f0ac`, v1.182.0).** Kön krävde
+att såpbubblornas storleksinvändning prövades **först**, och båda prövningarna gav ett annat svar
+än väntat. ⓵ **Premissen höll inte:** bubblan poppade i SAMMA bildruta som toppen bröt ytan, så
+det fanns inget liggande skede att fysikalisera — skedet är alltså BYGGT, inte fysikaliserat.
+⓶ **Formhalvan av storleksinvändningen är fel** (se nedan). **MÄTT** (`_pressprobe.mjs`, ny):
+skedet **13,2 bildrutor** (0,22 s) mot noll före, för 11–12 av 13 bubblor; hinnan plattas
+**h/b 1,00 → 0,60**, och det är **YTAN** som gör det — toppen ligger på det LEVANDE höjdfältet
+(`_waveAt`) med **0,00 px glapp** i 12,9 av 13,2 rutor, alltså plattas en bubbla mitt i en våg
+annorlunda än en i stiltje. Högst **3 mjuka kroppar samtidigt**. Tempot växelvis mot HEAD, tre
+rundor: **13/13/13 poppar mot 12/12/12** per 500 bildrutor — oskiljbart; latensen **64–75 → 76–85
+bildrutor** (≈ +0,17 s = presset). **Presset kostar latens, inte takt.**
+
+**Passets lärdom: en skriven invändning kan vara ett antagande, och den hade redan styrt ett
+beslut.** `sapbubblor` ströks ur B2 delvis på att "en tiohörning på 40 px läser som en kantig
+klump". Men `Mjukkropp.path()` ritar ingen polygon — den lägger kvadratiska mellansteg genom
+kantmittpunkterna. Uppmätt avvikelse från en perfekt cirkel: **0,01–0,12 px** för 10–16 punkter
+över hela spannet 17–100 px radie, mot den råa polygonens **0,33–4,89** — 40× mer. Formhalvan var
+alltså aldrig mätt. **Kostnadshalvan står kvar** (en full omritning per kropp och bildruta), och
+svaret är att göra bara de kroppar mjuka som faktiskt deformeras just nu. `sapbubblor` är därför
+fortfarande struken (femton mjuka hela tiden), `pruttbad` inte (tre, 0,22 s var). Fällan står nu
+i CLAUDE.md.
+
+**Tre mätfel jag gjorde innan koden hade några:** ⓵ **magens `rorelse` duger inte som mått på
+sväljet** — monstret skuttar vid varje tugga och trögheten skakar magen då också (43 under
+tugget), och toppen efteråt varierade **27 → 217** mellan två körningar av samma sak; viloformen
+är det entydiga måttet. ⓶ **Duken är inte svart när allt är dolt** — renderaren rensar till appens
+bakgrund, så "ljusa pixlar" räknade **921 600 av 921 600 i BÅDA armarna**; bakgrunden läses nu ur
+bilden själv. ⓷ **Skumnivån duger inte som tempomått** i `pruttbad` — nås målet töms badet och
+nivån är 0 igen (**3,37 / 0,00 / 0,00** skum/s för samma spelning). Plus: en kostnadsmätning som
+inte kan bita säger ingenting — vid CPU **×6 OCH ×20** låg båda armarna på 16,6 ms och även 12 ms
+barlast rörde inte talet; `_tuggprobe --kostnad` bär därför en **kontrollarm med 25 ms känd
+barlast** (16,67 → 26,40 ms) innan den vågar säga "inte mätbar".
+
+**Commits:** `8c2d9f5` feat(mata-monstret) tuggan + magen · `5f6f0ac` feat(pruttbad) bubblan mot
+ytan.
+**Kontroll:** `check` **0 fel / 0 varningar** · `test:all` **72/72 gröna** (bara de kända
+parkerade `saknat-ljudklipp`, MOSS nere) · `_tuggprobe` och `_pressprobe` gröna ·
+`_mjukprobe` (5 nya rader för `skala()`), `_bullprobe`, `_stapelprobe` orörda ·
+`_idleprobe` 0/1 för båda spelen. Röstkön orörd (inga nya repliker).
+⚠️ **`_vobbelprobe` flakade 3 av 11 körningar** — alla tre direkt efter det tunga 72-spelssvepet
+("ringen lugnar sig" 9,01 mot tröskeln 0,4, alltså en kula som ännu inte hunnit lägga sig).
+Växelvis A/B mot biblioteket före ändringen (`6ae98b4 -- src/lib/mjukkropp.js`) gav **0 av 7**,
+men fallen ligger i TID, inte i arm, och `skala()` anropas bevisligen bara av `mata-monstret` —
+glasstornets kodväg genom libbet är oförändrad. Tolkat som maskinlast, **inte bevisat**.
+**Öppet:** ägarkön tom. **N4 är slut.** Nästa ⬜ är **N5**, därefter **N12**. **Bygget är INTE
+omgjort** — telefonen ser en äldre version tills någon kör `npm run build`.
+
+---
+
+## 2026-08-12 · v1.180.0 · Tre kö-punkter — och sonden hade fel innan spelet hade det
+
+**Byggt:** nattköns **N2b** och **N3** (två spel). Tre commits, en per spel.
+
+**`kugghjulen` — den korsade remmen (`3f3e380`, v1.178.0).** Kuggar vänder alltid riktningen,
+så en kedja av dem kan bara ge det håll pariteten råkar ge. Remmen är spelets enda del som kan
+**välja**: rak behåller hållet, korsad vänder det. Ett tryck mitt på den lagda remmen växlar,
+och X:et är det enda en tvååring behöver se. Rak rem = de **yttre** tangenterna, korsad = de
+**inre** med beröringspunkten på B speglad; omslaget måste byta båge samtidigt (rak lindar exakt
+ett varv totalt, korsad lindar 2π−2ψ om **båda** hjulen — uppmätt **360° → 464°**). `lank()` bär
+nu ett **tecken** i stället för en boolean. Vinstvillkoret är orört: flaggan hissas på |Δvinkel|,
+uppmätt **1,00 mot 1,00** rakt och korsat.
+⚠️ **Kön beskrev två saker som inte fanns i koden:** `_remTangenter` heter `remTangenter` och är
+en fri funktion, och `lank()` tog en boolean. Läs koden före planen — igen.
+**MÄTT** (`_korsprobe` **21/21**; HEAD når bara rad 3): målfaktor **−1,00 → +1,00** med oförändrad
+storlek, spannen skär vid **56 %** av bandet, ett riktigt `pointerdown` vänder den, träffytan
+100 px med 33 px luft. De tre KALIBRERINGS-raderna är gröna i **båda** armarna med identiska tal
+— det är beviset att mätaren stämmer och att den raka remmen är orörd.
+
+**`zackes-biltvatt` — slangens stråle är SPH (`6ae3db5`, v1.179.0).** Strålen var 28 ritade
+cirklar i en kon som tog tvärt slut vid `JET_LEN`: den föll inte, träffade ingenting, rann
+aldrig någonstans. Nu slår den i plåten, sköljer ner längs karossen och går ner i golvbrunnen.
+**Mekaniken är orörd** — vad som räknas som spolat avgörs fortfarande av `_inJet`.
+**MÄTT** (`_stralprobe` **12/12** i tre körningar): bilden når **331–338 px** där mekaniken
+rengör till 235, sammanhängande på **10,2–10,5 px** mot interaktionsradien 26, **128 partiklar
+på bilen → 0 efter 3 s**, taket toppar **68–70 %**. Kostnaden är inte mätbar vid CPU ×6 (60,0 fps
+båda) — att strypningen biter kontrollerades separat vid **×20** (32,1 mot 60,0).
+
+**`tvatta-djuret` — duschen (`bf7d57e`, v1.180.0).** Fyndet är mätt, inte tyckt: sprayen var
+**24 droppar på 4 px** radie, **6,8 px** isär, i blekblått mot lerans brunt — långt inom en
+metaboll-radie men ritade var för sig, alltså i praktiken **osynliga**. Halva spelets loop syntes
+inte. Sköljningen lever nu i **samma vatten** som bilden (utlöses av partiklar som kommer in i
+`_silh` — samma ellipser som `_onAnimal`).
+❌ **Djuret är INTE ett hinder, och det är ett mätt beslut.** Barnet håller munstycket **mot**
+fläcken, alltså inuti kroppen; en partikel som föds inuti ett hinder kastas ut till dess yta i
+samma steg, så vattnet teleporterades upp på ryggen och sköljningen dog: **248 bildrutor** utan
+hinder (= HEADs egen siffra) mot **över 1 200** med.
+**Svårigheten är oförändrad och det är nu ett KRAV i sonden**: strålens täthet *är* spelets
+svårighet (1/steg gav 506 mot HEADs 248), och `_inneFore` måste nollställas per plats vid
+födseln (**424 → 239**). Slutresultat **239/242/240 mot HEADs 248**, inom 4 %.
+❌ **`pizzabageriet` struken ur B1** — premissen höll inte: såsen är en fylld cirkel i
+pizzabottnens ritning, inte något barnet häller. **B1-listan är därmed tom.**
+
+**Passets lärdom: sonden hade fel innan spelet hade det — sex gånger.** Fyra i `zackes-biltvatt`
+(en rak mätaxel kan inte mäta en ballistisk båge · partikelfarten mäter grannarnas bromsning,
+inte räckvidden, och zonen bär tillbakastänk · en **verlet-punkt får aldrig teleporteras**, det
+matar in fart och samma mätning gav 340/123/47/0 px · munstycket stod inuti målets kollisions-
+bubbla) och två i `tvatta-djuret` (skummet låg utanför duschens räckvidd i **båda** armarna ·
+duschen hölls i luften i stället för mot djuret). Plus ett falskt grönt: "centrerad på siktlinjen
+· 0,0 px" var grönt för att bandet var **tomt** (`nv ? sidled/nv : 0`) — varje kvot behöver ett
+villkor på sin nämnare. Och: **frys förloppet** innan geometri mäts, annars blir bilen ren och
+kör ut mitt i mätningen.
+
+**Commits:** `3f3e380` feat(kugghjulen) korsad rem · `6ae3db5` feat(zackes-biltvatt) SPH-stråle ·
+`bf7d57e` feat(tvatta-djuret) duschen som vätska.
+**Kontroll:** `check` **0 fel / 0 varningar** · `test:all` **72/72 i två svep per spel** ·
+`_korsprobe` 21/21 · `_stralprobe` 12/12 · `_duschprobe` 10/10 · `_remprobe` 17/17,
+`_grenprobe` 18/18, `_vevprobe` 13/13 orörda. Röstkön tom (2 nya klipp genererade).
+⚠️ Ett svep visade en **engångs** `tom-bild-omtagen` med förlorad GL-kontext på `tvatta-djuret`.
+`_ab.sh` över hela sviten, **3 rundor växelvis**, gav 72/72 rent i **båda** armarna — ingen
+attribuerbar skillnad. Notera att A/B-räknaren bara räknar **fel**-nivå, så den enskilda
+varningen är inte direkt attribuerad, bara icke-reproducerad i sex fulla svep.
+**Öppet:** ägarkön tom. **N3 är slut** (alla kandidater byggda eller avskrivna). Nästa ⬜ är
+**N4** — `mjukkropp` till `mata-monstret`, och `pruttbad` där såpbubblornas storleksinvändning
+ska prövas först. Därefter N5 · N12. **Bygget är INTE omgjort** — telefonen ser en äldre version
+tills någon kör `npm run build`.
+
+---
+
+## 2026-08-12 · v1.177.0 · Sållet räknar noder — det säger inte VILKA
+
+**Byggt:** nattköns **N10** pass 10. Två kandidater prövades och **båda lämnas orörda**, med
+mätning bakom besluten — plus en **rättelse** av ett påstående jag skrev i förra passet.
+
+**`folj-sparet` var ett falskt fynd.** Sållet gav 4,6 px i tre svep, bara 2 av 30 noder — en
+stark kandidat. Men §4:s "[Medium] Levande figur man bryr sig om" visade sig **helt byggd**:
+ansikte i `_paintFigure`, `_lookEager()` lutar figuren mot nästa väntade fotspår, `_hopRabbit`
+jublar med "!" + squash-and-stretch. Struken på en **mätning**, inte en kodläsning — `vart-tog-
+det-vagen` bar hela sin reaktionstabell i koden och var ändå död i sex veckor. `_ivrigprobe`
+4/4: lutningen **0 → 0,11 rad** med `_eagerTween` levande, åt rätt håll, **4,4 px** vid figurens
+ytterkant. **Det är hela det tal sållet såg.** Fjortonde redan-byggda §4-punkten, den första som
+bevisats byggd med mätning. `spara-linjen` (7,2 px i tre svep) lämnas också: ingen öppen [Quick]
+träffar stillheten, och en ritsida som står still medan barnet funderar är rätt, inte en brist.
+
+**RÄTTELSE.** I förra passet skrev jag att de tre noder som rörde sig i `kla-efter-vadret` "var
+de fallande regn-/snöflingorna". Det var ett **antagande framställt som en mätning**, och det
+var fel. Nya `_vilkaprobe.mjs` namnger dem: **vädersymbolens glow-puls** (`_glowPulse`, en
+oändlig yoyo på en 184 px cirkel) plus symbolen själv — en dekorativ bricka högst upp. Fyndet
+står kvar och blir starkare: det enda som levde var en dekoration, medan karaktären stod stilla.
+Rättat i `kla-efter-vadret.md`, i den här filen och i `_ryserprobe.mjs`. Commit-meddelandet i
+`9e64e8f` bär felet kvar — historik skrivs inte om.
+
+**Passets lärdom: när en sond rapporterar ett ANTAL är identiteten på det den räknade fortfarande
+omätt.** Två spel med nästan identiska tal fick motsatt svar — 4,2 px var ett äkta fynd (en
+dekoration rörde sig, karaktären inte) och 4,6 px ett falskt (figuren själv rörde sig, korrekt).
+En summerad **rörlig yta** prövades som skiljelinje och **förkastades med mätning**: den ger
+53 482 px² för det döda spelet mot 10 969 px² för det levande — precis fel ordning — och den
+dubbelräknar container + barn. Frågan "lever scenen?" går inte att svara på med ett skalärt tal.
+`_stillaprobe` är därför oförändrad, men bär nu en varning som pekar på `_vilkaprobe`.
+
+**Commits:** `8b5f818` docs(N10 p10) folj-sparet redan byggd + rättelsen · `88dfed2` sessionslogg
+· `72054a1` `_stillaprobe` + `_vilkaprobe` in i CLAUDE.md:s verktygstabell och en ny tyst fälla
+(sållet hade styrt urvalet i fyra pass utan att stå i CLAUDE.md alls).
+**Kontroll:** `check` 0 fel / 0 varningar · `_ryserprobe` 7/7 · `_ivrigprobe` 4/4 ·
+`npm run test kla-efter-vadret folj-sparet` 2/2 gröna. Ingen speländring i passet.
+**Öppet:** ägarkön tom. **N10:s stillhets-åder är i praktiken uttömd** — sållet hittade två
+äkta tableauer (båda byggda i pass 9) och resten av svansen är antingen episodisk eller
+korrekt stilla. Nästa pass bör välja [Quick] efter en ANNAN mätbar signal, eller ta **N12**.
+
+---
+
+## 2026-08-12 · v1.176.0 · Två svep hade skickat passet till fel spel
+
+**Byggt:** nattköns **N13** (läsning, ingen speländring) + **N10** pass 9 (två spel, en commit
+var). Tre commits.
+
+**N13 — underlaget för V10b:s nästa kund (`5c770b6`).** Fyra kandidater lästa mot koden med de
+två `flipperspel`-reglerna som filter: **den rörliga kroppens studs är ett GOLV**, och **en yta
+som redan lägger på en egen impuls får inte också få `studs`**. Filtret **ändrade
+rangordningen** kön gissat. Starkast är `bowling`, och fyndet är inte studsen: **kantstöden är
+spelets TILLGÄNGLIGHETSHJÄLP** — "Kantstöd PÅ" finns för att klotet ska studsa in mot käglorna
+i stället för i rännan — och de deklarerar 0,75 men studsar effektivt på klotets **0,18**.
+Samtidigt matas `predictTrajectory` med **0,75 när kantstödet är på**, så den prickade
+banförhandsvisningen lovar drygt **4×** den studs klotet får, i ett spel vars filhuvud påstår
+att siktet stämmer "till ~några px" — och bara för de barn som slår på hjälpen. `spindelhjalten`
+är äkta men litet (0,86 → 1,00, ingen egen impuls). `rulla-bollen-hem` faller nästan helt på de
+två reglerna. Två pricklinje-avvikelser hittades på vägen som **inte** är V10b och är nedskrivna
+separat. Kvar till ägaren: valet mellan `bowling` och `spindelhjalten`.
+
+**`plantera-fron` — maskar som känner nedslaget (v1.175.0).** Spelet var sållets enda äkta
+tableau: 17 noder, **0** i rörelse, **0,0 px i tre svep av tre**. Nu kikar 1–2 **ritade**
+daggmaskar upp ur egna gånghål (docen skrev 🪱 — en emoji som hela föremålet är ett P0-brott).
+Fyra saker gör dem till djur i stället för dekor: ett frö som plumsar ner **skrämmer** dem,
+kraften **avtar med avståndet**, nerdykandet är **snabbare** än uppdykandet (rädsla mot
+nyfikenhet), och antal/sida/avstånd slumpas per runda.
+**MÄTT** (`_maskprobe`, 9/9 mot HEADs 3/4): rörelse **103–122 px** mot HEADs 0,0 · hel kikcykel
+**0,00 → 0,95** · fall **0,71 → 0,43** efter ett *riktigt* drag genom DragController ·
+skrämsel **0,63 vid 157 px mot 0,26 vid 312 px** · 0 av 662 bildrutor med kropp under marken.
+
+**`kla-efter-vadret` — Elvira känner vädret (v1.176.0).** 84 noder, **3** i rörelse, 4,1–4,2 px
+i tre svep — och de tre var vädersymbolens glow-puls plus symbolen själv, en dekorativ
+bricka högst upp. Spelets enda karaktär, och hela dess
+anledning, stod blick stilla. Obehaget är nu ett **löpande tillstånd**: andelen ofyllda zoner,
+uttryckt med **vädrets egen takt** (snabbt köldskalv i snö, hukning i regn, trög värmevaggning
+i sol). Det avtar per plagg och är **borta** när hon är lagom klädd — så "Nu blir jag lagom varm
+i snön!" blir något barnet *ser*. Skalvet ligger i ett **inre lager**; `_figure` ägs av gsap.
+**MÄTT** (`_ryserprobe`, 7/7 mot HEADs 1/2): **9,6 px** oklädd i snö · **9,6 → 6,4 px** efter
+ETT riktigt drag (0,67 mot lagens väntade 2/3) · **6,4 → 17,2 px** efter ett opassande plagg ·
+köldskalv **6,4 vändningar/s** mot värmevaggningens **0,8**.
+
+**Passets lärdom: tre svep är inte en försiktighetsmarginal — det avgjorde vilket spel som
+byggdes.** `kla-pa-nallen` mätte **0 px i svep 1 OCH svep 2**, ett lika starkt tableau som
+`plantera-fron`, och **45,4 px i svep 3**. Den har fallande väderpartiklar, alltså episodisk
+rörelse — precis sondens dokumenterade begränsning. Med två svep hade passet byggt fel spel.
+
+**Och tre fel som alla var gröna i testet.** ① Maskarna låg först på FASTA gläntor, men på
+**nivå 0 finns bara ETT hål**, så närmaste mask hamnade 471 px bort — utanför räckvidden 420.
+Skrämseln var död på precis den nivå en tvååring spelar. **Placera relativt spelets egna mål,
+aldrig på koordinater som råkar stämma på en nivå.** ② Maskens kropp hade ingen klippning och
+stack ut under sitt eget hål — **bara skärmdumpen såg det**. ③ Elviras första utslag gav i SOL
+4,6 px, alltså **mindre än den dekorativa vädersymbol scenen redan rörde**; tableauet hade
+varit halvt löst.
+**Mät din egen effekt mot det som redan rörde sig**, inte mot noll. Sonden har nu en rad för
+varje väderslag. Dessutom: en `rotation` på ett lager vars barn ritas i absoluta koordinater
+kring x=640 svänger figuren i en cirkelbåge kring scenens origo — pivoten hör hemma vid fötterna.
+
+**Commits:** `5c770b6` docs(V10b) underlag för nästa studs-kund · `0fdfc44` feat(plantera-fron)
+maskar i jorden · `9e64e8f` feat(kla-efter-vadret) Elvira känner vädret.
+**Kontroll:** `check` 0 fel / 0 varningar · `_maskprobe` **9/9** (HEAD 3/4) · `_ryserprobe`
+**7/7** (HEAD 1/2) · `test:all` **72/72 i två svep** med identiska loggfynd — bara de kända
+`saknat-ljudklipp` (MOSS nere, ⏸). Röstkön tom (inga nya repliker).
+⚠️ Vakter, inte bevis: `_maskprobe` 6–9 och `_ryserprobe` 5–6 är gröna på HEAD också.
+**Bygget är INTE omgjort** — telefonen ser en äldre version tills någon kör `npm run build` +
+`scripts/start.ps1`.
+**Öppet:** ägarkön tom. **N10 fortsätter** — sållets nästa stabila kandidater är `folj-sparet`
+(4,6 px i tre svep) och `spara-linjen` (7,2 px i tre svep). Nattkön i övrigt: **N12**.
+
+---
+
+## 2026-08-12 · v1.173.0 · Sållet valde spelen, och docen höll med
+
+**Byggt:** nattköns **N10**, åttonde passet. Två spel, en commit var. Första passet där båda
+punkterna valdes av en **mätning** i stället för av docens ordning — och båda visade sig stå
+kvar som öppna [Quick] i §4, alltså två oberoende källor som pekade åt samma håll.
+
+**Metoden som fungerade:** kör `_stillaprobe` i **tre svep**, ta bara de spel vars tal håller i
+alla tre, och läs kolumnen `storsta utslag` — inte antalet rörliga noder. Det var precis förra
+passets lärdom använd på riktigt.
+
+**`djurorkester` — dånet sprider sig till grannkorten (v1.172.0).** 24 av 33 noder "rörde sig",
+men största utslaget var **7,2 px, identiskt i tre svep**. Scenen stod i praktiken still: sex
+öar som inte visste om varandra. Nu skälver grannkorten när ett djur sjunger — och skälvet är
+**fysiskt, inte dekorativt**, vilket är hela skillnaden mot en slumpvis vibration: utslaget
+avtar med avståndet (ett dån sprids och tunnas ut), en **djup** röst skakar grannarna mer än en
+ljus och svänger långsammare (svängningstalet är djurets egen ton nedskalad — ko ≈ 9,3 Hz,
+anka ≈ 18,7 Hz, basen bär), och det finns ett **tak** så ett barn som trummar på alla sex
+korten får en scen som lever, aldrig en som skakar sönder.
+Skälvet ligger i `_inner.x`: kortet självt bär `hitArea` (P0), `_inner.scale` skrivs av
+takt-pulsen och `_inner.rotation` av kören — x är den enda fria kanalen, och den drivs i
+tickern så den aldrig slåss med de två andra.
+**MÄTT** (`_skalvprobe.mjs`, 7/7 mot HEADs 4/7): 5 av 5 grannar skälver (HEAD 0) · **6,7 px
+närmast (306 px bort) mot 3,8 px längst bort (775 px)** · ko 6,7 mot anka 3,2 px ·
+grannkortens egen rörelse **0,00 px** · 18 tryck i rad gav som mest 10,3 px mot taket 11.
+
+**`saftbaren` — bubblor i glaset (v1.173.0).** Repots **största scen: 679 noder**, och bara 13
+rörde sig — största utslaget **1,1 px**. Nu pärlar saften i ett glas som står på sin plats.
+Fyra villkor gör bubblorna till kolsyra i stället för prickar på skärmen: bara ett glas som
+**står stilla** bubblar (bubblor i ett glas som *bärs* hade läst som att saften kokar av
+rörelsen — tvärtemot §4:s egen formulering) · takten skalas med mängden saft · bubblan spricker
+**vid ytan**, aldrig ovanför den · ett tak per glas. Ytan läses ur `_stats`, som redan gick
+igenom varje partikel; ett eget svep hade kostat 620 × 4 avläsningar per bildruta för samma
+svar.
+**MÄTT** (`_bubbelprobe.mjs`, 6/6 mot HEADs 1/6): 36 bubblor på 6 s · **1 149 av 1 172 steg
+uppåt** · **0** bildrutor med en bubbla ovanför ytan · 0 i det tomma glaset · **0**
+bubbel-bildrutor medan glaset bars.
+
+**Passets lärdom: en röd rad kan vara sondens ORDNING mot tickern — och då rättar man båda
+ändarna, inte kravet.** `_bubbelprobe` satte `held` mitt i en bildruta och krävde att bubblorna
+var borta *innan tiden gått framåt*. Det enda den raden mätte var sondens egen registrering mot
+spelets tick. Sonden ger nu spelet en bildruta, **och** spelet tömmer bubblorna direkt i
+`_onGlassDown` — vägen ett riktigt finger tar. Tröskeln rördes inte.
+
+**Och en trettonde redan-byggd punkt:** `bowling` (2,4 px i tre svep) var en lika stark
+kandidat, men dess §4-punkt visade sig byggd — käglorna har ansikten OCH pupiller som riktas
+mot klotet och spärrar upp när det närmar sig.
+
+**Commits:** `918dfb8` feat(djurorkester) grannkorten skälver · `392517a` feat(saftbaren)
+bubblor i glaset.
+**Kontroll:** `check` 0 fel / 0 varningar · `_skalvprobe` **7/7** (HEAD 4/7) · `_bubbelprobe`
+**6/6** (HEAD 1/6) · `test:all` **72/72**, inga nya loggfynd — bara de kända
+`saknat-ljudklipp` (MOSS nere, ⏸). Röstkön tom (inga nya repliker i passet).
+⚠️ I `_skalvprobe` är raderna 4/5/6/7 **vakter, inte bevis** (gröna på HEAD, där ingenting rör
+sig). Bevisen är 1, 2 och 3. `_bubbelprobe` har bara en sådan rad (konsolfel).
+**Bygget är INTE omgjort** — telefonen ser en äldre version tills någon kör `npm run build` +
+`scripts/start.ps1`.
+**Öppet:** ägarkön tom. **N10 fortsätter.** Nattkön i övrigt: **N12** · **N13**.
+
+---
+
+## 2026-08-12 · v1.171.0 · Sållet som mäter mekanismen, inte fenomenet
+
+**Byggt:** nattköns **N10**, sjunde passet. Två spel, en commit var — plus en ny **urvalssond**
+som ändrade hur nästa pass ska välja spel.
+
+**Först ett verktyg: `scripts/_stillaprobe.mjs`.** Frågan "vilket spel står stilla när barnet
+inte gör något?" gick inte att svara på. Sonden läser varje nods VÄRLDSLÄGE varje bildruta i
+spelets egen `ctx.stage` (inte skalet, inte det delade `fxLayer`) och rapporterar hur många som
+rör sig. Körd över hela registret: **`vandkort` var det enda äkta tableauet av 63 spel.**
+
+**`vandkort` — gyllene kort, ETT kort och aldrig ett par (v1.170.0).** 48 noder rör sig under
+utdelningen och sedan **0** medan barnet studerar brädet — i just det spel där barnet tittar
+längst på en stillastående bild. §4 bad om "ett sällsynt glittrande kort vars PAR ger extra
+gnistregn". **Det hade tagit bort minnesleken:** ett glittrande par går att matcha på synintryck.
+Nu är bara **ett** kort gyllene, tvillingen är vanlig — guldet pekar ut ett kort värt att minnas
+och skapar ett mål i stället för att lösa uppgiften. Aldrig på nivå 0 (två par = fyra kort).
+Och skimret **flyttar ingenting**: i ett minnesspel är kortets plats informationen, så livet
+ligger helt i alfan och i skimmerbandets egen x, klippt mot kortets form.
+**MÄTT** (`_guldprobe.mjs`, 10/10 mot HEADs 5/10): mest 1 gyllene kort per bräde över 120
+bräden · 0 gyllene par · 0 av 24 nivå-0-bräden · 45 % av bräden på nivå 1+ · kortets egen
+rörelse **0,00 px** medan bandet vandrar 372 px · guldfirandet fyrar 1 gång på ett guldpar och
+**0** på ett vanligt. Ny replik med genererat klipp.
+
+**`tarta-i-ansiktet` — grädden rinner, med ett tak (v1.171.0).** Klumparna satt frusna exakt där
+de träffade: sex tårtor gav sex stillastående cirkelhögar. Nu har varje klump en egen fart, ett
+eget tak och ett spår som ligger kvar vid träffpunkten medan klumpen glider. **Taket är
+designen, inte en detalj** — grädde som rinner obehindrat blir ett mål som *flyr undan svampen*,
+och barnet hade jagat kladdet i stället för att torka det. Taket klamras dessutom mot hakan.
+**MÄTT** (`_dropprobe.mjs`, 7/7 mot HEADs 2/7): klumparna rinner 36,6–51,3 px (HEAD **0,0** för
+alla) · små 39,6 px mot stora 45,2 px · 0 passerar sitt eget tak · lägsta klump y = 105,0 mot
+hakans 105 · `_clean` 0,00 → 0,72 när svampen hålls där klumpen är NU.
+
+**Passets egentliga lärdom: `_livprobe` mäter MEKANISMEN, inte FENOMENET — och jag skrev in det
+för starkt i förra passet.** Den gav **0** på sex spel i rad, och det lästes först som "sex döda
+spel". Fem av dem har egen vilorörelse i sin egen ticker (`Math.sin`, `breathe()`); `_livprobe`
+räknar bara noder som bär en `feedback.liv()`-tween. Förra sessionens rad *"`_livprobe` är
+repots snabbaste urvalssåll"* är alltså **rättad** — den svarar på "använder spelet
+`feedback.liv()`?", ingenting annat. `_stillaprobe` är sållet.
+
+**Och sållet bär sin egen begränsning, mätt:** vilofönstret är ETT stickprov på 1,4 s, så spel
+med EPISODISK vilorörelse läses helt olika beroende på fas — `tarta-i-ansiktet` mätte **1,0 px**
+i ett svep och **34,4 px** i nästa, `kittla-figuren` 4,3 → 36,3 px. Bara ett tal som är **0 i
+flera svep** är ett fynd. Kolumnen "antal rörliga noder" är dessutom det ointressanta talet:
+40 % av noderna som rör sig 1 px är ett tableau. **Största utslaget** avgör om något syns.
+
+**Två visuella omtag som bara skärmdumpen såg**, båda med alla sju tal gröna: gräddstrimman utan
+kontur var osynlig (46 px uppmätt strimma, ingenting i bilden), och som avsmalnande KIL med rak
+ovankant läste den som en **tratt som står ovanpå** klumpen i stället för något som runnit ur
+den. En **kapsel** (rundad topp, jämn bredd) läser rätt.
+
+**Och en falsk grön rad till, i HEAD-armen:** `d > NaN` är alltid falskt, så taket-håller-raden
+var grön på ett spel utan tak. Sonden felar nu explicit när villkoret inte går att utvärdera.
+
+**Commits:** `7802013` feat(vandkort) gyllene kort · `42974ea` feat(tarta-i-ansiktet) grädden
+rinner.
+**Kontroll:** `check` 0 fel / 0 varningar · `_guldprobe` **10/10** (HEAD 5/10) · `_dropprobe`
+**7/7** (HEAD 2/7) · `_stillaprobe` över hela registret · `test:all` **72/72**, inga nya
+loggfynd — bara de kända `saknat-ljudklipp` (MOSS nere, ⏸). Röstkön tom.
+⚠️ I båda sonderna är flera gröna rader **vakter, inte bevis** (gröna på HEAD också, där
+mekaniken inte finns): `_guldprobe` 1/2/3/9/10 och `_dropprobe` 4/7.
+**Bygget är INTE omgjort** — telefonen ser en äldre version tills någon kör `npm run build` +
+`scripts/start.ps1`.
+**Öppet:** ägarkön tom. **N10 fortsätter.** Nattkön i övrigt: **N12** · **N13**.
+
+---
+
+## 2026-08-12 · v1.169.0 · "Redan byggd" är inte samma sak som "fungerar"
+
+**Byggt:** nattköns **N10**, sjätte passet. Två spel, en commit var, egen sond per punkt,
+plus en snubbeltråd i `check.mjs`.
+
+**`vad-forsvann` — hyllan lever medan barnet memorerar (v1.167.0).** `_livprobe` mätte spelet
+på **noll** levande objekt: raden stod blick stilla i visa-fasen, alltså läste den som fyra
+utklippta kort — i ett *minnesspel*, där hela poängen är att titta länge på just den raden.
+Varje motiv bär nu en egen vilorörelse ur tabellen `LIV`: ballongen driver högt och långsamt
+(bob 7 / 3,0 s), bilen guppar knappt men **vaggar på hjulen**, fjärilen fladdrar (bob 6 /
+1,5 s). `fot: true` flyttar rotationens centrum ner till kontaktskuggan, så det som STÅR på
+planet vaggar kring sina fötter i stället för att svänga i luften; pivån kompenseras av
+positionen så viloläget är exakt oförändrat (kontrollerat mot en HEAD-skärmdump).
+**Rörelsen ligger i ett INRE lager** — `slot` bär `hitArea`, och P0 säger att träffytan aldrig
+får vandra. Det är förra passets `snal-snappyta` igen, och den här gången i förebyggande syfte.
+**MÄTT** (`_hyllprobe2.mjs`, 9/9 mot HEADs 5/9): 3 av 3 saker guppar (HEAD 0) · spridning
+10,0 px mellan motiven (HEAD 0,0) · fasspridning 0,35 · slotens egen rörelse **0,00 px** ·
+skugga, platshållare och luckans lager **0,00 px** · 0 tweens efter exit.
+
+**`vart-tog-det-vagen` — leksaks-reaktionerna hade varit DÖD KOD i sex veckor (v1.168.0).**
+Punkten stod som öppen i §4 och såg ut att bli passets *elfte* "redan byggd"-fall:
+`_reactPrize` fanns, med hela tabellen på plats. Den byggdes 2026-07-02 när leksaken var en
+`Text` vars `.text` byttes varje runda, och valde grenen med **`switch (p.text)`**. I
+`a7cf730` (2026-08-06) blev leksaken en RITAD ikon i en `Container` (P0 ASSETS) — och då är
+`p.text` `undefined`. Sedan dess föll **alla tio** leksakerna till `default`: samma generiska
+puls, varje gång, i sex veckor. Inget konsolfel, inget loggfynd, grönt test hela tiden.
+**MÄTT** (`_leksaksprobe.mjs`, **10/10 mot HEADs 1/10**): 10 av 10 gjorde bara en generisk puls
+på HEAD (`skala +0,18`, dy/dx/rot **0**) → 0 av 10 nu, med **fem skilda signaturer**: grodan
+dy 80 px · bilen dx 80 px · ballongen dy 60 px utan sidled · stjärnorna 6,283 rad (ett helt
+varv) · frukten skala +0,32 utan att flytta sig · djuren 0,119 rad vingel.
+
+**Passets egentliga lärdom: "redan byggd" är inte samma sak som "fungerar".** Sex av åtta
+kandidater var redan byggda (`fallskarmen` dinglande ben · `studsa-ner` myntkruka + gapande
+ficka · `plantera-fron` fuktig jord · `valpens-bajs` tunnans lock och fyllnad ·
+`skuggmatchning` `_reactFigure` · `mata-monstret` växande mage) — och den sjunde var byggd
+**och död**. Snabbmetoden från förra passet, "greppa efter mekanismen, inte efter orden",
+hittar koden men säger ingenting om att den **kopplas in**. Två saker följer:
+1. **`_livprobe <id>` är det snabbaste urvalssållet som finns.** Den svarar på "lever det här
+   spelet?" i tal, utan att någon läser en rad kod. Den pekade ut `vad-forsvann` direkt.
+2. **Ny snubbeltråd i `check.mjs`** som felar på `switch (x.text)` och `x.text === '…'` i
+   spelkod. Verifierad åt båda hållen: tyst på hela repot (0 fel), och löser ut på exakt
+   uttrycket när buggen återinförs. Ett första försök tog även `.label` och gav **59
+   falsklarm** — `.label` är matter.js kanoniska kropps-id här.
+
+**Och sonden hade två egna fel först** (nionde gången): en skaltröskel som jämförde mot `1,25`
+när måttet var en *skillnad* (0,32), och — allvarligare — **spelet spelar vidare av sig självt**.
+`_finishRound` startar en ny runda 1,3 s efter fyndet och flyttar då leksaken till en ny
+kopp-plats; sonden mätte den förflyttningen och rapporterade `dx 240 px` på kycklingen. Regeln
+generaliserar: **mäter du en effekt på ett objekt som spelet självt rör, frys förloppet först.**
+
+**Commits:** `42c7a82` feat(vad-forsvann) hyllan lever · `951392b` fix(vart-tog-det-vagen)
+döda leksaks-reaktioner · `09f1760` chore(check) snubbeltråd mot nyckel ur nod-egenskap.
+**Kontroll:** `check` 0 fel / 0 varningar · `_hyllprobe2` **9/9** (HEAD 5/9) · `_leksaksprobe`
+**10/10** (HEAD 1/10) · `test:all` **72/72**, inga nya loggfynd — bara de kända
+`saknat-ljudklipp` (MOSS nere, ⏸). Röstkön tom (inga nya repliker i det här passet).
+⚠️ De gröna raderna 2/3/6/8 i `_hyllprobe2` är **vakter, inte bevis** — de är gröna på HEAD
+också, eftersom ingenting rörde sig där. Bevisraderna är 1, 4, 5 och 7.
+**Bygget är INTE omgjort** efter dagens ändringar — telefonen ser en äldre version tills någon
+kör `npm run build` + `scripts/start.ps1`.
+**Öppet:** ägarkön tom. **N10 fortsätter** (brunnen är inte tom). Nattkön i övrigt: **N12** ·
+**N13**.
+
+---
+
+## 2026-08-12 · v1.165.0 · Fem gröna tal som inte mätte någonting
+
+**Byggt:** nattköns **N10**, femte passet. Två spel, en commit var, egen sond per punkt.
+
+**`sortera-skrap` — full-tunna-känsla (v1.164.0).** Saken försvann bakom tunnan och lämnade
+**inget spår**: en tunna såg likadan ut efter tio saker som före den första. Nu lägger varje
+svald sak en klump i tunnans hals — i **sakens egen färg** — och lasten **trycker upp locket**
+(8 px per sak, tak vid 6 = 48 px). Tyngden ligger i guppet: nästan tom **5,9 px / 0,32 s**, full
+**15,6 px / 0,65 s**, och tunnan står **2,6 px lägre** när den lugnat sig (skuggan +12 %,
+popp-skalan krymper — en full tunna orkar inte hoppa). Vid rundslut **rapar** varje tunna som
+ätit: locket lättar 26 px och landar 0,0 px från lastens nya vilo-höjd.
+
+**`tvatta-djuret` — gömda fynd under leran (v1.165.0).** En gömma per djur (**6 av 6** nivåer,
+aldrig två), alltid under **torr** lera — under kladd hade fyndet legat bakom ett hinder i
+stället för under en upptäckt — och aldrig innanför den lerfria ansiktsrutan. Gömstället
+**glimmar** var 2,4:e sekund, så fyndet går att *hitta*. Skrubbas klumpen bort stiger ett ritat
+föremål (⭐/❤️/💎/🐚) med ett sken bakom sig och far iväg på **2,1 s** — samma regel som
+guldfrukten: ett ögonblick som far förbi är ingen belöning. Ny replik med genererat klipp
+(`npm run voice`: 1 made, 0 failed — kön är tom).
+
+**Passets egentliga lärdom: FEM gröna tal i de två sonderna mätte ingenting, och alla fem var
+gröna på HEAD där effekten inte fanns.** Det är samma sort som förra passets tre mätfällor, men
+i motsatt riktning — förra gången ljög två *röda* mätsätt, den här gången ljög fem *gröna*.
+1. **En isolering som stannar före roten mäter skalet.** "Dölj allt utom lastlagret" dolde bara
+   inuti tunnan → **16 320 px i BÅDA armarna** (appens bakknapp). Isoleringen måste gå hela
+   vägen upp: dölj varje syskon på varje nivå till roten.
+2. **En isolering som MISSLYCKAS ger en bild av hela scenen.** På HEAD fanns inget `_findLayer`,
+   isoleringen returnerade `false`, och skärmdumpen blev hela spelet — grönt av sig självt.
+   Misslyckad isolering måste räknas som **0**, aldrig som en mätning.
+3. **En livslängd mätt från fel nollpunkt.** Föddes inget fynd blev `performance.now() − 0`
+   = **15 116 ms**, långt över kravet på 1,5 s. Kravet är nu både att förloppet *startade* och
+   att tiden ligger i ett spann.
+4. **Spelets egen hjälp målar i samma lager som effekten.** Idle-vinken och auto-hjälpen lägger
+   ripple/puff i `fxLayer` efter 6 respektive 9 sekunders stillhet. Båda räknarna måste
+   nollställas genom hela mätfönstret.
+5. **`fxLayer` är DELAT.** Badets stigande tvålbubblor lägger egna puffar där varje bildruta,
+   och lagret bär ett återanvänt `ParticleContainer` med **parkerade** partiklar: **1 988 px**
+   målades på HEAD helt utan tell, och svängningen över hela lagret var 3 118 px av bara
+   bubblor. Mätningen sker nu i en **ruta runt gömstället**, och bara svängningen räknas
+   (1 056 px mot 0 på HEAD).
+
+**Och bilden ändrade bygget två gånger, båda gångerna med alla tal gröna.** `sortera-skrap`:
+**himlen syntes mellan det upplyfta locket och högen** — klumparna täcker bara mitten, så en
+full tunna såg *trasig* ut; en **hals** som växer med lasten ger locket något att vila på, och
+den måste vara mörkare än locket (0,40 mot svart) annars smälter de ihop till en hög hatt.
+`tvatta-djuret`: en **röd hjärtform mot brun lera** var mätbart synlig men försvann i bruset →
+sken bakom fyndet (tre ringar, inte en radiell gradient — den kan inte ha genomskinlig mitt)
+och 132 px i stället för 96.
+
+**Urvalet igen: tre av sex kandidater var redan byggda** och är nu strukna i §4 —
+`sortera-skrap` "Lekfullare hög" + "Materialspecifik SFX" (båda 2026-07-02, loggade i §5 men
+aldrig strukna i §4) och `tvatta-djuret` "Ansiktet alltid synligt" (`FACE_R = 82`). Tionde till
+tolfte gången docen ligger efter koden.
+
+**Och en tredje commit som SVITENS LOGG hittade, inte sonden (v1.166.0).** Första
+`test:all` var 72/72 grön men bar loggfyndet `snal-snappyta` på `sortera-skrap`: ett släpp
+**2 px** utanför snäppradien. Orsaken var min egen tyngdkänsla — `DragController` mäter
+avståndet till **`target.view.y` när saken släpps**, så en tunna som guppade upp till 13 px
+flyttade undan sitt eget släppmål mitt i ett släpp. Sättningen ligger nu i en **inre
+container**: `bin.y` står still (mätt 545,0 genom hela lasten) och träffytan, som sitter på
+`bin`, står därmed också still — P0: ytan får aldrig hoppa runt. Sättningens tal är
+oförändrade. **Regeln gäller varje dragspel** och står nu i CLAUDE.md: animera i ett BARN,
+aldrig i noden som `addTarget` fick.
+
+**Commits:** `23f9c84` feat(sortera-skrap) lasten syns · `338ee43` feat(tvatta-djuret) gömda
+fynd · `91f2dd2` fix(sortera-skrap) guppet till ett inre lager · `d6691b4` docs(claude) de två
+fällorna ovan.
+**Kontroll:** `check` 0 fel/0 varningar · `_tunnprobe` **14/14** (HEAD 6 röda) · `_fyndprobe`
+**10/10** (HEAD 9 röda) · `test:all` **72/72 i två fulla svep**, och i det andra är
+`snal-snappyta` borta och inga `tom-bild-omtagen` alls. Kvar i loggen: bara de tre kända
+`saknat-ljudklipp` (MOSS nere, ⏸). Röstkön tom.
+⚠️ **V14b syntes i FÖRSTA svepet på `tvatta-djuret`** (`tom-bild-omtagen ×2 — gl-kontext
+FORLORAD`, räddad av omtagningen) och **inte alls i det andra**. Tredje svepet i rad med
+signaturen på ett nytt spel — den hör till sviten (fyra parallella Chrome med WebGL), inte
+till spelet. Felsök inte `tvatta-djuret` för det.
+**Bygget är INTE omgjort** efter dagens ändringar — telefonen ser fortfarande en äldre version
+tills någon kör `npm run build` + `scripts/start.ps1`.
+**Öppet:** ägarkön tom. **N10 fortsätter.** Nattkön i övrigt: **N12** · **N13**.
+
+---
+
+## 2026-08-12 · v1.163.0 · Tre mätsätt på samma effekt, och de två första ljög
+
+**Byggt:** nattköns **N10**, fjärde passet. Två spel, en commit var, egen sond per punkt.
+
+**Urvalet igen: sex av åtta kandidater var redan byggda.** `fyrverkeri`s "Smäll-blixt +
+mikroskak" (byggd 2026-08-05, §5 loggade den, §4 ströks aldrig) · `golvet-ar-lava`s "Lava som
+reagerar" (alla tre delarna: stänk vid stenen, ringar vid landning, mikroskak skalad med
+fallhöjden) · `gungan`s kompis i kö · `kla-pa-nallen`s poserings-ögonblick · `folj-sparet`s
+gömda fynd · `knuffa-tornet`s klossansikten · `gravmaskinen`s hydraulik-känsla. Listan i
+nattköns N10 är utökad med alla verifierade fall.
+
+**`fanga-frukten` — guldfrukten (v1.162.0).** Alla frukter var värda exakt lika mycket. Nu
+finns en guldfrukt i **~1 på 9 släpp** (uppmätt 96 av 900 = 10,7 %) som fyller **två** platser
+i mätaren, gnistrar hela vägen ner och faller långsammare (**175 px mot 211** på 70 bildrutor,
+samma storlek) — ett sällsynt ögonblick som far förbi för fort är ingen belöning, det är en
+miss barnet inte kunde göra något åt. Två spärrar: aldrig nivåns första frukt (**0 av 200**
+släpp före första fångsten) och aldrig två samtidigt (**mest 1** över 400 släpp) — en
+sällsynthet som kan komma direkt eller i par är ingen sällsynthet. Ekorrens önskan
+**nollställs inte** av guld: bonusen ligger vid sidan av valet, inte förbi det. Ny replik med
+genererat klipp (`npm run voice`: 1 made, 0 failed — kön är tom).
+
+**`kulbana` — fartsvans + rull-damm (v1.163.0).** Kulan bar ingen avläsning av hur fort den
+gick. Strimman ritas i dess egen ton, styrkan följer farten (osynlig under 3 px/steg, full vid
+11), och dammet ligger i **samma anslag som ljudet** — i matters kontaktpunkt (`supports`),
+eftersom kulans mittpunkt hade lagt puffen inne i kulan i stället för mot ytan.
+
+**Passets egentliga lärdom: TRE mätsätt provades på svansen, och de två första var gröna nog
+att luras av.**
+1. **Jämför mot en referensbild** → man mäter KULAN, som står på olika plats i varje arm och
+   dränker svansen: energi **1 523k mot 1 715k**, alltså "ingen skillnad" i något som i själva
+   verket skiljer 6×.
+2. **Växla bara effektens `visible`** → bilderna tas 60 ms isär och allt annat i scenen hinner
+   röra sig: **1 132 px "från svanslagret"** när dess buffert var bevisat tom.
+3. **Dölj hela scenen utom effektens lager** → 0 px när det är tomt, och tal som faktiskt är
+   effektens. Bara den tredje svarar på frågan.
+
+Och ett mått till som gick sönder tyst: **att räkna pixlar över en tröskel mäter YTA, inte
+styrka.** Bandet täcker ungefär samma bana oavsett fart, så pixelantalet växte bara
+1 011 → 1 587 medan energin (summan av avvikelserna) gick **33k → 205k**. Styrkan bor i alfan.
+
+**Samma sort i `fanga-frukten`, båda röda var sondens fel** (nionde och tionde gången):
+`sparkle()` går genom partikelvägen (`ParticleContainer`), så `fxLayer.children` visar **ETT
+återanvänt fält** — mätningen såg "1 ny fx-nod" och läste som att glittret var trasigt. Och
+ett mätsteg som inte städar efter sig lät spelets egen spärr ("aldrig två guldfrukter
+samtidigt") blockera nästa stegs tvingade guldfrukt, vilket rapporterades som att
+dubbelräkningen inte fungerade.
+
+**Commits:** `775914d` feat(fanga-frukten) guldfrukten · `9cfc7d9` feat(kulbana) fartsvans +
+rull-damm · `45b9ca9` den här sessionsloggen · `d107195` docs(claude) — de tre mätfällorna
+ovan är inskrivna i CLAUDE.md:s "Tysta fällor", eftersom de gäller varje framtida effekt och
+inte bara de här två spelen.
+**Kontroll:** `check` 0 fel/0 varningar · `test:all` **72/72 gröna** · röstkön tom.
+**Bygget är gjort vid sessionens slut** (`npm run build`, 1 626 filer / 28,5 MB precache) men
+**inte serverat** — telefonen ser fortfarande v1.157.0 tills någon startar servern
+(`scripts/start.ps1` → 4173 via tailnet).
+⚠️ **V14b vandrar — nu bekräftat två svep i rad.** Förra svepet: `tvatta-djuret`. Det här:
+**`kla-pa-nallen`**, samma diagnos (`tom-bild-omtagen ×2 — gl-kontext FORLORAD`). Två olika
+spel, samma signatur, båda räddade av omtagningen. Det är ytterligare bevis för att felet hör
+till SVITEN (fyra parallella Chrome med WebGL), inte till något spel — ingen ska felsöka
+`kla-pa-nallen` för det här.
+**Öppet:** ägarkön tom. **N10 fortsätter.** Nattkön i övrigt: **N12** · **N13**.
+
+---
+
+## 2026-08-12 · v1.161.0 · Två världar som stod vakna innan barnet gjort något
+
+**Byggt:** nattköns **N10**, tredje passet (D3: billiga [Quick] ur `docs/games/*.md` §4).
+Två spel, en commit var, egen sond per punkt. Båda punkterna visade sig vara samma sorts
+brist: **målet i spelet reagerade inte på att barnet närmade sig det.**
+
+**Urvalet kostade mer än vanligt — och det är resultatet av passet.** Fyra av de sex
+kandidater jag läste var **redan byggda men aldrig strukna i §4**: `fanga-frukten`s "Trädet
+lever" (lövverket andas sedan `index.js:174`, `_shakeBranch` skakar grenen vid släpp),
+`domino`s "Damm & studs" (dammpuff per bricka på `:856`, mikroskak vid klockan på `:898`),
+`bygg-tornet`s "Vaj-juice" (`:370`) och `bowling`s "STRIKE-skylt + riktmärken". Det är sjätte
+till nionde gången docen ligger efter koden. **Läs koden före planen** — en §4-lista är en
+läslista, inte en arbetsorder.
+
+**`blixt-och-dunder` — byn vaknar (v1.160.0).** `makeHouse` ritade ett hus med **gult fönster
+redan från start**: byn var alltså vaken innan barnet gjort något, och en tändning syntes bara
+som en tint på en lykta. Nu sover hus `i` tills lampa `i` tänds — kvällsblå ruta (`0x53627a`,
+aldrig svart), väggen i kall ton, kall skorsten → varm ruta + `pop`, ljus på väggen och rök ur
+skorstenen. `_byprobe.mjs` (ny, 18 punkter) läser **scengrafen, inte spelets flaggor**:
+`_awake` hade svarat ja även om ingenting ritats om, så rutans färg hämtas ur
+`Graphics.context.instructions`.
+
+**Tre fel som bara BILDEN hittade, alla gröna i `npm run test`:**
+1. **Röken var mätbar men osynlig** — **655 målade pixlar** av 7 200. En vit puff vars alfa
+   följer `(1−f)` rakt av försvinner mot en ljus kvällshimmel redan halvvägs. Med `(1−0,85f)`,
+   fyra puffar och större skala: **2 320 px (3,5×)**. Samma fälla som `gungan`s fartstreck.
+2. **En skorsten som slutar vid takytan svävar** — sluttningen möter en lodrät låda i EN punkt.
+   Den går nu ner till takfoten och ligger bakom taket.
+3. **En ensam cirkel med alfa 0,55 är en dekal, inte ljus** — fönsterglöden är tre ringar med
+   avtagande alfa. (En radiell `FillGradient` går inte: ingen genomskinlig mitt.)
+
+**`enhorningen-elvira` — regnbågen vaknar (v1.161.0).** Innanför `NEAR_R` 250 px växer svaret
+gradvis med närheten: **400 px 0 · 250 px 0 · 200 px 0,32 · 150 px 0,65 · 100 px 0,97**.
+Glöden tänds och tintas mot **gyllene** — vitt sken bakom bågen lyser igenom 2 px-springorna
+mellan banden och **disar** den, alltså blekare ju närmare hon kom, tvärtemot "lyser upp"
+(pixeltalet steg 13 190 → **20 355** med tinten). Signalen drivs FÖRE tillståndsgrenen i
+tickern så viloläget också hålls; annars står bågen och lyser efter en landning och betyder
+inget vid nästa skott (mätt: 0,91 → **0,02** en sekund efter).
+
+**Sonden var fel två gånger innan spelet var det (åttonde gången i repot), och båda felen är
+värda att bära:**
+1. **Ett förlopp som fortsätter under mätningen mäter sin egen loop.** Första versionen satte
+   Elviras läge EN gång och väntade 700 ms — tyngdkraften drog iväg henne och rundan landade
+   av sig själv, så **varje avstånd gav noll**. Läget måste pinnas varje bildruta och
+   framskridandet frysas.
+2. **`positionPrev` måste pinnas MED.** matter härleder farten ur `position − positionPrev`,
+   så hoppet mellan två mätpunkter blev en fart på hoppets längd: 300 px sköt in henne i
+   målet, rundan vanns, nivån byggdes om och `_near` nollställdes — vilket läste som att
+   effekten *slocknade* närmast målet. Samma familj som CLAUDE.md:s statiska-kropp-fälla.
+   Och en tredje: bilddiffen räknade först **Elvira själv**, som ligger i samma yta och rör
+   sig mellan bilderna.
+
+**Commits:** `b309fc0` feat(blixt-och-dunder) byn vaknar · `60e96b4` feat(enhorningen-elvira)
+regnbågen vaknar · + den här sessionsloggen
+**Kontroll:** `check` 0 fel/0 varningar · `test:all` **72/72 gröna**. Båda §4-punkterna
+strukna i sina docs med mätvärden i §5. Ingen indexändring (båda spelen redan ✅/✅).
+⚠️ Svepet loggade **V14b:s signatur igen**: `tvatta-djuret` `tom-bild-omtagen ×2 — gl-kontext
+FORLORAD`. Vakten fångade den och omtagningen räddade bilden, precis som den är byggd för —
+alltså ingen ny regression, men fyndet **vandrar fortfarande** och orsaken (fyra parallella
+Chrome med WebGL) står kvar öppen.
+**Öppet:** ägarkön tom. **N10 fortsätter** — nästa pass tar två spel till, men **läs koden
+före §4-listan**: fyra av sex kandidater var redan byggda den här gången. Nattkön i övrigt:
+**N12** (platthetens svans, låg avkastning) och **N13** (läsa+dokumentera V10b:s kandidater,
+ingen speländring).
+
+---
+
+## 2026-08-12 · v1.159.0 · Ett tak som gjorde två av tre val osynliga
+
+**Byggt:** nattköns **N10**, andra passet (D3: billiga [Quick] ur `docs/games/*.md` §4). Samma
+rytm som föregående pass: **två spel, en commit var, varje punkt mätt av en egen sond.** Båda
+punkterna är juice som bara finns *medan* något rör sig, alltså osynlig för `npm run test`,
+som fotograferar spelet i vila.
+
+**`vippbradan` — "Brädan känns" (v1.158.0).** Nya `_vippprobe.mjs` mätte HEAD först, och
+baslinjen var värre än planen antog: **plankan såg likadan ut för två av tre vikter.** Både
+äpplet och städet slog i `_tame`s hårda klamp — uppmätt **28,65° = exakt 0,5 rad** för båda,
+där skillnaden bara syntes i hur LÄNGE de låg kvar mot taket (städet 51 bildrutor mot äpplets
+5). Utslaget var alltså klampens, inte viktens.
+
+- **Mjukt ändläge i stället för hård klamp** (progressiv fjäder + dämpning från 0,30 rad).
+  Toppvinkeln blev viktens egen: **5,1° · 19,0° · 22,6°**, noll bildrutor mot taket. Och
+  eftersom energin nu går tillbaka i fjädern i stället för att nollställas fjädrar plankan
+  tillbaka: **0,0° · 2,5° · 5,4°** med **0 · 1 · 2** riktningsbyten — vilket ÄR §4-punktens
+  "studsar en aning extra vid stor vikt". Den studsen gick inte att bygga ovanpå ett mättat
+  utslag; den föll ut när taket blev mjukt.
+- `_tame` flyttad till `phys.beforeStep()` — konstanterna är per STEG, och en tappad bildruta
+  hade annars gett en femtedel så mycket dämpning på en svag enhet.
+- **Anslagsljudet ur delade `phys.impactAudio`** (fart → volym + tonhöjd, material → röst) i
+  stället för ett fast `plopp`: **225 · 229 · 705 Hz**, bara städet klingar i metall.
+  ⚠️ Städet låter **inte** starkast, och det är rätt: det är stort (r 52) och möter plankan
+  efter ett kortare fall (styrka 0,20 mot äpplets 0,28). Tyngden bärs av rösten, dammet och
+  djupet. Ingen `impactAudio`-parameter känner till massa — noterat, inte fejkat.
+- **Damm i kontaktpunkten**, mängd = anslagsstyrka × viktens skala, färg = materialets märke:
+  **391–600 · 1232–1496 · 1952 px**. Tröskeln sattes till `minSpeed 1.8`; vid 2,4 föll fjädern
+  under den och blev **helt** dammfri.
+- Kalibreringen orörd och mätt varje körning: `_launchVel` löser bågen från grodans FAKTISKA
+  läge, så ett djupare utslag flyttar startpunkten utan att flytta siktet.
+
+**`klappa-mullvaden` — klapp-juice (v1.159.0).** Punkten lovade tre saker och **en av dem var
+redan byggd** (jord-skvätten, sedan 08-04). De två andra byggdes nu, mätta med `_klappprobe.mjs`:
+en **stigande pling i rad** — klappar tätare än 2,2 s isär klättrar en durpentatonisk stege,
+uppmätt **523 · 589 · 654 · 785 · 872 · 1047 Hz** och håller sedan; första klappen i en rad får
+ingen pling alls (en ensam klapp låter som förut), och en paus nollställer den. Tonen
+schemaläggs i **ljudklockan** (`tone({ delay })`), inte via en timer, så den kan inte överleva
+en exit. Plus **mikroskak i hålet** (5 px / 0,24 s, uppmätt utslag 4,25 px och **0 px kvar**
+efteråt) så klappen känns i marken och inte bara i djuret.
+
+**Sonderna var fel fem gånger innan spelen var det.** Alla fem läste först som "effekten
+fungerar inte": (1) en FAST paus på 260 ms fotograferade luften ovanför plankan innan den
+luftbromsade fjädern hunnit landa; (2) utskjutningens `sparkle` + "Wheee!" hamnade i samma
+`fxLayer` och mättes som damm (791/771/755 px — alla lika); (3) partiklarna mättes i
+FÖDELSEÖGONBLICKET, då 3 och 10 partiklar ligger i en klump och mäter lika mycket (verifierat
+i bild: ett enda grått klot) — 250 ms in blev det 391/1232/1952; (4) en patch för att isolera
+dammet överlevde `nav.go`, eftersom **spelmodulen är ETT objekt som återanvänds vid varje
+montering**, och nästa runda rapporterade en kalibreringsregression som sonden själv orsakat;
+(5) mätserien i `klappa-mullvaden` sprang förbi nivåns mål (5), så de tre sista klapparna var
+tysta no-ops och såg ut som ett tak som slog för tidigt.
+
+**Doc-fällan igen, två gånger i samma pass:** `klappa-mullvaden`s "tell före uppdyk" stod som
+öppen i §4 men byggdes 2026-07-01, och en tredjedel av pling-punkten (jord-skvätten) hade
+gått i produktion 08-04. **Läs koden före planen.**
+
+**Commits:** `3524417` feat(vippbradan) brädan känns · `c3f9eba` feat(klappa-mullvaden) klappen
+känns i marken · `1a08e9a` chore(verktyg) pixijs-skills · + den här sessionsloggen
+**Kontroll:** `check` 0 fel/0 varningar · `test:all` **72/72 gröna** · båda §4-punkterna
+strukna i sina docs med mätvärden i §5. Ingen indexändring: båda spelen var redan ✅/✅.
+**Öppet:** ägarkön tom. **N10 fortsätter** — nästa pass tar två spel till på samma sätt.
+Nattkön i övrigt: **N12** (platthetens svans, låg avkastning) och **N13** (läsa+dokumentera
+V10b:s första kund, ingen speländring). Kvarstående systemfråga, inte brådskande:
+`impactAudio` väger bara FART, inte massa — det är därför ett städ kan låta svagare än ett
+äpple. Ändras den delade funktionen måste `_slagprobe` + `bygg-tornet`/`domino` mätas om.
+
+---
+
+## 2026-08-12 · v1.157.0 · Två effekter som en testskärmdump aldrig kan se
+
+**Byggt:** nattköns **N10** (D3: billiga [Quick] ur `docs/games/*.md` §4). Två spel, en commit
+var, båda valda för att de **syns på skärmen** — och båda av samma sort: effekter som bara
+finns **medan något rör sig**, alltså osynliga för `npm run test`, som fotograferar spelet i
+vila. Det är därför varje punkt fick en egen sond.
+
+**`gungan` — farten syns (v1.156.0).** Två §4-punkter i en commit. Håret: `back`-grafiken
+pivoterar nu kring HUVUDETS mitt i stället för höfterna och släpar
+`-tanh(omega / (cap·0,5)) · 0,34`, alltså motsatt färdriktningen och mättat så tofsarna aldrig
+slår runt (största utslag **18,8°**). Fartstrecken: tre bågar bakom sitsen kring **samma
+upphängningspunkt som gungan**, alltså exakt den väg sitsen tar, med tröskel vid 34 % av
+fartaket.
+
+**`_gungprobe.mjs` hittade två fel som ingen skärmdump visat:**
+
+1. **En tröskel som passeras utan att något syns är ingen tröskel.** Första versionen tonade in
+   från noll och var **helt osynlig** (0 målade pixlar) ända upp till halva farten — vitt med
+   alfa 0,16 mot himlen ändrar färre än 6 nivåer per kanal. Styrkan startar nu på 0,5:
+   **0 · 0 · 502 · 834 · 1111 · 1125 px** vid 0 / 0,25 / 0,34 / 0,50 / 0,75 / 1,0 av taket.
+2. **En rotation är ett tal, inte en bild.** Håret ligger mest bakom huvudet, så sonden mäter
+   SYNLIGA pixlar i stället: 786 i vila → 908 i full fart, **568 px byter plats**.
+
+**`enhorningen-elvira` — hennes bana syns (v1.157.0).** Ett regnbågsband ur spelets egna
+`RAINBOW`-färger, ritat ur de 30 senaste positionerna, tunnande och blekande mot svansen.
+Punkter läggs bara till när hon flyttat sig >7 px — annars fylls bufferten av dubbletter när
+hon nästan står still och bandet blir en klump i stället för en bana. `_sparprobe.mjs`: **2 089
+målade pixlar** under flykt, utsträckning **187×170 px**, **0 px kvar** i placeringsläget efter
+landning, exit mitt i flykten lämnar ingenting.
+
+**Sonderna var fel innan spelen var det — igen (nu sjunde gången).** `_gungprobe` mätte först
+den frysta pendeln som integrerade vidare och skrev över de handsatta värdena (hår-rotationen
+vid omega 0 kom ut som 0,053 och avslöjade det), och dess första tröskel — "ljusare än
+236/240/240" — kunde aldrig träffa ett vitt streck med alfa 0,5 mot en ljusblå himmel. Båda
+sonderna isolerar nu effekten genom att **dölja allt annat i scenen**: att bara växla
+effektens `visible` mellan två skärmdumpar tog med molnens drift och GSAP-andningen, ~590 px
+brus mot en effekt på ~800.
+
+**Ett avsteg värt att notera:** §4 föreslog "exit-säkra streck i `fxLayer`". Båda effekterna
+ligger i stället i en **återanvänd `Graphics` i spelets egen rot** — noll allokering per
+bildruta, inga tweens att städa, och de rivs med roten. Exit-säkert av konstruktion i stället
+för av disciplin.
+
+**Commits:** `f01deae` feat(gungan) farten syns · `7dc1613` feat(enhorningen-elvira) hennes bana
+syns
+**Kontroll:** `check` 0 fel/0 varningar · `test:all` 72/72 gröna · båda §4-punkterna kryssade i
+sina commits.
+**Öppet:** ägarkön tom. **N10 är inte "klar"** — den är en brunn på 701 [Quick], inte en lista
+att beta av. Nästa pass tar två spel till på samma sätt. Nattkön i övrigt: **N12** (platthetens
+svans, låg avkastning) och **N13** (läsa+dokumentera V10b:s första kund, ingen speländring).
+
+---
+
+## 2026-08-12 · v1.155.0 · Femton spel skulle byta bakgrund. Ett skulle det.
+
+**Byggt:** nattköns **N9** (LYFTPLAN A5). Raden hette "femton spel ritar egen bakgrund; de som
+bara har en platt färg ska ärva `createScene`". **Premissen hade gått ut** — och det är dagens
+lärdom, inte bytet: D1:s omgångar har sedan raden skrevs gett var och en av de femton en
+**mätt, egen toning**, med `_plattprobe --medbakgrund`-talet skrivet i koden. Att lita på listan
+i stället för att läsa koden hade gett fjorton onödiga byten och gjort fjorton spel sämre.
+(Tredje gången i repot som en docrad varit inaktuell — CLAUDE.md varnar för exakt det.)
+
+**Efter genomläsning återstod EN riktig kandidat: `siffertaget`.** Den ritade himmel + mark för
+hand och la **två kull-ellipser** vid horisonten — exakt det mönster C7 bytte ut inne i scenen
+själv ("två cirklar som läste som bleka bubblor"). Den ärver nu `createScene` med spelets EGNA
+färger som tema, så morgonen är densamma; det som tillkommer är scenens djup: tre avståndsband,
+disband vid horisonten och markstruktur.
+
+| | före | efter |
+|---|--:|--:|
+| största enfärgade fält | **39 195 px** (den bortre kullen) | **28 778 px** (himlens topp) |
+| distinkta toner | 3 985 | **7 039** |
+
+Två fällor undveks med flit: `groundH` räknas ur `ctx.height` så horisonten står kvar på
+`HORIZON_Y` 296 även på en telefon med annan höjd (rälsen fick inte flytta sig), och banvallen
+ritas nu **efter** scenen — annars lägger sig markstrukturen ovanpå gruset.
+
+**De fjorton andra är avskrivna med skäl, inte med tystnad** (tabell i LYFTPLAN A5): sex är
+inomhus, två ses uppifrån och har ingen horisont att skapa djup mot, två är abstrakta ritytor,
+en har egen 3D-backdrop, en har marken som spelyta (`plantera-fron`), en har en natthimmel med
+mekanik i (`fyrverkeri`) — och i `kla-efter-vadret` **är bakgrunden mekaniken**: himmel och mark
+ligger i samma `Graphics` just för att en enda `tint` ska klä hela scenen efter vädret.
+
+**Commits:** `95d70d9` feat(siffertaget) landskapet kommer ur createScene
+**Kontroll:** `check` 0 fel/0 varningar · `test:all` 72/72 gröna · röstkön tom.
+**Öppet:** ägarkön tom. Nattkön står på **N10** (D3: billiga [Quick] ur `docs/games/*.md` §4).
+
+---
+
+## 2026-08-12 · v1.154.0 · Ägaren strök "Enklare grafik" — alla fyra småpengar är nu borta
+
+**Byggt:** ingenting. Borttaget, på ägarens beslut och på gårdagens egna tal: inställningen
+**"Enklare grafik"** (byggd i v1.153.0) är ute ur appen igen.
+
+Underlaget stod redan i loggen: knappen köpte **121 KB GPU-textur, noll ritanrop och noll
+bildrutor** (CPU ÷6 och ÷20), och kostade **all** volym som C1 lade fyra sessioner på att ge
+föremålen. En inställning med den balansräkningen är inte en nödutgång — den är en fälla för
+föräldern som slår på den och tror att hen har hjälpt sin platta. **LYFTPLAN C10 är därmed
+avgjord med fyra strukna punkter av fyra.**
+
+**Borttaget:** raden i `SettingsScreen` (panelen är tillbaka på fem rader, rubriken tillbaka
+till "Ljud", radavstånden tillbaka till 76/86) · `settings.enklareGrafik` i `SaveService` ·
+uppstartsanropet i `main.js` · sonden `_detaljprobe.mjs`, som satte nivån genom just den
+inställningen och inte kan köra utan den.
+
+**Kvar med flit:** `setDetaljniva()` i `lib/form.js` (bibliotek-API, nu åter utan anropare) ·
+`SaveService`s påfyllning av **saknade** inställningsnycklar, som är en egen förbättring och
+gäller varje framtida inställning · `scripts/_installningsbild.mjs`, som fortsatt är enda sättet
+att se inställningsskärmen — ingen testkörning öppnar den. Vill någon återuppta frågan är det
+gradientsamplingen per pixel på en fyllnadsbegränsad mobil-GPU som återstår att mäta, och den
+mätningen måste göras på plattan.
+
+**Commits:** `fc55bf3` revert(skal) enklare grafik struken
+**Kontroll:** `check` 0 fel/0 varningar · `test:all` 72/72 gröna · skärmdump av
+inställningsskärmen ren.
+**Öppet:** ägarkön tom. Nattkön står på **N9** (LYFTPLAN A5: spel som ritar egen bakgrund utan
+skäl).
+
+---
+
+## 2026-08-12 · v1.153.0 · Småpengarna: en byggd, tre strukna med mätning
+
+**Byggt:** nattköns **N8** (LYFTPLAN C10). Fyra punkter, alla mätta innan någon rördes — och
+**tre av dem visade sig sakna underlag.** Det är resultatet: en optimering utan mätbar intäkt
+är en kostnad, inte en besparing.
+
+**BYGGD — `setDetaljniva` kopplad till skalet.** `Inställningar → Ljud och bild → Enklare
+grafik`, standard **av**. `main.js` sätter nivån vid uppstart, före första ritningen (varje
+gradient cachas vid första ritningen, så en nivå som sätts efteråt lämnar allt redan ritat kvar).
+`_detaljprobe.mjs` mäter genom appens EGEN väg — SaveService → omladdning, aldrig en import i
+sonden, eftersom `_ikonkostnad.mjs` redan mätt att probets import kan bli en annan modulinstans.
+
+| sex spel | nivå 2 → 0 |
+|---|---|
+| bakade gradienter | 31 → 9 |
+| GPU-textur | **121 KB sparat** |
+| ritanrop/bildruta | **oförändrat**, ibland +1–2 |
+| FPS (CPU ÷6 **och** ÷20) | **identiskt** — båda armarna i 59-taket |
+
+Ritanropen är det som faktiskt kan skilja på en svag GPU, och de rör sig inte: Pixi bakar
+gradientfyllningen in i samma batch som en rå färg. Priset är däremot **fullt** — nivå 0 tar
+bort exakt den volym C1 gav föremålen. Knappen står kvar som nödutgång för den svaga plattan,
+som inte går att mäta härifrån (gradientsamplingen per pixel syns varken i ritanrop eller
+GPU-minne); `_detaljprobe.mjs --url` kör samma mätning mot ett serverat bygge på plattan.
+
+**STRUKEN — `BitmapText` för räknare: det finns ingen räknare.** `_textprobe.mjs` (ny) hakar på
+`Text`-sättaren i **alla 72 spelen**. Värst är `vilket-djur-later` med **0,009 skrivningar per
+bildruta** — två skrivningar på fyra sekunder. Spel med ≥0,5: **noll**. Det följer av P0
+"ikon-först, noll läsning": appen räknar i mätare och former, inte i siffror.
+
+**STRUKEN — `CullerPlugin`: det finns inget att culla.** Kamerans enda kund
+`spindel-zacke-svingar` har **1 av 57 ritnoder** utanför skärmen (1,8 %). De två spelen med egen
+kamera ligger på 34/129 och 39/136 — och kör redan 59 FPS.
+
+**STRUKEN — `roundPixels`: världen skalas inte med heltal.** Uppmätt världsskala **1,0** på
+1280×720, **0,594** på 952×428 och **0,8** på 1024×768. En avrundning i designrymden landar på
+en bruten enhetspixel ändå, medan långsam rörelse börjar kliva i stället för att glida.
+
+**Två sondfällor, båda värda att minnas.** `text`-sättaren ligger inte på `Text.prototype` utan
+på basklassen — första versionen läste `getOwnPropertyDescriptor(Text.prototype, 'text')`, fick
+`undefined` och rapporterade lugnt "ingen Text i scenen" för alla 72 spelen **med tre Text-noder
+framför sig**. Och `_installningsbild.mjs` (ny) behövdes för att ingen testkörning öppnar
+inställningsskärmen: den fångade direkt att den sjätte raden krockade med DATA-knapparna, som är
+**centrerade** på sin y (632 ⇒ 590–674) — panelen som "slutade på 610" låg alltså redan under dem.
+
+`SaveService` fyller nu på **saknade** inställningsnycklar ur standarddokumentet; utan det blir
+varje ny inställning `undefined` hos befintliga användare och en toggle visar fel läge.
+
+**Commits:** `0eae265` feat(skal) "Enklare grafik" i installningarna
+**Kontroll:** `check` 0 fel/0 varningar · `test:all` 72/72 gröna · röstkön tom.
+**Öppet:** ägarkön tom. **Frågan till ägaren:** "Enklare grafik" köper ingenting mätbart här och
+kostar all volym — mät med `_detaljprobe.mjs --url` mot plattan, och plocka bort knappen om den
+faller ut lika platt där. Nattkön står på **N9** (LYFTPLAN A5: spel som ritar egen bakgrund utan
+skäl).
+
+---
+
+## 2026-08-12 · v1.152.0 · Additiv glöd: sju kandidater in, en kund ut
+
+**Byggt:** nattköns **N7** (LYFTPLAN C4). Uppdraget var uttryckligen att läsa om listan innan
+något byggs — och det var rätt uppdrag: **sex av sju namn föll, och villkoret de skulle prövas
+mot visade sig självt vara fel formulerat.**
+
+**Sonden först.** `scripts/_glodkandidat.mjs` (ny) ställer den faktiska idiomen — `glod()` ur
+`lib/glod.js` — på den faktiska bottnen i varje kandidatspel, **växelvis additiv och normal**,
+och läser pixlarna. `lagerelden` (känd vit klump) och `trollblandning` (känd osynlig) går med
+som **kontrollrader**: reproducerar sonden inte de två redan kända fallen är trösklarna
+påhittade, inte kalibrerade. Båda reproducerades.
+
+| rad | botten | vinst¹ | vit %² | kroma | utfall |
+|---|--:|--:|--:|--:|---|
+| `enhorning-glitterbajs` | 225 | +27,5 | **74,3** | 0,03 | NEJ — klipper till vitt |
+| `blixt-och-dunder` | 214 | +25,6 | **30,3** | 0,13 | NEJ — klipper till vitt |
+| `natskott-pa-stan` | 171 | +33,6 | 19,6 | **0,07** | NEJ — färglöst dis i dagsljus |
+| `glittergrottan` (kristallfärg) | 46 | **+9,7** | 0,0 | 0,32 | NEJ — add ≈ normal |
+| `golvet-ar-lava` över ytan | 187 | **+44,2** | 0,0 | 0,52 | **JA** |
+| `golvet-ar-lava` mot klippan | 117 | **+40,8** | 0,0 | 0,51 | **JA** |
+
+¹ luminans additivt minus normalt — vad idiomet är VÄRT. ² pixlar med alla kanaler ≥ 250.
+
+**Villkor 1 hette "mörk botten". Det är fel.** Det heter **takhöjd i de KANALER källan lyser
+i**, och bottnen ska ligga i **MITTEN** — båda ytterlägena dödar idiomet från var sitt håll. En
+nästan svart botten ger vinst **+9,7**, för på svart *är* `källa + 0` samma sak som `källa`;
+mörkret är ett skydd mot klippning, inte ett skäl att byta blandning. Och listans enda kund blev
+ett **ljust** spel: lavan mäter 187 i luminans men är mättat orange, alltså nästan tom i grönt
+och blått — där låg takhöjden.
+
+**Två gånger byggdes en regel som "fångade" `trollblandning` — och båda gångerna dödade den
+lavan, alltså det enda rätta fyndet.** Bubblorna klarar varje mätbar tröskel; de faller ändå,
+för de är **föremål ritade mörkare än sin botten**, och additiv blandning kan bara göra dem
+ljusare. Det är en fråga om AVSIKT, och sonden låtsas inte att en tröskel avgör den: den mäter
+teckenbytet, skriver ut det som en infokolumn och lämnar domen åt läsaren. Två mätfel städades
+bort på vägen: en skärmövergångs cremeblänk mätte kolsvarta `glittergrottan` till botten
+253,246,227, och en provpunkt låg mitt i den gröna Gå-knappen.
+
+**Kunden.** `golvet-ar-lava` fick ett band liggande glöder (`ratio` 2,2) längs flodens yta plus
+en glöd mot varsin klippvägg, andandes med egen fas ur `_update` och **uppflammande i
+`_lavaReact`** när en sten slår ner. Mätt mot samma bild före ändringen: luften ovanför lavan
+**255,173,104 → 255,203,116**, klippan närmast floden **158,112,76 → 201,133,84**, avtagande med
+avståndet (+11 vid x 1100 — ljus som faller av, inte ett fält). Himlen högt uppe och lavaytan
+själv **oförändrade**, 0,0 % vita pixlar överallt.
+
+**Commits:** `2756928` feat(golvet-ar-lava) lavan lyser upp luften och klippan
+**Kontroll:** `check` 0 fel/0 varningar · `test:all` 72/72 gröna · röstkön tom.
+**Öppet:** ägarkön tom. Nattkön står på **N8** (LYFTPLAN C8 + C10: `setDetaljniva` i skalet,
+`BitmapText` för räknare, `roundPixels`, `CullerPlugin`).
+
+---
+
+## 2026-08-12 · v1.151.0 · Kontexten kan vägras — och de sista gradienterna
+
+**Byggt:** nattkörningens varv VII. Två punkter: ÅTGÄRDER **V15** (som låg öppen med tre
+obesvarade frågor) och nattköns **N6** (LYFTPLAN C1:s fyra sista spel).
+
+**V15 — `glittergrottan` dog vid start ~23 % av gångerna, ENSAM.** Föregående session mätte
+symptomet (3 fall av 10) men inte orsaken. Sex nya körningar gav 1 fall till, alltså **6 av 26
+sammanlagt** — fyndet är äkta och inte en engångshändelse.
+
+**Diagnosen låg i att läsa konsolen ORDAGRANT: det var TVÅ olika fel, inte ett.**
+
+| # | rad | vad den betyder |
+|---|---|---|
+| 1 | `Could not create a WebGL context … GL_VENDOR = Disabled … BindToCurrentSequence failed` | GPU-processen hinner inte binda; webbläsaren kör helt utan GPU |
+| 2 | `Web page caused context loss and was blocked` | **Chromes egen spärr**, som slår till EFTER fel 1 och gäller SIDAN |
+
+Nummer 2 förklarar varför inget omförsök hjälper — och den förutsägelsen höll: omtagningarna
+räddade **0 av 2** fall. Två spår mättes bort innan en rad kod skrevs: **attributen är
+oskyldiga** (32 råa `getContext` över fyra uppsättningar föll 0 gånger — och three gör själv ett
+attributfritt omförsök internt som faller med), och **det är inget kontexttak** (bara EN duk
+finns på sidan när det smäller).
+
+**Tre lärdomar värda mer än fixen:**
+
+1. **Ett bibliotek kan skriva konsolfel innan ditt `catch` körs.** three lyssnar på
+   `webglcontextcreationerror` och `console.error`:ar i lyssnaren; konstruktorn kastar först
+   efteråt. Första versionen av fixen hade full bild, korrekt reservläge — och **rött test av 8
+   konsolfel**. Lösningen är att hämta resursen själv (`getContext` utan lyssnare är tyst) och
+   lämna den färdig: `new WebGLRenderer({ canvas, context })`.
+2. **Sonden mätte fel innan spelet gjorde det.** En DELAD webbläsare över försöken gör spärren
+   till en kaskad — försök 10–12 föll alla, vilket såg ut som 100 % frekvens. `npm run test`
+   startar en färsk webbläsare per körning; sonden måste göra likadant. (Sjätte gången i det
+   här repot som sonden var den trasiga saken.)
+3. **En fix som gör testet grönt får inte göra det tyst.** Reservläget räddar bilden, så
+   körningen blir grön — därför loggas vägran som varningen `ingen-3d-kontext`.
+
+**Byggt:** `sakraRenderare()` i `lib/three3d.js` returnerar `null` i stället för att kasta, och
+`glittergrottan._utan3D()` ritar ett lugnt **fritt läge** med samma kristaller, toner och
+glitter — ingen ordning, inget mål, inget som kan gå fel. Medvetet **inte** en 2D-kopia av
+grottan: ordningsregeln kräver facit-rad, glimmerdjur och grottans ljus, och byggd i 2D vore det
+ett ANNAT spel att underhålla. **Mätt: 6/26 röda → 16/16 gröna**, varav 2 i reservläge (exakt de
+körningar som förut var röda med tom skärm).
+
+**N6 — C1:s fyra sista spel.** Mätt med `_plattprobe` före/efter:
+
+| spel | största platta fält före | efter |
+|---|---|---|
+| `vart-tog-det-vagen` | **35 160** (den blå muggen) | **23 040** (skalets creme) |
+| `tarta-i-ansiktet` | huvudet platt `#fff0e0` | ut ur listan (**24 576** = fonden) |
+| `enkelt-pussel` | motiven platta | 28 560 (skalets creme) |
+| `hamburgerbygget` | bänk + golv i var sin ton | 25 837 |
+
+I de två spel där ett SPELOBJEKT var största fältet är objektet borta ur listan, och överst
+ligger nu skalets egen bakgrund. Det är rätt ställe att sluta.
+
+⚠️ **Near-white-fällan gäller alla fyllningarna, inte bara `groundFill`.** Clownens hud
+(`0xfff0e0`) blev **grågrumlig** av standardens 32 % mörkning — grönt test hela tiden, det syntes
+bara i skärmdumpen. Ljusa ytor vill ha ~0,08–0,16.
+❌ **`rimLight` är struken som "väntar på sin första kund", med mätning:** på clownen hamnar hela
+vänstra ögat inne i glansfläcken (avstånd mellan centrumen 11,7 px, ögats ytterpunkt 39,7 px,
+fläckens radie 51 px). Den passar en container vars STORA form är slät — inte ett ansikte.
+
+**Ny sond:** `scripts/_kontextprobe.mjs` — attribut-armarna växelvis · `--spel` (färsk
+webbläsare per försök, konsolen ordagrant) · `--reserv` (tvingar fram vägran genom hela den
+riktiga vägen, 5/5).
+
+**Commits:** `3478be9` fix(glittergrottan) kontexten kan vagras · `24b4b79`
+feat(vart-tog-det-vagen) muggarna ar cylindrar · `d002341` feat(tarta-i-ansiktet) clownen far
+volym · `362ce21` feat(enkelt-pussel) motiven far volym · `ceb60e8` feat(hamburgerbygget) banken
+och golvet
+**Kontroll:** `check` 0 fel/0 varningar · `test:all` 72/72 · `_kontextprobe --reserv` 5/5 ·
+16/16 gröna glittergrottan-körningar · röstkön tom.
+**Öppet:** ägarkön tom. Nattkön står på **N7** (LYFTPLAN C4: additiv glöd — kräver att listans
+sju kandidater läses om mot BÅDA villkoren, mörk botten OCH takhöjd i källan).
+
+---
+
+## 2026-08-11 · v1.150.0 · Pruttbadets sista lista: bubblorna tar plats, skummet blev skum
+
+**Byggt:** ägaren godkände `flipperspel` v1.144.0 ("spelat och ser bra ut") och bad om
+`pruttbad`. Kvar där låg §4-punkt 5 — den enda av hens fem önskemål som medvetet inte byggts,
+utan mätts. Mätpassets fyra punkter är nu alla byggda, i två commits delade efter vad de
+faktiskt ÄR: fysik i den ena, rendering och återkoppling i den andra.
+
+| # | Mätpassets punkt | Före | Efter |
+|---|---|---|---|
+| 1 | Bubblor går rakt igenom varandra | 47,8 px inträngning, löstes **aldrig** upp (49,2 efter 40 rutor) | 8,4 px efter 40 rutor, **0 px efter 120** |
+| 2 | Bubblor går rakt igenom Zacke | **92,4 px** in i kroppen, 492 bubbel-bildrutor inuti honom | **1,7 px**, 0 rutor |
+| 3 | Skumkroppen är en platt platta | **0,7 %** kantpixlar (en platta) | **11 %** — packade bubblor |
+| 4 | Flyt-texterna staplas | **11 texter samtidigt, 0 px isär** | max 2, aldrig närmare än 250 px |
+
+**Den tyngsta lärdomen: klykan mellan Zackes ben var en återvändsgränd, och fixen var
+födelsepunkten — inte kraften.** Bubblorna föds på karbottnen under tryckpunkten, och där står
+hans vader: en bubbla på (386, 574) startade **50 px inne i vänster ben**. Ut fanns ingen väg —
+låren står **44–50 px isär hela vägen upp** (en bubbla på 34 px behöver 68), de möts vid höften,
+magen stänger taket, och lyftkraften pressar bubblan mot just den stängda änden. Uppmätt: **två
+av fyra bubblor guppade mellan y 465 och 605 i 260 bildrutor och kom aldrig ut.** Ingen
+tuning av knuffen hade löst det. `_freeSpawnX()` föder dem vid närmaste fria sida i stället, och
+klykan är därmed onåbar i spel (tvingar man ändå in en bubbla löser anti-stuck-vakten den på 4 s).
+
+**Tre mätlärdomar:**
+
+1. **Mot en STATISK kropp ska överlappet lösas HELT, inte som en andel.** En andel ger inte
+   kontakt utan JÄMVIKT: lyftkraften bär in bubblan ~3,7 px/steg och 0,35 tar ut 35 % av det som
+   ligger inne, alltså stannar den ~7 px inne i benet för alltid (uppmätt 6,8 → 1,7 efter bytet).
+   Mellan två bubblor är andelen däremot rätt — en fjäder där vore en energiKÄLLA som pumpar
+   klasen, exakt fällan höjdfältet gick i förra passet.
+2. **"Största enskilda ton" är fel mått på platthet när ytan ritas med alfa.** Måttet gav **10 %
+   både före och efter** medan bilderna sida vid sida är uppenbart olika. Det "platt" betyder är
+   att ytan saknar INRE KANTER; med kanttäthet blev utslaget 0,7 % mot 11 %. `_plattprobe` svarar
+   på VILKEN ton, inte på om ytan har struktur — det är två olika frågor.
+3. **Sidofynd som bara bilden kunde ge: integratorn hade väggar och yta men INGET GOLV.**
+   Födelsehöjden är en fast punkt oavsett storlek, så en bubbla ur den stora flaskan (r upp till
+   96) nådde y 670 och låg delvis **utanför karet, ovanpå badrumsgolvet** — utan ett enda
+   konsolfel. Lägsta bubbelkant nu exakt 604 = karbottnen.
+
+**Och fem gånger var det SONDEN som hade fel, inte spelet** — samma lärdom som förra passet,
+nu med fem nya varianter: (a) den nollade `_foam.level` i stället för att montera om, så
+firandet från de bubblor sonden själv poppat nollade skummet mitt i mätfönstret; (b) den lät
+nivån klaras under mätningen, varpå **firandets bubbelsvärm** hamnade i mätvärdet och
+rapporterade 98,9 px inträngning i ett par som omöjligt kan tränga in mer än 72; (c) den skrev
+över `b.x` efter `_pushBubble` och mätte därför ett läge spelet inte längre kan hamna i, vilket
+rapporterade en byggd fix som utebliven; (d) `_goalFoam = 1e9` — frysningen som räddade
+fysikmätningen — **förstörde skummätningen**, eftersom skummets höjd är andelen `level/goalFoam`
+och ett spärrat mål ger höjden noll; (e) `nav.go('game')` när man redan ÄR i spelet monterar inte
+om, så bilden blev skalets creme och `_alive` falskt.
+
+**Ny sond:** `scripts/_bubbelprobe.mjs` (**14 kontroller**: klasens upplösning över tid,
+inträngning i Zacke, födelsepunkten, klykan som återvändsgränd, skummets kanttäthet,
+flyt-texternas antal och avstånd, plus vakterna framsteg · ingen fastnar · exit).
+
+**Commits:** `67742ce` feat(pruttbad) bubblorna tar plats · `6b4d887` feat(pruttbad) skummet
+blev en massa
+**Kontroll:** `check` 0 fel/0 varningar · `test pruttbad` grön · `test:all` 72/72 ·
+`_bubbelprobe` 14/14 · `_perspektivprobe` 26/26 · `_badprobe` 8/8 · `_tvalprobe` grön ·
+`_idleprobe` 0 · 0 fynd i `.test-logs/pruttbad.json`.
+**Öppet:** **ägarkön är tom igen** — `flipperspel` godkänt, hela pruttbadets §4 avklarad. Nästa
+naturliga steg är nattkön (`.claude/state/nattkorning.md`, står på **N6**). Bygget är omgjort,
+så nästa telefontest hämtar v1.150.0.
+
+---
+
+## 2026-08-11 (natt) · v1.148.0 · Hela pruttbadets §4-lista: ägarens fem önskemål avklarade
+
+**Byggt:** ägarens fem önskemål i `docs/games/pruttbad.md` §4 — den enda kö som bar hens egna ord
+— togs i tur och ordning. Fyra byggdes, det femte var uttryckligen ett *mätuppdrag* och behandlades
+som ett sådant.
+
+| # | Önskemål | Utfall |
+|---|---|---|
+| 1 | *"vet inte om man ser badet uppifrån eller från sidan"* | **Rent sidoperspektiv.** `73cd6d1` |
+| 2 | Propp att dra ut, kran att trycka på | **Nivån blev ett levande värde.** `bf5a18a` |
+| 3 | Tre schampoflaskor → olika bubbelstorlek | **Tre riktiga knappar, tre sorter.** `cd6ab47` |
+| 4 | Ankan omfördelar vatten och bubblor | **Ytan blev ett 1D-höjdfält.** `6ef6375` |
+| 5 | "Bättre vätske- och bubbelfysik" | **Mätpass skrivet, ingen kod ändrad.** `1810a10` |
+
+**Punkt 1 var inte en smakfråga, och det gick att visa.** Frågan "uppifrån eller från sidan?" blev
+mätbar så fort man skrev ner VAD i bilden som bär vilken läsning. Scenen hade **tre toppvy-signaler
+och nästan inga sidovy-signaler**: karet täckte sina egna fötter (kroppen gick till y 680, fötterna
+satt 596–670 *bakom* den) och gick dessutom ner genom golvlinjen; vattnet fyllde en rundad rektangel
+ut i alla fyra hörn; och — starkast av de tre — **ankan flöt 100 px under ytan och kunde parkeras
+var som helst i ett 2D-vattenfält**. Den sista satt i **spelbarheten**, inte i grafiken, vilket är
+varför ingen bildjustering hade räckt.
+
+**Punkt 5 byggdes medvetet INTE.** Docen säger uttryckligen "mät först och skriv ner VAD som ser fel
+ut i bild innan något ändras". `_tvalprobe` kom tillbaka **10/10 grön**, alltså var tvålvattnet
+aldrig problemet. Bilden gav i stället fyra punkter, varav den tyngsta är att **bubblorna går rakt
+igenom varandra** (fem–sex i en synlig klase). Två av de fyra är rendering och återkoppling, inte
+fysik, och bör inte buntas in i "fysiken". Listan ligger i §4 och väntar på ägarens prioritering.
+
+**Fyra buggar ramlade ut på vägen som inget grönt test såg:**
+
+1. **Mållinjen var dold bakom kar-kanten från nivå 2 och uppåt.** `_goalY` bottnade på 248 — mitt i
+   kantens 13 px-stroke, som ritas efter den. Måldottarna fanns alltså inte i bild i någon runda
+   utom de två första.
+2. **Det gömda fyndet kunde placeras högre än skummet någonsin når.** Spannet mättes mot mållinjen,
+   men kronan stannar `CROWN`=20 px under den → fynd över ~70 % kunde **aldrig** hittas. Äldre än
+   den här sessionen (gränsen låg på 71 % förut), alltså ungefär **var femte runda**.
+3. **Fyndets armering krävde en OBSERVERAD bildruta** med skum under sig — en enda jättebubbla ger
+   upp till 90 skum mot ett mål på 70, så hoppar skummet förbi i ett steg armeras det aldrig.
+   `_badprobe` gick från 2 av 4 röda till **8/8 fem körningar i rad**.
+4. **Mina egna träffytor bröt P0 genom att vara FÖR STORA:** 104 px med 120 px mellan mittpunkterna
+   ger 16 px lucka, under kravet 24. 96 + 24 = 120 är den enda exakta passningen.
+
+**Tre lärdomar värda att bära vidare:**
+
+1. **En impuls varje bildruta är en konstant kraft, inte en våg.** Dämpningen tar 2,8 % per steg, så
+   jämvikten blir insatsen/0,028 ≈ 36× — ett halvt sekunds drag pumpade höjdfältet till sitt tak.
+   Och en "dell som dras mot ett måldjup" är en energiKÄLLA som aldrig lugnar sig (resthastighet
+   0,367 efter fyra sekunder). Rätt modell: **dellen är fältets VILOLÄGE**, fältet bär bara
+   avvikelsen, och vågor uppstår av att viloläget FLYTTAR SIG. Det går inte att pumpa, och det tar
+   slut.
+2. **Dämpningen måste ligga efter spridningen.** Låg den före blev spridningens eget bidrag odämpat,
+   och för moden där varannan stödpunkt går upp och varannan ner är `l + r − 2h` lika med −4h: två
+   pass gav styvhet 0,88 mot dämpning 0,972, alltså en nästan ostabil svängning vid Nyquist.
+3. **Ett delat mönster kanske inte går att dela.** Docen pekade på `plask-i-vattnet` för undanträngd
+   volym, men den vätskan är SPH-partiklar i en `Flytvolym` som kräver en matter-värld. Det som bar
+   över var dess **varning** (undanträngning lyfter HELA ytan → håll bredden smalare än föremålet),
+   inte dess kod.
+
+**Och tre gånger var det SONDEN som hade fel, inte spelet** — samma lärdom som
+`probe-before-believing`: (a) mätblocket ärvde 415 skum mot ett mål på 70 och hade alltså redan
+klarat rundan, (b) ett 40-bildrutors fönster mätte en sträcka där kraften per definition är noll,
+(c) bubblans egen slumpade vobbelfas gav BÅDA tecknen ur samma kod (47,8 mot 35,7 i en körning,
+45,5 mot 64,0 i nästa). Först med fasen nollad och armarna växelvis blev effekten synlig:
+**−24 px bort från ankan mot +63 px utan henne.**
+
+**Refaktorn gjordes säker genom att ta bort, inte lägga till:** modulkonstanten `SURFACE_Y` (30
+användningar) **raderades helt** i stället för att lämnas kvar bredvid det nya levande värdet. Varje
+metod som rör vattnet tar `const SURFACE_Y = this._surf` som första rad — en glömd rad blir då ett
+ReferenceError som testet fångar, i stället för vatten som tyst ritas på fel höjd.
+
+**Nya sonder:** `_perspektivprobe.mjs` (**26 kontroller**: sidovyns läsbarhet i bild, nivåkontroll,
+P0-träffytor, vågfält, undanträngd volym, bubbelknuff med armarna växelvis) ·
+`_bubbelbild.mjs` (fyller badet med alla tre bubbelsorterna och sparar bilden — underlaget för §4:5).
+
+**Mätt:** `check` 0 fel/0 varningar · `test:all` **72/72** · `_perspektivprobe` **26/26** ·
+`_badprobe` **8/8 ×5** · `_idleprobe` **0** · `_tvalprobe` **10/10** · `_tystprobe` oförändrat 6 ·
+0 fynd i `.test-logs/pruttbad.json` · 6 nya röstklipp (0 failed).
+
+**Sidofynd till ÅTGÄRDER V14b:** ett svep loggade `tom-bild-omtagen ×2 — gl-kontext FÖRLORAD` i
+`tvatta-djuret`. Det är **precis den mekanism vakten byggdes för**, nu mätt i stället för gissad:
+stage och värld hade sina barn, duken rätt storlek, sidan synlig — det var WebGL-kontexten som
+försvann. Fyndet vandrar dessutom mellan spel igen (`golvet-ar-lava` svepet före), vilket stärker
+att det hör till SVITEN och inte till något spel. Raden uppdaterad i `docs/ATGARDER.md`.
+
+**Commits:** `73cd6d1` fix(pruttbad) sidoperspektiv · `bf5a18a` feat(pruttbad) propp+kran ·
+`cd6ab47` feat(pruttbad) schampoflaskor · `6ef6375` feat(pruttbad) höjdfält ·
+`1810a10` docs(pruttbad) mätpass §4:5
+
+**Öppet:** **ägarkön är tom** — allt hen rapporterat och önskat är gjort. Nästa naturliga steg är
+antingen nattkön (`.claude/state/nattkorning.md`, står på **N6**) eller `pruttbad` §4:5-listan om
+ägaren vill ha den. Bygget är omgjort, så nästa telefontest hämtar v1.148.0.
+
+## 2026-08-11 (sen kväll) · v1.144.0 · Femte speltestet: fenan var en kil, och fastnar-vakten såg det aldrig
+
+**Byggt:** ägaren testade v1.143.0. `trollblandning` godkänd ("funkar bättre nu med 2 / utökad
+hylla"). `flipperspel` bar två rapporter — *"kan fortfarande få kulan att fastna"* och
+*"studskuddarna är för nära kanten så kulan kan inte åka under"* — som visade sig ha **samma rot**,
+plus en andra defekt som bara blev synlig när den första var borta. ÅTGÄRDER **#7**, `76dc0d1`.
+
+| Fel | Utfall |
+|---|---|
+| Fenan mot lanvägen | Fenan låg på (452,500), nästan **parallell** med lanvägen: kanalen mätte **58 px för en kula på 56**. Fenorna **+50 px inåt, −40 px upp** → (502,460)/(778,460), kanal **110 px**. |
+| Banans fickor | `slumpaUt` skyddar mot att kulan **kilas fast MELLAN** två ytor, inte mot att den blir **liggande OVANPÅ**. Ny `hittaFickor()` + `klarhetsfalt()` i `lib/utplacering.js`; `_samplaBana` kastar om **och plockar bort dämmaren**. Fickor **8 på 8 rundor → 0 på 12**. |
+
+**Tre lärdomar värda att bära vidare:**
+
+1. **Ett mått taget i fel riktning ser friskt ut.** Den gamla kommentaren mätte luckan mellan fena
+   och lanväg **vågrätt** (126 px) och drog slutsatsen "ingen kil". Kulan färdas **längs** lanvägen,
+   så måttet är **vinkelrätt** — och där var det 58 px. *Mät längs den riktning saken rör sig i.*
+2. **En räddningströskel på STILLASTÅENDE missar en långsam kretsgång.** Fastnar-vakten kräver
+   `hastighet < 0,7` i 2,6 s. I fickan **rullade** kulan, så vakten löste aldrig ut: **0 räddningar
+   på 90 fastnade släpp**. Det är hela förklaringen till ordet "fortfarande".
+3. **Att slumpa om räcker inte när felet är strukturellt.** 8 omkast av hela banan gav ändå 4
+   fickor på 10 rundor (och kostade 157 ms per runda). Att **ta bort det föremål som dämmer** går
+   monotont mot noll — varje borttagning öppnar fältet och kan aldrig skapa en ny ficka.
+
+**Nya sonder:** `_kilprobe.mjs` (läser spelets LEVANDE kroppar → lankanal, fickor, `--bild` ritar
+fältet) · `_spelaflipper.mjs` (släpper kulan i ytterbanan, paddlarna orörda, fryst bana, armarna
+**växelvis**: fastnade **83,3 % → 1,9 %**, median nertid **3 826 → 1 715 ms**).
+
+**Commits:** `76dc0d1` fix(flipperspel) · `326d1c7` docs(ÅTGÄRDER #7)
+
+**Öppet:** ägaren testar v1.144.0 på telefonen. Kvarstår i spelet: i ~1 varv av 12 kramar en dyna
+ihop lankanalen till 58 px — **ingen ficka** (kulan studsar bara på dynan), medvetet lämnat.
+I övrigt oförändrat läge: `pruttbad` §4 (perspektivet först) är enda kön med ägarens ord bakom sig,
+nattkön står på **N6**.
+
+## 2026-08-11 · v1.143.0 · Ägarens speltest i fyra vändor — sex punkter, och en regel som drogs tillbaka
+
+**Byggt:** ägaren speltestade natt VI:s fem bygge. `hamburgerbygget`, `natskott-pa-stan`,
+`kugghjulen` och `trollblandning` godkända; `pruttbad` "okej" men med fem nya önskemål (§4,
+perspektivet först). Två buggar/punkter togs hela vägen.
+
+| # | Punkt | Utfall |
+|---|---|---|
+| ÅTGÄRDER #5 | `trollblandning`: nyupptäckt ikon över en annan | **Två oberoende fel bakom samma bild.** (A) hällningens hemtween låser sitt målvärde vid START, och `_react` flyttar hyllan 0,22 s in i den 0,30 s långa resan → **16,0 px** fel. (B) hyllan var dimensionerad för 7 element men kan få **13 redan på nivå 1** → **22,3 px överlapp**. 16,0 → **0,0** och 22,3 → **0,0**. Ny sond `_hyllprobe.mjs`. |
+| V10b / O2 | `flipperspel`: `studs`-optens första kund | Stolparna kör `{ isStatic: true, studs: 0.7 }`. **59,4 → 75,4 px** (+27 %), par 0,62 → 0,70, `check --studs` 50 → **49**. Ny sond `_flipperprobe.mjs`. |
+
+**Lärdomen som är värd mest: den RÖRLIGA kroppens eget studstal är ett GOLV.** V10 slog fast att
+parets regel är `max(A, B)`, men ingen hade läst den baklänges. `flipperspel`s kula bär **0,62**,
+och därmed är `wall` 0,3/0,4 · `sling` 0,5 · `spinner` 0,55 · `flipper` 0,3 döda av ett **andra,
+oberoende** skäl — de hade förlorat mot kulan även om `setStatic` aldrig nollat dem. Mätt som
+kontroll: ett statiskt 0,5 ger 59,4 px hopp både nollat och väckt, **0,0 px skillnad**. Slutsatsen
+gäller varje framtida kund i migreringslistan: **läs den rörliga kroppens tal FÖRST**; ligger ytans
+tal under, är `studs` fel verktyg hur avsiktligt talet än ser ut.
+
+**Två fel bakom en bild är ett eget mönster.** Ägarens rapport ("ikonen hamnade över en annan")
+hade två orsaker som var för sig gav exakt samma bild. Sonden mätte dem **var för sig** från
+början — hade den mätt "ligger ikoner på varandra?" hade en tween-fix sett grön ut och ägaren
+sett samma sak igen. Räkna alltid om vad systemet MAX kan behöva: hyllan var byggd för 7 element,
+och en enkel genomräkning av recepten gav 13.
+
+**Fem raka sondfel på samma mätning — nytt rekord, och alla tysta.** Försöket att mäta en enskild
+ytas studs inne i det *levande* spelet gav: (1) `b.position.y = …` flyttar inte kroppens hörn, så
+kulan gick rakt igenom stolpen; (2) `_phys.update`-ackumulatorn körde fyra steg på en bildruta och
+kulan landade 21 px inne i stolpen, som då separerades i sidled; (3) en avläsning per bildruta
+missar en studs som varar tre steg; (4) apexhöjd från släpppunkten mättade i båda armarna; (5) en
+liten rund stolpe sprider en stor kula. **Lösningen var att byta arena, inte att fila vidare:**
+studskoefficienten mäts i en NAKEN fysikvärld (som `_studsprobe.mjs`), och webbläsaren används
+bara till det den är bra på — att läsa spelets egna tal och kontrollera exit-säkerheten.
+
+**Ägarbeslut som stängde två köpunkter:** `domino` behåller sitt `nSlots`-tak och startar om efter
+max (**N11 struken**, ingen kamera), och telefonkollen av full bleed är **godkänd** — skärmen är
+låst i landskap, så rotation mitt i spel kan inte uppstå.
+
+### Andra halvan: ägaren spelade vidare och rapporterade fyra gånger till
+
+| # | Punkt | Utfall |
+|---|---|---|
+| ÅTGÄRDER #6 | `flipperspel`: en stolpe blockerade nerfarten | **Regression från v1.138.0.** Kilregeln var symmetrisk, men sidorna är kulans väg NER och lanvägen stänger dem underifrån — en passage på 70–90 px är där en FICKA. Ny regel `GAP_LANE` (≥100 eller ≤46 mot vägg/lanväg). **5 107 → 0** trånga korridorer på 1 500 banor. |
+| — | `flipperspel`: slumpad bana + mindre dynor | Ägarönskemål. Fyra handlagda uppsättningar med ±22 px jitter ersatta av äkta sampling. Dynorna 46 → 34 px radie, vilket är det som ger plats åt fler: minsta centrumavstånd `2r + 64` är 156 px vid r=46 men 132 vid r=34. Antalet 4,0 (nivå 1) → 6,6 (nivå 12), tak 7. Stolparna flyttades in i fältet — de satt på y=192, exakt kulans serverings-höjd, vilket är varför de var omöjliga att träffa. |
+| — | **Regel tillbakadragen** | Utplaceringsregeln skrevs först in som **P0 för alla 73 spel** plus en åtgärdslista på 14. Ägaren: *"regeln gällde endast för flipperspelet."* P0-raden borttagen, listan struken, `lib/utplacering.js` omskrivet till ett VERKTYG med ett filhuvud som säger när det gäller. |
+| V10b | `flipperspel`: dynornas studs | Ägaren gav fritt val. **Att bara väcka dem var fel** — dynan lägger redan på en egen impuls (`_kickOff`), och med en riktig studs ovanpå höll dynfältet kulan uppe. Fyra armar växelvis: väckt+full kick sämst i båda körningarna (7,6 %/3 · 9,5 %/3), **väckt + kick 1,2 bäst i båda** (24,0 %/5 · 29,2 %/9). Noll kick är också fel. |
+| — | `trollblandning`: tvåradig hylla | P0 kräver 96 px träffyta + 24 px mellanrum = **120 px per plats**; hyllans 1030 px rymmer **9**, men spelet når **13 redan på nivå 1**. En rad upp till 9, två rader därefter. Mätt vid 13: 120,0 / 96,0 / 24,0 px — alla precis på kravet. Kitteln flyttades 400 → 352 eftersom elden stod där övre raden skulle ligga. |
+
+**Sessionens dyraste lärdom: en beteendemätning kan ljuga tyst, och den gör det olika varje gång.**
+Dynornas studs mättes fem gånger med tre olika resultat innan orsakerna hittades: kulan kan stå
+**statisk** under firandets lyft (en arm gav 0,0 % / 0 besök), och **en studsigare dyna tänder
+rundan fortare** så `_checkComplete` byggde en NY bana mitt i försöket och armarna jämfördes på
+olika banor. Med `_total` spärrat, statiska rutor bortkastade och armarna växelvis blev
+riktningen entydig. Före det gick samma mätning att läsa som vilket svar man ville ha.
+
+**Näst dyraste: fem raka sondfel på EN mätning.** Försöket att mäta en enskild ytas studs inne i
+det *levande* spelet gav: en direkt skrivning till `position` flyttar inte kroppens hörn (kulan
+gick rakt igenom stolpen) · `_phys.update`-ackumulatorn kör upp till fem steg per bildruta
+(kulan landade 21 px inne i stolpen) · en avläsning per bildruta missar en studs som varar tre
+steg · apexhöjd från släpppunkten mättade i båda armarna · en liten rund stolpe sprider en stor
+kula. **Lösningen var att byta arena, inte att fila vidare:** studskoefficienten mäts i en NAKEN
+fysikvärld (som `_studsprobe.mjs`), och webbläsaren används bara till att läsa spelets egna tal.
+
+**Tredje: girig utplacering packar SÄMRE än ren slump.** Ett nytt föremål som söker maximalt
+avstånd hamnar i ett hörn och fragmenterar ytan. Nivå 12, snitt/tak: bäst-av-900 **3,4/5** ·
+"bra nog" 1,25× **3,3/5** · ren dartkastning **6,6/7**.
+
+**Nya sonder:** `_hyllprobe.mjs` (hyllans placering + P0-mått i 2D) · `_flipperprobe.mjs`
+(studsytor i naken fysik + kommer kulan ner) · `_banprobe.mjs` (1 500 slumpade banor).
+**Ny lib:** `src/lib/utplacering.js`.
+
+**Commits (10):** `83e6bc7` fix(trollblandning) ÅTGÄRDER #5 · `22cda28` docs speltest + beslut ·
+`43d71b4` feat(flipperspel) V10b:s första kund · `2bebe6c` docs sessionslogg ·
+`bc67071` feat(flipperspel) slumpad bana + mindre dynor · `f42e012` fix(flipperspel) ÅTGÄRDER #6
+sidornas fickor · `5054508` feat(P0) utplaceringsregeln (senare tillbakadragen) ·
+`846149d` docs regeln gäller flipperspelet · `c4657cd` feat(flipperspel) dynornas studs + kick
+1,2 · `982fa60` feat(trollblandning) tvåradig hylla
+
+**Kontroll:** `npm run check` **0 fel / 0 varningar** · `npm run test:all` **72/72** (kört efter
+lib-ändringen) · `test trollblandning` + `test flipperspel` gröna, alla skärmdumpar sedda ·
+`_hyllprobe` alla gröna · `_flipperprobe` alla gröna · `_banprobe` alla gröna på 1 500 banor ·
+`_idleprobe flipperspel` A/B mot HEAD (identiska 4) · röstkön tom · bygget serverat på tailnet.
+
+**Öppet:** (1) **`pruttbad`s fem önskemål i §4** — perspektivet först (det går inte att se om
+badet visas uppifrån eller från sidan), sedan propp + kran, tre schampoflaskor och en anka som
+tränger undan vatten. Det är den enda kön med ägarens ord bakom sig. (2) `flipperspel`: ägaren
+speltestar v1.143.0 — dynornas nya karaktär och att kulan fortfarande når paddlarna. (3)
+`trollblandning`: ägaren speltestar tvåradigheten vid 10+ element. (4) Nattkön (`.claude/state/
+nattkorning.md`) står på **N6** — gradienterna som är kvar + `rimLight`s första kund.
+
+---
+
+## 2026-08-10 (natt VI, varv 3) · v1.131.0 · Nattkön varv 3 — pågår
+
+**Byggt:** nattkörningens `⬜`-kö uppifrån (`.claude/state/nattkorning.md`). Posten fylls på
+under natten; se filens egen loggtabell för löpande läge.
+
+| # | Punkt | Utfall |
+|---|---|---|
+| N1 | `_livprobe` röd på `trollblandning` | **Äkta fynd** — spelet hade inte ett enda `feedback.liv`. Trollkarlen + hyllans element andas nu, båda på en **inre behållare** eftersom gester/drag äger `y`. 0 → 5 objekt, 6,8 px, spridning 0,45. |
+| — | `_dragprobe` larmade falskt på vägen | Sonden krävde DragControllers **opt-in**-skugga av alla. **10 av 15** dragspel hade falsklarmat. Lagad. |
+| N2a | `kugghjulen` **dubbelhjul** | Nivå 8: ett hjul driver kedjan vidare OCH en fläkt. **Mesh-grafen behövde noll ändringar** — den var redan generaliserad. Grenen är en bonus utanför vinstvillkoret. `_grenprobe.mjs` (17 kontroller) vaktar. |
+| N2b | `kugghjulen` **back-hjul** | **Punkten omformulerad, inte byggd** — den uppenbara byggnaden är matematiskt omöjlig (se nedan). Korsad rem utpekad som rätt väg och nedskriven i §4. |
+| N3 | `pruttbad` får `vatska.js` | Riktiga **tvåldroppar** vid poppet (`tval`). 2 024 px netto, 60,6 fps under CPU ×6, dränerade till 0. **Fyra fel som talen dolde** — tre hittades av bilden. Ny sond `_tvalprobe.mjs`. LYFTPLAN B1: tre spel → **sex** (listan var inaktuell). |
+| N5 | `natskott-pa-stan` får `rep.js` | Nätlinans egen verlet-solver borta (59 rader). Settlade lägen skiljer **1,2–2,4 px**, piskans sag-kurva ≤ 8,3 px, spänt läge 7,4 px. **Bytet tog bort en latent sprängning**: den gamla kopian saknade fartspärr och gav **110 450 px lina för en korda på 1 300** vid ett ryck + tappad bildruta. Nya sonder `_natlinaprobe.mjs` (bär den gamla solvern som referens) + `_linabild.mjs`. C5 `MeshRope` **struken** för det här spelet med skäl. |
+| N4 | `hamburgerbygget` får `mjukkropp.js` | **Båda bröden** är nu mjuka kroppar. Underbullen bär stapelns tyngd (**8,4–10,3 px monoton sammantryckning**, bredd 224 → 229,5), hela stapeln sätter sig med den, locket får en impuls per lager. Tom burgare **oförändrad** (ritad kurva 224,0 × 50,0 mot gamla 224 × 50). Fyra fällor, alla gröna i `npm run test`. Nya sonder `_bullprobe.mjs` + `_stapelprobe.mjs`. `sapbubblor` **struken** ur B2 med mätning bakom sig. |
+
+**Nattens första lärdom: den röda sonden var sondens eget fel — igen (femte gången).**
+`_dragprobe` rapporterade `skugga NEJ` på `trollblandning`. Verifieringen mot HEAD (rulla undan
+kvällens ändring, kör om) gav **identiska tal** — 12 px eftersläpning, 0,092 rad lutning, 4 barn
+före/under/efter. Alltså inte en regression. Orsaken: `DragController`s `skugga` är **opt-in**
+(`skugga = false`) med flit — hälften av spelen ritar en egen markskugga, och två skuggor som
+glider isär under ett snabbt drag syns direkt. Sonden läser nu `g._drag._skugga` och kräver
+skuggan bara av de fem spel som bett om en; `enkelt-pussel` (opt-in) mäter fortfarande
+`ja (alpha 0.16)` och barn 7 → 8 → 7, så fyndvägen är orörd.
+
+**Motsatsen gällde för `_livprobe`:** den var röd av rätt skäl. Regeln "verifiera röda sonder
+mot HEAD först" avgör vilket av de två fallen man har — den avfärdar inte fynd, den sorterar dem.
+
+**N2b: en köad punkt som inte gick att bygga som den var formulerad — och varför det är ett
+resultat.** "Ett back-hjul som vänder en karusell" antog att ett extra hjul i ett gap vänder
+riktningen. Spelets egen länkregel säger något annat, i två rader:
+`factor[v] = factor[u] · (e.rem ? 1 : −1) · r_u/r_v`, alltså rem = `f_a · (r_a/r_b)` och
+mellanhjul = `f_a · (−1)(r_a/r_x) · (−1)(r_x/r_b)` = **samma tal, samma tecken**. Två vändningar
+tar ut varandra — ett mellanhjul vänder mot en *direkt kuggkontakt*, aldrig mot en rem. Och det
+finns inget "utan"-läge att jämföra mot, för tas hjulet bort bryts kedjan. En vändning kräver
+**två ömsesidigt uteslutande vägar med olika paritet**; den läsbara varianten är en **korsad
+rem** (rak = samma håll, korsad = vänd, och X:et är det enda en tvååring faktiskt ser). Planen
+ligger i `docs/games/kugghjulen.md` §4 med de två rörda funktionerna utpekade.
+
+**Mönstret som återkom tre gånger i natt:** talen var gröna och **bilden** bar fyndet. Axeln
+mellan grenhjul och fläkt var 44 px och fläktbladet (radie 38) täckte nästan hela den; sondens
+första bild var helt täckt av appens splash; och `_grenprobe`s eget P0-kriterium var för strängt
+(krävde 184 px mellan pinnar — men kugghjul MÅSTE röra varandra, kedjans egna pinnar ligger
+132–150 px isär, och `DragController._narmastMal` väljer närmaste mål ändå).
+
+**Sonderna var lika ofta fel som koden.** Tre av nattens fem sond-möten var sondens fel, inte
+spelets: `_dragprobe` krävde en opt-in-funktion, `_grenprobe`s P0-krav var fel standard för ett
+spel där hjul MÅSTE röra varandra, och `_vatskeprobe` rapporterade 232 913 "vätskepixlar" om en
+vätska med noll partiklar. **Och två grönt-rapporterande mätningar var falska:** `_grenprobe`s
+första bild var täckt av splashen, och `_tvalprobe`s första pixelmätning räknade badets skum som
+tvål (avstånd² 3460 mot tröskeln 3600). Botemedlen som fungerade: verifiera mot HEAD, mät
+**differentiellt** (samma yta med och utan lagret), och **öppna bilden**.
+
+**Commits:** `103682c` fix(sond) `_dragprobe` opt-in-skugga · `eceb5bf` fix(trollblandning) N1 ·
+`985020c` docs N1 · `1a26518` feat(kugghjulen) N2a dubbelhjul · `ed0209b` docs(kugghjulen) N2b
+omformulerad · `4546ba9` feat(pruttbad) N3 tvålvatten
+
+**Kontroll:** `npm run check` **0 fel / 0 varningar** · `npm run test:all` **72/72 gröna** ·
+`_livprobe` · `_dragprobe` · `_grenprobe` 17/17 · `_tvalprobe` 10/10 · röstkön **tom** ·
+arbetsträdet rent · backup körd. Enda loggfynden i sviten är den kända ⏸-posten
+`saknat-ljudklipp` (MOSS-SoundEffect nere): `sapbubblor` ×9 · `bajs-och-kiss` ×3 ·
+`kittla-figuren` ×1 · `peka-pa-kroppen` ×1.
+
+**Öppet:** nattkön står på **N4** (fler `mjukkropp`-kunder).
+
+---
+
+## 2026-08-10 (sen natt V) · v1.130.0 · Småsakerna tömda — och två öppna buggar som båda bytte form
+
+**Byggt:** 5 punkter, 5 commits. Kön var "småsaker + öppna ÅTGÄRDER".
+
+| # | Punkt | Utfall |
+|---|---|---|
+| 1 | 3 repliker utan klipp | `npm run voice` — 3 made, 0 failed. Kön är **tom**. |
+| 2 | `pizzabageriet` saknade `BLEED` | Sista spelet utan bleed. Vägg, väggljus, bänkskiva och golv slutade på 0/1280/720, så en bred telefon visade **ängen från `createScene('warm')`** runt bageriet. |
+| 3 | `spindelnatet`s dagsljusbruna mark | Marken låg i `COLORS.brown` under en stjärnhimmel. Dras nu 55 % mot `night`-temats egen marktone. |
+| 4 | ÅTGÄRDER **V14** | Hypotesen **mätt falsk**. Harnessen bär nu sin egen diagnos i stället. |
+| 5 | ÅTGÄRDER **V10** | `{ isStatic: true, studs }` byggd och mätt. Migreringslistan syns i `check`. |
+
+**Passets viktigaste händelse: V14:s hypotes höll inte för en mätning.** Raden hade stått i tre
+svep på att `golvet-ar-lava` är svitens tyngsta montering (enda spelet med BÅDE `FluidWorld` OCH
+full `createScene`) och att skärmdumpen därför hinner före första målade bildrutan. Ny sond
+**`scripts/_montageprobe.mjs`** mäter kostnaden som längsta gapet mellan två `rAF` efter
+navigeringen — `nav.go()` är asynkron, så en synkron mätning av anropet visar ~0 och säger
+ingenting. Utfall över 72 spel, CPU 4× strypt, median av 3 varv: **`golvet-ar-lava` 16,8 ms =
+svitens median**, alltså EN bildruta precis som 69 andra spel. De enda som sticker ut är
+`pizzabageriet` (50,0 ms, 3,0×) och `hamburgerbygget` (33,4 ms, 2,0×) — och ingen av dem faller.
+Dessutom tas skärmdumpen efter tryck, drag OCH 900 ms; monteringskostnad kunde aldrig ha
+förklarat den. **Det som byggdes i stället för en fix på en död hypotes:** omtagningen höjd från
+en till tre, en vakt för `webglcontextlost`/`webglcontextrestored` (en förlorad GL-kontext ger
+en helt tom duk utan ett enda konsolfel), bevis samlade i SAMMA ögonblick som den tomma bilden
+(gl-kontext, gl-händelser, barn på stage och i världen, dukens storlek, `visibilityState`), och
+en varning `tom-bild-omtagen` som bär hela diagnosen i stället för tystnad. Vägen är
+**självtestad** med `--tvinga-tom N`, inte hoppad — en diagnos ingen kört är en gissning till.
+
+**V10 blev en opt-in, inte en global fix.** `{ isStatic: true, studs: 0.75 }` sätter restitution
+efter `setStatic`, uppdaterar `_original` (en väckt kropp behåller studsen), loopar över `parts`
+som matter själv, kläms till 0..1 och strippas ur matters options. Uppmätt: **4,7 → 143,3 px**
+hopp, identiskt med den simulerade fixen. **50 tal i 19 spel är fortfarande nollade med flit** —
+en global återställning hade väckt 25 kombinationer på en gång i handtrimmade spel. `npm run
+check` skriver nu EN sammanfattningsrad (`-- --studs` ger listan), så kön är läsbar i stället
+för tyst. Listan tvingade själv fram två gränsdragningar: `restitution: 0` räknas inte, och
+raden säger *"medan kroppen är statisk"* — `kulbana:140` skapar spelets KULA statisk med 0,42
+och får tillbaka talet ur `_original` när den väcks.
+
+**Två gånger var gradientmappningen den tysta fällan.** Både `pizzabageriet` och `spindelnatet`
+ville breddas åt alla håll, men `verticalFill`/`groundFill` mappas mot formens **bbox-höjd**: ett
+topp- eller bottenbleed hade flyttat hela ljuset i den synliga bilden. Regeln som gäller
+härefter: **bredda gradienten bara i sidled, och lägg helfärgade remsor i dess ytter-toner
+ovanför och under.**
+
+**Commits:** `4bd872d` röstklipp · `72f5932` pizzabageriet bleed · `cb2d368` spindelnatet
+månbelyst · `891a088` harnessens tom-bild-diagnos + `_montageprobe.mjs` · `898803a` studs-opt-in
+
+**Öppet:**
+- **`studs` har ingen kund bland spelen.** Första kunden är ägarnära (kräver att man SPELAR
+  spelet). Kandidater med uppenbar avsikt: `spindelhjalten` 1,0 · `rulla-bollen-hem` 0,92 ·
+  `bowling` 0,75 · `flipperspel` 0,5–0,7. ⚠️ Läs koden först — flera lägger redan en EGEN impuls
+  vid träff, och då blir en väckt restitution en dubblering, inte en fix.
+- **V14b väntar på nästa träff.** Frekvensen är ~1 av 7 svep; två fulla svep i det här passet var
+  rena. Nästa gång kommer fyndet med sin orsak.
+- Oförändrat: **D2** `saknat-ljudklipp` (MOSS nere) · platthetsarbetet vid avtagande avkastning
+  (`hamburgerbygget` 48 525 · `pizzabageriet` ugnsinsidan 50 656) · GitHub Pages · telefonkoll ·
+  miljöstädningen (två vite-instanser).
+
+## 2026-08-10 (sen natt IV) · v1.125.0 · Sonden som saknades — och ett fynd som slutade vandra
+
+**Byggt:** 4 spel + 1 sond. Nivån som låg i förra postens `Öppet`.
+
+| spel | störst före → efter | fältet |
+|---|---|---|
+| plask-i-vattnet | 57 525 → 30 283 | golvet |
+| pizzabageriet | 60 494 → 50 656 | osten på pizzan |
+| hamburgerbygget | 55 584 → 48 525 | ingrediensbrädan |
+| pruttbad | 56 535 → fältet ute ur topp-3 | badkarets insida |
+
+**Passets viktigaste händelse var att jag gissade fel och mätte mig ur det.** Jag antog att
+`hamburgerbygget`s fält var kaklet, implementerade det, och talet rörde sig knappt
+(55 584 → 53 821). Det är den stående signalen att hypotesen om PLATSEN är fel. I stället för
+en tredje gissning skrevs **`scripts/_bbox.mjs`** (`429654d`): den skriver ut antal + bbox för
+en exakt ton i en skärmdump. Svaret kom direkt — `73,630 → 1206,712`, alltså
+ingrediensbrädan, som dessutom är EXAKT samma konstruktion som `pizzabageriet`s hylla, redan
+tonad i ett tidigare pass. Kakel-ändringen backades.
+
+`_plattprobe` säger VILKEN ton som är störst, aldrig VAR den ligger. Den luckan har nu kostat
+två rundor rimligt resonemang två gånger (`pizzabageriet`s hyllplan förra svepet, det här).
+Nu finns verktyget.
+
+**`pizzabageriet`s ost visar var chokladkule-gränsen går.** `sphereFill` var fel på
+`tvatta-djuret`s lerklumpar eftersom varje liten klump fick sin egen glansdager och massan
+läste som godis. Här är det EN stor skiva med EN mjuk kupa, och då är samma verktyg rätt —
+med dämpade tal och bred spridning. Skillnaden är antalet ljuskällor ögat måste läsa, inte
+verktyget.
+
+**Två ytor lämnades med mätt skäl:**
+- **`natskott`s `#d2554f`** är spelarens egen röda nät-hand (`hud: 0xd94f4f` under biom-tinten)
+  — ett förgrundsobjekt i riggfamiljen som redan är skuggat, inte en platt yta.
+- **`pruttbad`s topptal STEG** (56 535 → 68 757) utan att något blivit sämre: badvattnet tog
+  över platsen och det fältet mättes till **29 953 / 45 767 / 54 871 / 68 757 i fyra körningar
+  utan kodändring** — vattennivån stiger under spelets gång.
+
+**ÅTGÄRDER V14 skärpt: `tom-scen` slutade vandra.** Passet körde **åtta fulla svep** — sex
+rena, två med `tom-scen`, och BÅDA på `golvet-ar-lava`. Med V14:s ursprungliga observation är
+det tre av tre på samma spel, medan V12b:s signatur var att fyndet vandrade mellan spel. Det
+är en skärpning, inte en motsägelse: `golvet-ar-lava` är svitens enda spel som BÅDE monterar
+en `FluidWorld`/`FluidView` (filter, hundratals sprites) OCH en full `createScene` — den
+tyngsta monteringen i sviten, precis vad "skärmdumpen hinner före första bildrutan"
+förutsäger. **Uteslutet med kod, inte gissning:** spelet anropar `createScene` med
+`ground: false` (`index.js:110`), så `scene.js`-markens toning (`6789698`) ligger inte i dess
+kodväg. Förslag till stängning står i V14.
+
+**Commits:** `429654d` _bbox.mjs · `924387f` hamburgerbygget · `0f609d7` pizzabageriet ·
+`65556d9` plask-i-vattnet · `fb7d4bd` pruttbad · `5990bdd` docs + skärpt V14 ·
+`4191e28` `_bbox.mjs` in i CLAUDE.md:s sondtabell
+
+**Öppet:**
+- **Platthetsarbetet har nått avtagande avkastning.** Appens topp är `trollblandning`s
+  receptbokspanel (115 400, ska förbli platt); största ÅTGÄRDBARA fält är nu ~48 000 px, ner
+  från 809 744 där svepet började. Kvar i listan: `hamburgerbygget` bänkskivan 48 525 ·
+  `pizzabageriet` ugnsinsidan 50 656 · `natskott` handen 57 169 (riggfråga, lämnad).
+  Nästa pass bör fråga om det fortfarande är rätt arbete innan det fortsätter.
+- Oförändrat: **C1/V10** · **D2** `saknat-ljudklipp` (MOSS nere) · 3 repliker väntar på
+  `/rost` · `spindelnatet`s dagsljusbruna mark under natthimmel · `pizzabageriet` saknar
+  `BLEED`.
+
+## 2026-08-10 (sen natt III) · v1.124.0 · Föremål, inte ytor — och en himmel som redan var en toning
+
+**Byggt:** 6 spel, 6 commits. Nivån som låg listad i förra postens `Öppet`.
+
+| spel | störst före → efter | fältet |
+|---|---|---|
+| kittla-figuren | 75 809 → 18 198 | figuren SJÄLV — ett föremål, inte en yta |
+| natskott-pa-stan | 71 095 → 57 169 | himlen: åtta handrullade band → en toning |
+| vilket-djur-later | 66 327 → 15 870 | brickorna |
+| enhorningen-elvira | 57 734 → 23 721 | marken |
+| pizzabageriet | 62 882 → 60 494 | golvet fixat, osten tog över |
+| pruttbad | 61 880 → 56 535 | golvet fixat, badvattnet tog över |
+
+**`natskott`s himmel var REDAN tänkt som en toning.** Den ritades bara som åtta handrullade
+band à 60 px, och åtta steg är för grovt: varje band blev 1280×62 ≈ 79 000 px i en exakt ton.
+En cachad `verticalFill` ger samma färgresa mjukt, i EN ritinstruktion i stället för åtta.
+Värt att leta efter på fler ställen — en `for`-loop som lerpar mellan två färger ÄR en
+gradient, bara med för få steg.
+
+**⚠️ `kittla-figuren` fälldes TVÅ gånger av bilden, och båda felen var osynliga i mätningen:**
+
+1. Första försöket tonade bara KROPPEN. Huvudet ritas på ett eget ställe (`p.headG`) och blev
+   kvar platt — ett platt huvud på en rund kropp. Lärdomen är generell: när ett föremål byggs
+   av delar i olika funktioner räcker det inte att tona den del man råkade hitta först.
+2. Mörkningen 0,26 gjorde pastellrosan DAMMIG i stället för rund. Artfärgerna är pasteller,
+   alltså exakt samma kalibreringsfälla som grusstigen i `a1bb4e0` — fast här på ett föremål i
+   stället för en yta. Dämpad till 0,16.
+
+**Två spel rörde knappt sitt topptal, och det är INTE ett misslyckande.** `pizzabageriet` och
+`pruttbad` fick sina målfält fixade (`#b07a4a` respektive `#dfe7ea` ute ur topp-3), men nästa
+platta sak tog över platsen — osten och badvattnet. Det står i commit-meddelandena så att
+nästa pass inte läser det som att fixen inte tog.
+
+**`tom-scen` i `golvet-ar-lava` — den kända transienten, men KONTROLLERAD, inte bortviftad.**
+Fyndet landade i ett spel som inte rörts på hela passet. Kontrollen som gjordes:
+- Spelet ensamt: **grönt 3/3.**
+- Mekanismen: den dokumenterade destabiliseraren är gradienter som bakas PER MONTERING.
+  `_buildChar()` körs en gång vid montering, inte per bildruta, och färgerna är få — alla nya
+  fyllningar cachas per färg. Ingen bakning per montering.
+- Frekvensen: **sex fulla svep under passet, fem rena.** ÅTGÄRDER V14 mätte transienten till
+  ~1 per 7 svep, vilket stämmer.
+- ⚠️ **Vad som INTE gjordes:** `_ab.sh` växelvis. Bevisen ovan är förenliga med transienten men
+  är inte full attribuering. Vill man ha den, kör `_ab.sh` och läs BÅDA armarna.
+
+**Commits:** `7c62404` kittla-figuren · `5267b0e` natskott-pa-stan · `5613a7b`
+vilket-djur-later · `9e49103` enhorningen-elvira · `8d6b1a9` pizzabageriet · `745ff36` pruttbad
+
+**Öppet:**
+- **Nästa nivå:** `pizzabageriet` osten `#f3cd63` 60 494 · `pruttbad` badvattnet 56 535 ·
+  `natskott-pa-stan` markisen `#d2554f` 57 169 · `plask-i-vattnet` hyllplanet 57 525 ·
+  `hamburgerbygget` 55 584. Appens topp är fortfarande `trollblandning`s receptbokspanel
+  (115 400), som ska förbli platt. Leta upp fältet i KODEN först.
+- **Leta efter fler handrullade band.** `natskott`s himmel var en `for`-loop med `lerpColor`.
+  Samma mönster kan finnas i andra kulisser och är billigt att laga.
+- Oförändrat: **C1/V10** · **D2** `saknat-ljudklipp` (MOSS nere) · 3 repliker väntar på
+  `/rost` · `spindelnatet`s dagsljusbruna mark under natthimmel · `pizzabageriet` saknar
+  `BLEED`.
+
+## 2026-08-10 (sen natt II) · v1.123.0 · Nästa platta nivå — och alfan som dämpar toningen
+
+**Byggt:** 4 spel, 4 commits. Nivån som låg mätt men outredd i förra postens `Öppet`.
+
+| spel | störst före → efter | fältet |
+|---|---|---|
+| studsa-ner | 115 361 → 12 739 | plinkobrädan, `COLORS.cream` @ 0,78 |
+| bajs-och-kiss | 88 856 → 31 820 | badrumsgolvet, rent `0xeaf2f5` |
+| kugghjulen | 83 792 → 16 993 | pegbrädan, `COLORS.brown` @ 0,16 |
+| plask-i-vattnet | 80 950 → 57 525 | vattenkroppen, `0x4aa3df` @ 0,45 |
+
+**Fyra av fem fält behövde alpha-vägen** i `groundFill` — den option som byggdes för
+`valpens-bajs` grusstig i v1.120.0. Den betalade av sig direkt: utan den hade tre av de fyra
+fått välja mellan volym och genomskinlighet.
+
+**NY KALIBRERINGSREGEL, mätt i `kugghjulen`.** Brädan är brun men ligger på `alpha: 0.16`, så
+den SYNLIGA kontrasten blir rampen **gånger** alfan. Standardvärdena (0,14/0,28) hade släppt
+igenom en dryg tiondel av sitt spann och knappt rört talet. Regeln att bära med sig: *en
+genomskinlig yta behöver en hårdare ramp än en täckande för samma verkan* (här 0,25/0,45).
+
+⚠️ **En felaktig slutsats rättades före commit.** Kommentaren påstod först att fältet inte
+GICK att ta ner lika mycket som en täckande yta, med en uträkning som gav ~300 nödvändiga
+RGB-steg mot 255 möjliga. Mätningen gav 16 993 och motsade det — uträkningen antog en jämn
+bakgrund, men scenen bakom brädan har egen variation som sprider kompositen bredare. Räkna
+gärna först, men låt mätningen vinna.
+
+**`plask-i-vattnet` är det enda fallet där toningen var FYSIK, inte kosmetik.** Vatten mörknar
+med djupet, så ljust vid ytan och mörkare mot botten är vad ögat väntar sig av en tank —
+rampen fick därför vara tydligare (0,14/0,34) än på en torr yta.
+
+**`snobollen` mättes och lämnades MED FLIT.** Dess ~82 000 px visade sig vara *ett band i en
+redan avsiktlig sexbands-djupgradient* (`_paintHill:354–360`): `mix(1)`, solbelyst snöyta,
+60 px hög. Blåst vit snö i direkt sol är rätt, och en toning inom ett 60 px-band syns inte.
+Att leta upp fältet i koden först är vad som gjorde det synligt — talet ensamt hade sett ut
+som ett femte jobb.
+
+**Commits:** `054e424` studsa-ner · `f16b2ef` bajs-och-kiss · `e06a2bf` kugghjulen ·
+`59e0778` plask-i-vattnet
+
+`npm run check` grön · `npm run test:all` **72/72 gröna, inga `tom-scen`** (bara de kända
+`saknat-ljudklipp`, D2/MOSS).
+
+**Öppet:**
+- **Appens största platta fält är nu 115 400 px — och det är receptbokens PANEL i
+  `trollblandning`, som ska förbli platt.** Det största fält som faktiskt är i spel ligger på
+  ~76 000. Nästa nivå: `kittla-figuren` 75 809 (figurens EGEN kropp — ett föremål, inte en yta)
+  · `natskott-pa-stan` 71 095 (himlen) · `vilket-djur-later` 66 327 · `pizzabageriet` 62 882 ·
+  `pruttbad` 61 880 · `enhorningen-elvira` 57 734. Leta upp fältet i KODEN först.
+- ⚠️ **Mätbruset är nu bekräftat på två spel:** `snobollen` och `kittla-figuren` byter
+  topptonens IDENTITET mellan körningar utan kodändring (väderljus respektive figurfärg).
+  `snobollen` mättes till `#ffffff` 82 592 och `#d1b7c3` 76 202 i två körningar.
+- Oförändrat: **C1/V10** · **D2** `saknat-ljudklipp` (MOSS nere) · 3 repliker väntar på
+  `/rost` · `spindelnatet`s dagsljusbruna mark under natthimmel · `pizzabageriet` saknar
+  `BLEED`.
+
+## 2026-08-10 (sen natt) · v1.122.0 · Marken i `scene.js` — och två spel som inte rördes av den
+
+Förra postens `Öppet` pekade ut `scene.js`-marken som nästa mål och sa: *mät innan något
+rörs*. Det var rätt instinkt av två skäl — ett väntat och ett inte.
+
+**Byggt:** scenens markremsa tonad för ALLA spel som ber om mark, plus två spel som visade
+sig rita sitt eget golv.
+
+`scene.js:176` ritade `.fill(t.ground)` — en platt ton delad av varje `createScene`-spel med
+mark. Himlen ovanför var redan tonad via `skyFill`; marken var inte. Nu är remsan ljusast
+LÄNGST BORT och mörknar mot betraktaren.
+
+**Den mörka änden är temats EGNA `groundDark`, inte en procentsats.** Det löser
+kalibreringsproblemet från grusstigen (v1.120.0) i grunden: `candy` och `warm` är nästan
+vita, `night` nästan svart, och samma procentuella mörkning äter helt olika mycket av dem.
+Paletten bär toningen själv, precis som `paintBand` redan gör för djupbanden. Alla sju teman
+granskade i ett rutnät (`_scenbild.mjs sky,meadow,sunset,candy,water,night,warm`) — inget
+tema tappade sin karaktär.
+
+Toningen delar `skyFill`s cache med flit: en gradient från A till B är samma bakade textur
+oavsett vad den målar, så en scen gör fortfarande NOLL texturbakningar vid montering.
+
+**Det oväntade: två av tre spel rörde sig inte en pixel.**
+
+| spel | störst före → efter | var fältet faktiskt låg |
+|---|---|---|
+| valpens-bajs | 95 225 → 18 069 | `scene.js`-marken (`groundH: 420`, appens högsta remsa) |
+| studsbollar | 70 290 → 20 372 | eget golv — `ground: false` + hårdkodad `0x86d27a` |
+| domino | 55 343 → 15 695 | eget golv — `ground: false` + `COLORS.green` |
+
+`studsbollar` och `domino` skickar `ground: false` till `createScene` och ritar sina egna
+golv. `studsbollar` gör det med `0x86d27a` — **samma värde som `meadow`s `ground`, alltså en
+kopia av en scenkonstant.** Måttet var identiskt före och efter scenändringen, och det var
+det som avslöjade var fältet låg. Hade talet lästs som "fixen fungerade delvis" hade två spel
+missats. Det är samma stående lärdom som redan står i `pizzabageriet`s post: **när ett tal
+INTE rör sig av en ändring som borde träffa det, är hypotesen om VAR fältet ligger fel.**
+Båda golven löstes sedan med den delade `groundFill()`.
+
+**Commits:** `6789698` scene.js-marken · `ec9a241` studsbollar · `30e2e77` domino
+
+`npm run check` grön · `npm run test:all` **72/72 gröna, inga `tom-scen`**, körd både efter
+scenändringen och efter hela bunten. Det är den mätning `scene.js` kräver: filen är den
+sviten är känsligast för, och cachade gradienter är den ändringsklass som fällt den förut.
+
+**Öppet:**
+- **Nästa platta nivå ligger mätt** (`_plattprobe --medbakgrund`): `trollblandning` 115 397
+  (receptbokens panel — lämnad med flit) · `studsa-ner` 115 361 · `bajs-och-kiss` 88 856 ·
+  `kugghjulen` 83 792 · `snobollen` 82 592 · `plask-i-vattnet` 80 950. Ingen av dem är
+  utredd än — leta upp fältet i KODEN först, det var det som gjorde de två senaste passen
+  billiga.
+- ⚠️ **Mätbrus att räkna med:** spel med slumpat innehåll rör sitt topptal mellan körningar
+  utan att koden ändrats (`valpens-bajs` ±11 k beroende på om hunden står på gräset eller
+  stigen; `kittla-figuren` byter topptonens IDENTITET med figurens färg). Jämför alltid samma
+  fält, inte bara samma tal.
+- Oförändrat: **C1/V10** · **D2** `saknat-ljudklipp` (MOSS nere) · 3 repliker väntar på
+  `/rost` · `spindelnatet`s dagsljusbruna mark under natthimmel · `pizzabageriet` saknar
+  `BLEED`.
+
+## 2026-08-10 (natt) · v1.121.0 · D1-nivån stängd — ett mönster, inte sex engångsfixar
+
+Förra passets `Öppet` pekade ut nästa nivå och en observation: *`#8a5a3b` (`COLORS.brown`)
+toppar tre av dem — värt att angripa som ett delat mönster en gång i stället för sex.*
+Det visade sig stämma, men inte på det sätt raden gissade: de sex spelen bar **två** olika
+platthetsmönster, och det gick bara att se genom att lokalisera varje fält i koden först.
+
+**Byggt:** 7 spel i 4 commits, hela den mätta D1-nivån.
+
+| spel | störst före → efter | mönster |
+|---|---|---|
+| tvatta-djuret | 111 592 → 25 394 | B — många föremål i en ton |
+| valpens-bajs (grusstigen) | 108 064 → ute ur topp-3 | A — plan med alpha |
+| natskott-pa-stan | 105 360 → 71 816 | B — många föremål i en ton |
+| saftbaren | 99 676 → 34 726 | A — stor vågrät plan |
+| bygg-tornet | 94 613 → 18 796 | A — stor vågrät plan |
+| spindelnatet | 73 096 → 22 847 | A — stor vågrät plan |
+| trollblandning (hyllan) | 70 560 → 24 148 | A — stor vågrät plan |
+
+**Mönster A — en stor vågrät yta ritad som en platt rect.** Mark, golv, bänkskiva, hylla.
+Fanns redan handskrivet på ÅTTA ställen i repot (`golvet-ar-lava` ×2, `plantera-fron` ×2,
+`bowling`, `lagerelden`, `vart-tog-det-vagen`, `mata-monstret`) med ljus topp ~0,14 och mörk
+botten ~0,28. Det mönstret fick ett namn: **`groundFill(color, {light, dark, alpha})`** i
+`lib/form.js`. `alpha < 1` routar till `verticalFillAlpha`, eftersom en yta som ska släppa
+igenom det som ligger under (grusstigen över gräset) annars måste välja mellan volym och
+genomskinlighet.
+
+**Mönster B — många föremål som delar EN ton.** Inte en plan alls. Hyreshusens fasader
+(`CITY_WALLS[0]` på flera hus) och lerfläckarna på djuret. Receptet är `topLightFill` per
+föremål: den cachar per färg, så N föremål kostar EN gradient, inte en per föremål.
+
+**Två gånger av sju sa mätningen "succé" och bilden sa nej.** Det är passets viktigaste
+resultat och står nu i både `lib/form.js` och commit-meddelandena:
+
+- **Grusstigen blev en lerpöl.** `groundFill`s standardvärden 0,14/0,28 är kalibrerade för
+  MELLANMÖRKA ytor. Samma 28 % mörkning på stigens nästan vita `0xeadfc2` åt ett mycket
+  större absolut spann och gjorde den grumligt gråbrun i stället för sandig. `_plattprobe`
+  gav ett utmärkt tal ändå. Ljusa ytor vill ha ~0,07/0,11.
+- **Leran blev chokladkulor.** `sphereFill` gav varje bump en egen glansdager, och tre klot
+  per fläck läste som en hög godis på grisen. Talet var 111 592 → 30 048, alltså utmärkt.
+  Lera vill ha låg inre kontrast och ljus uppifrån — `topLightFill` med dämpad ramp.
+
+**En blockerare som var värd att fixa först.** `tvatta-djuret` satte
+`view.rotation = Math.random() * Math.PI` per fläck, och en roterad Graphics roterar även
+sin fyllning — varje fläck hade fått sin egen slumpmässiga ljusriktning. Slumpen flyttades
+till bumparnas koordinater; siluetten är matematiskt identisk (samma vinkel, samma punkter,
+huvudcirkeln i origo). **Gratis bugfix:** `klibb`-fläckarnas glansdager och rinnande droppe
+följde tidigare den slumpade rotationen, så droppen kunde rinna rakt uppåt. Nu står de rätt.
+
+**Sviten mätt, inte antagen.** Cachade gradienter i sju spel är precis den ändringsklass som
+fällt sviten förut (`generateTexture`, `FillGradient` per montering). `npm run test:all`:
+**72/72 gröna, inga `tom-scen`**, bara de fyra kända `saknat-ljudklipp` (D2, MOSS nere).
+
+**Commits:** `b3cde53` markfyllningen + 4 spel · `a1bb4e0` valpens-bajs + alpha ·
+`a4fb24e` natskott-pa-stan · `620895f` tvatta-djuret
+
+**Öppet:**
+- **Två nya mål föll ut ur arbetet**, inget av dem hörde till D1-nivån:
+  1. **`scene.js`-marken.** `valpens-bajs` topp är nu `meadow`-gräset (`#86d27a`, 95 225 px)
+     och `natskott-pa-stan`s är himlen (`#a6d8f2`, 71 816 px) — båda ur scenen, inte ur
+     spelet. App-brett mål som träffar varje spel med stort `groundH`, och `lib/form.js`
+     kallar `scene.js` "den fil sviten är känsligast för". Kräver egen mätning.
+  2. **`spindelnatet`s mark är dagsljusbrun under natthimmel.** Färgfråga, inte platthet —
+     medvetet inte insmuget i en D1-commit.
+- **Lämnat platt med flit:** `trollblandning`s receptbokssida (115 403 px). Panel med text;
+  `_plattprobe`s eget filhuvud varnar för att "fixa" panelen, ritpappret och fotbollsplanen.
+- Oförändrat sedan tidigare: **C1/V10** (vilka `restitution`-tal är avsiktliga — kräver att
+  man SPELAR spelen), **D2** `saknat-ljudklipp` (MOSS nere), 3 repliker väntar på `/rost`.
+- **`pizzabageriet` använder inte `BLEED` någonstans** — hör till full bleed-spåret, inte D1.
+
+## 2026-08-10 (kväll) · v1.118.0 · D1 repo-brett: 20 spel, tre nivåer — och en ny primitiv
+
+Förra passets `Öppet` var en rad: *kör `_plattprobe --medbakgrund --topp 72` över hela
+sviten*. Den kördes, och den bekräftade `COLORS.bg`-förutsägelsen hårdare än väntat.
+
+**Byggt:** 20 spel i tre mätstyrda nivåer, en commit per spel, plus en delad hjälpare.
+**Appens värsta platta fält gick 809 744 px → 115 402 px (88 % → 12,5 % av skärmen.)**
+
+| nivå | spel | störst före → efter |
+|---|---|---|
+| 1 (v1.98–1.107) | vad-forsvann · siffertaget · kla-efter-vadret · harma-melodin · vart-tog-det-vagen · plantera-fron · tarta-i-ansiktet · enkelt-pussel · djurorkester · hamburgerbygget | 809 744 → 31 545 (värsta) |
+| 2 (v1.108–1.113) | flipperspel · pruttbad · rakna-applen · pizzabageriet · spindel-zacke-svingar | 295 453 → 54 964 (värsta) |
+| 3 (v1.114–1.118) | golvet-ar-lava · bowling · lagerelden · vandkort · mata-monstret | 163 026 → 24 881 (värsta) |
+
+Per-spels-detaljerna står i `docs/games/<id>.md` §5 — alla 20 har fått en post med
+före/efter-tal och skälet till just den lösningen.
+
+**Fyra spel ritade ingen bakgrund ALLS** (`vad-forsvann`, `enkelt-pussel`,
+`tarta-i-ansiktet`, `vart-tog-det-vagen`) — de låg direkt i skalets letterbox-creme. Det
+var alltså inte platthet utan en saknad scen, och `bildkoll`s kant-cream-mätning kan
+dessutom inte skilja en sådan scen från "ingen bleed alls".
+
+**Ny delad primitiv: `verticalFillAlpha` (`lib/form.js`, `7cfdd87`).** `.fill({color,
+alpha})` och `.fill(gradient)` utesluter varandra i Pixi v8, så varje yta som behöver
+BÅDE genomskinlighet och volym var låst — det stoppade tre separata fixar. Vägen runt
+ligger i STOPPEN: `addColorStop` kör dem genom `Color.toHexa()`, så `'#rrggbbaa'` är ett
+giltigt färgstopp och toningen bär alfan själv. Den har **medvetet ingen
+`_detalj`-avstängning**: övriga fyllningar får falla tillbaka på råfärgen på låg
+detaljnivå eftersom bara volymen går förlorad, men här skulle en råfärg göra ytan HELT
+TÄCKANDE — badvattnet skulle dölja Zacke. Att tappa volym är kosmetiskt; att tappa alfan
+är en bugg. Kunder: `pruttbad` (vatten), `pizzabageriet` (hylla),
+`spindel-zacke-svingar` (husväggar), `vandkort` (kortens innerplatta).
+
+### Fyra lärdomar som är värda mer än fixarna
+
+1. **Att fixa bakgrunden flyttar bara fyndet ett lager in.** Varje spels nya toppfält var
+   nästa platta sak: ridån efter cirkusfonden, pusselbilden efter bordet, matjordskanten
+   efter himlen, och i `mata-monstret` **monstret självt** (97 405 px). Räkna med två pass
+   per spel, inte ett.
+2. **Sonden räknar FÄRG, inte sammanhängande ytor — och hade rätt ändå.** `hamburgerbygget`s
+   kaklade vägg bryter upp för ögat, men varje ruta hade exakt samma ton, så väggen saknade
+   ljus helt.
+3. **När ett tal inte RÖR SIG av en ändring som borde påverka det är hypotesen om VAR fältet
+   sitter fel.** I `pizzabageriet` var jag säker på kaklet; jag ändrade väggens ljus och talet
+   stod stilla på 85 558. En pixelräkning gav bbox 72,622 → 1207,713 — ingredienshyllan. En
+   rad node slog två rundor av rimligt resonemang.
+4. **Stoppsignalen är att största fältet blir ett riktigt FÖREMÅL** (en filt, en kopp, en
+   kulle, ett kort) — bättre än någon px-tröskel.
+
+### Tre saker backades efter att ha setts i bild (gröna test såg inget)
+
+- Konsoler under `vad-forsvann`s hyllplan lästes som en vimpel som hängde under plankan.
+- Ett första golv i samma spel lästes som en gul rand tvärs över bilden.
+- `bowling`s bana mörknad med `shade()` blev **grå** — djupet fanns men värmen försvann.
+  `lerpColor` mot banans egen markeringsfärg ger *samma tal* men läser som polerat trä i
+  skugga. Bara bilden skiljde dem åt.
+
+Ett motiv lämnades **medvetet platt**: `enkelt-pussel`s `regnbage` hålkar ur sina bågar
+genom att måla om i exakt himlens ton, och en `FillGradient` mappas mot varje forms EGEN
+bbox — hålet hade blivit en synlig skiva i fel färg. Skälet står i koden.
+
+**Commits (21):** `8c8ef70` `ec8ee2b` `004232f` `ea3654c` `30da536` `e88ec63` `0e75b57`
+`4494a51` `3a31d59` `526fafb` (nivå 1) · `374734a` `e65b2ef` `9e007f4` `7cfdd87` `bf5f3e4`
+`00f3c1b` (nivå 2 + form.js) · `022999d` `4b00a8c` `f254093` `8809aa0` `566e63a` (nivå 3)
+· `112ad69` (ÅTGÄRDER V14).
+
+**Kontroll:** `npm run check` 0 fel/0 varningar · `npm run test:all` **72/72 gröna** efter
+varje nivå · alla 20 spel var ✅/✅ i indexet före och efter (ingen statusändring).
+
+### `tom-scen` återkom — och mättes i stället för att tolkas
+
+Ett fullt svep loggade `tom-scen ×1` på `golvet-ar-lava`. ÅTGÄRDER **V12b** påstod att
+harness-fixen tagit det till noll. **Det stämmer inte.** Mätt: spelet rent 3 av 3 ensamt,
+och `scripts/_ab.sh` 3 rundor växelvis över hela sviten mot nivå 3:s fem filer gav
+**HEAD (ny kod) 72/72 rent 3 av 3 · ÄNDRING (gammal kod) 72/72 rent 3 av 3** — sex fulla
+svep, noll fynd i någon arm. Alltså varken attribuerbart till ändringen eller
+reproducerbart på begäran; frekvensen är ~1 av 7 fulla svep. Skrivet som **V14** i
+`docs/ATGARDER.md`. Att BÅDA armarna mättes är poängen — hade bara min arm mätts kunde
+tystnaden lika gärna ha varit tur.
+
+⚠️ **Fälla värd att minnas:** direkt efter ett `_ab.sh`-svep är `.test-shots` bilder från
+den arm som kördes SIST (den gamla koden), så `_plattprobe` rapporterar för-fix-talen och
+ser ut som en regression. Kör om `npm run test <id>` före mätning. Kostade ett falsklarm.
+
+**Öppet:**
+- **Nästa D1-nivå ligger mätt:** `trollblandning` 115 402 · `tvatta-djuret` 111 592 ·
+  `valpens-bajs` 108 064 · `natskott-pa-stan` 105 360 · `saftbaren` 99 676 · `bygg-tornet`
+  94 613. `#8a5a3b` (`COLORS.brown`) toppar **tre** av dem — värt att angripa som ett delat
+  mönster en gång i stället för sex.
+- **`pizzabageriet` använder inte `BLEED` någonstans** (väggen ritas `rect(0, 0, W,
+  COUNTER_Y)`). Sett men inte åtgärdat — det hör till full bleed-spåret, inte D1, och skulle
+  ha grumlat en platthetscommit. Kontrollera med `--viewport 952x428`.
+- Oförändrat sedan tidigare: **C1/V10** (vilka `restitution`-tal är avsiktliga — kräver att
+  man SPELAR spelen), **D2** `saknat-ljudklipp` (MOSS nere), 3 repliker väntar på `/rost`.
+
+---
+
+## 2026-08-10 (eftermiddag) · v1.97.0 · D1: tre platta ytor — och sonden som rankade dem fel
+
+**Autonom fortsättning** på nattkörningens kö, punkt **D1** (platta ytor). Tre spel, en
+commit var, djup och ljus i stället för fler föremål.
+
+**Byggt:** alla tre stora enfärgade fälten brutna med cachade linjära gradienter
+(`verticalFill`, lib/form.js — noll texturbakningar per montering). Varje gradient spänner
+OM den ton ytan hade, så bilden är densamma; det är bara ljuset som tillkommit.
+
+| spel | före | efter | |
+|---|---|---|---|
+| `folj-sparet` | 595 215 px (65 %) | 53 848 px (5,8 %) | 11,1× |
+| `spara-linjen` | 342 352 px (37 %) | 49 444 px (5,4 %) | 6,9× |
+| `rulla-bollen-hem` | 236 489 px (26 %) | 44 727 px (4,9 %) | 5,3× |
+
+**Sonden rankade uppgiften fel, och det är sessionens viktigaste fynd.** `_plattprobe`
+räknar bort exakt EN ton som "bakgrund". I `folj-sparet` var den borträknade tonen **ängen
+själv**, så spelet såg minst ut (24 %) medan det i verkligheten var värst: äng 65 % + ram
+24 % = **89 % av skärmen i två toner**. Samma blindfläck ger dessutom **falska
+regressioner**: tonar man just den borträknade ytan — vilket är den rätta åtgärden —
+krymper avdraget och talet STIGER. `rulla-bollen-hem` gick 29 317 → 38 718 av en korrekt
+bakgrundsgradient medan den verkliga ytan samtidigt föll 258 619 → 38 718. Jag var nära att
+backa en korrekt fix på det talet. Sonden har nu flaggan **`--medbakgrund`**, utskriften
+säger vilket läge den kör i, och blindfläcken står i filhuvudet.
+
+**Mönstret som upprepades i alla tre spelen:** så fort huvudytan slutar vara platt blir
+RAMEN runt den spelets största fält. Två av tre ritade ingen egen bakgrund alls utan lutade
+sig mot skalets `COLORS.bg` — en enda ton över hela skärmen. **En D1-fix är inte klar förrän
+spelet äger sin egen yta.** `spara-linjen`s filhuvud hade dessutom hela tiden påstått att
+scenen är "ett skrivbord med papper och kritor"; något bord ritades aldrig.
+
+**Avvägning värd att minnas:** papprets toning är medvetet mycket svagare än fotbollsplanens.
+Sondens filhuvud kallar ett vitt ritpapper legitimt platt, och det stämmer så länge det ser
+ut som papper — barnets kritstreck är innehållet, och arket får aldrig konkurrera med det.
+
+**Commits:** `0c03928` rulla-bollen-hem · `3e239b4` spara-linjen · `fd9df54` folj-sparet
+
+**`test:all` 72/72 gröna — noll `tom-scen`, noll `gles-scen`, noll fel-nivåfynd.** Värt att
+notera: fyra nya gradienter destabiliserade INTE sviten, vilket är den historiskt farliga
+ändringen (`new FillGradient` per montering gav `tom-scen` i 1 av 3 rundor). De är cachade
+per färgpar, så en montering gör noll texturbakningar. Enda varningar: `saknat-ljudklipp` i
+tre spel (MOSS-beroende, D2).
+
+**Öppet:** kör `_plattprobe --medbakgrund --topp 72` över hela sviten — det är nu ett annat
+mått än ranklistan, och `COLORS.bg`-mönstret finns troligen i fler spel.
+
+## 2026-08-10 (eftermiddag) · v1.94.0 · Poler i magnetdammen — och gränsen som var beslutet
+
+**Autonom fortsättning** på nattkörningens kö (`.claude/state/nattkorning.md`), punkt **B3**
+— sista maskinpunkten i Spår 3 P3.
+
+**Byggt:** `lib/magnet.js` fick `polaritet` + `polDra(body, pol)`. Pol 0 = omagnetiserat
+järn och dras av BÅDA polerna; pol ±1 = en egen magnet där lika stöter bort och olika drar.
+Returvärdet är signerat, så tecknet ÄR villkoret spelet läser. I `magnet-fiske`: från nivå 2
+byts en vanlig metallsak mot en röd och en blå stavmagnet, magnethuvudet bär den aktiva
+polens färg, och en vänd-knapp (Ø112 px) visar den färg magneten BLIR.
+
+**Det som var värt mest var inte fysiken utan gränsdragningen.** Kötexten var en rad utan
+analys, och spelet är appens yngsta (2–4 år): en polregel lägger ett VILLKOR i kärnloopen.
+Polerna är därför grindade på **nivå ≥ 2** och nivå 0–1 är bevisat orörd — ingen knapp,
+ingen blå magnet, ingen vriden bild. Att vanlig metall dras av båda polerna är samtidigt
+den riktiga fysiken och no-fail-garantin: dammen kan aldrig låsa sig.
+
+**Ett mätt tal räddade leken.** Med samma radie åt båda håll pressades en bortstött sak
+**315 px ut ur ett 300 px fält på 1,5 s** — utanför dragets räckvidd, alltså omöjlig att
+vända hem om barnet inte råkade följa efter. Knuffen fick därför en egen, mindre radie
+(`stotRadie` 170) och blev ett NÄRFÄLT: saken glider ut till knuffkanten, stannar där, och
+ligger fortfarande långt inne i dragets radie. Den fick också ett eget, lägre tak
+(`stotFart` 7 mot dragets 14) — ett omvänt 1/r-fält är en katapult precis vid centrum.
+
+**Sonden hade fel före koden, tre gånger till** — samma mönster som hela spåret. Två av dem
+är nya klasser värda att minnas: en **hållen musknapp** som lämnats nedtryckt tvärs fyra
+skärmbyten rev spelet mitt i nästa avsnitts mätning, och **`nav.go` som kommer medan routern
+är `_busy` kastas TYST** (`Nav.js:32`) — sonden mätte hela tiden nivå 0 medan den trodde sig
+mäta nivå 2, utan ett enda konsolfel. Den tredje var falskt grönt: jakten slutar med magneten
+*på* saken (0,3 px), så "fångbar efter 0,0 s" bevisade bara att fastna-spärren släpper.
+
+**Commits:** `c41d451` feat(magnet-fiske): poler fran niva 2 - lika farger knuffar bort
+
+**Öppet:** Spår 3 P3 har bara §4 [Deep]-rester kvar (`kugghjulen` dubbelhjul + back-hjul).
+Kön: **C1** (genomgången spel för spel av vilka `restitution`-tal som är avsiktliga — kräver
+att man SPELAR spelen, ägarnära), **D1** (platta ytor, mätt och redo att byggas), **D2**
+(`saknat-ljudklipp`, MOSS-beroende), **D3** ([Quick]-punkter ur `docs/games/*.md`).
+3 nya repliker väntar på `/rost`.
+
+## 2026-08-10 (förmiddag) · v1.93.0 · Hällningen och elden — plus två tysta buggar
+
+**Autonom fortsättning** på nattkörningens kö (`.claude/state/nattkorning.md`), punkt **B2**.
+
+### `trollblandning` — SPH i hällningen + `Varmefalt` i kitteln (`9ed62e8`)
+
+Kön bad om `FLUIDS.gegga` + värme. **Koden lästes före planen** och geometrin sa nej till den
+bokstavliga formen: kitteln har ingen vätskepelare sedd från sidan — brygden är en **ellips
+sedd uppifrån** — så en `FluidWorld` i kitteln hade fallit till botten av en osynlig låda.
+Vald väg: *simulera bara där vätskan syns*.
+
+- **Hällningen.** Droppen flyger upp, **tippar**, och en SPH-stråle rinner ned i mynningen och
+  slukas av ytan. Siktet är räknat, inte trimmat: falltiden hällpose→yta är ~18 bildrutor, så
+  sidfarten är avståndet delat på den → träffpunkt **x=552** (mitten 560), fri från
+  ingrediensringarna på 508/612.
+- **Brygden är en äkta blandning.** En hällning = 43 partiklar = **53 %** mot elementets färg;
+  två ingredienser landar **0,2 kanalsteg** från den uträknade mass-viktade blandningen och
+  100 steg från ren eld — alltså inte "sista färgen vinner".
+- **Elden.** Brygden kokar vid 0,92 och temperaturen driver bubbeltakt, kokglöd och ånga —
+  **aldrig målet**. **Systemen möts i absorptionen:** partikeln bär både sin färg och sin
+  värme in i brygden. Vatten i en kokande kittel: **0,93 → 0,40**, bubbeltakt **12,1 → 2,8/s**,
+  elden tillbaka på **1,2 s**.
+- **Delad kod:** `Varmefalt.knuff()` (`238fbd3`) — rör `temp`, aldrig `grad`. `lagerelden` orörd.
+
+### Bilden ändrade koden fyra gånger, sonden hade fel två
+Inget grönt mått såg att elden låg **helt** bakom grytkroppen (den slutar vid y=96), att
+kokglöden sköljde bort brygdfärgen, att markglöden läste som en platt lila matta, eller att
+två av fem lågor stod exakt bakom benen (|x| 40–78). Och två mått var falskt gröna av mig
+själv: ett `waitForFunction` på "hällningen är slut" returnerade **omedelbart** (den börjar
+först efter droppens 0,2 s uppflygning), och ett mått påstod att blått måste *sjunka* när eld
+hälls i — medelvärdet av 223 och 107 är 165, alltså **högre** än det halvmättade vattnets 150.
+**Båda upptäcktes för att talet var för snyggt: mätvärdet var identiskt med förutsägelsen.**
+
+### Den femte vätskan var oskyldig — och HEAD var det inte
+`test:all` gav 72/72 gröna men `tom-scen` på **tre orörda spel**. Misstanken var rimlig
+(spelet lägger till en femte `FluidView`, och "ett filter i ETT spel fäller ett ANNAT" är
+dokumenterat tre gånger). `_ab.sh` växelvis, 3 rundor: **HEAD 2 av 3 rena** (runda 2:
+`fyrverkeri` + `glittergrottan`) mot **ändringen 3 av 3 rena**. Fynden **flyttar sig varje
+svep** — det är V12b:s signatur: en rörlig måltavla hör till harnessen, inte till platsen.
+
+### `magnet-fiske` — ankan fanns inte i dammen (`bd54a8f`)
+
+Hittad genom att LÄSA koden före B3-planen, inte genom ett test. `korkPool` stod kvar med
+emoji-strängar (`'🦆'`/`'🛟'`) sedan emoji→ritat-migreringen medan `makeThing()` matchar
+sorts-id — okända namn faller igenom till sista grenen, så **varje icke-metall på nivå 0–2
+ritades som en TRÄBÅT**. Spelets pedagogiska ankare, gummiankan, fanns inte förrän nivå 3.
+
+**Varför det överlevde tio nivåer är lärdomen:** `MATERIAL` saknar också nyckeln och föll
+tillbaka på `'Trä'` — vilket råkar vara **sant om en båt**. Rösten sa rätt sak om fel
+föremål; testet var grönt och skärmdumpen såg trovärdig ut. Guard: `_magnetprobe` avsnitt
+**C** bygger nivå 0–3 och kräver att varje sak heter något `makeThing` har en gren för.
+
+### `ballonglyft` — auto-hjälpens replik klipptes av sin egen räkning (`f1da22c`)
+
+Den öppna `opts`-buggen från A2. `_attachLoose` tog emot `{ auto: true }` och läste det
+aldrig, så `_recue`s hjälpreplik och räkneordet sades i SAMMA tick — och `say()` inleder med
+`cancel()`. **Uppmätt: hjälpklippet levde 0 ms på HEAD**; efter fixen en sändning med två
+klipp och inget avbrott. Fixen är ingen timer: `_dispatch` kedjar redan flera meningar när
+alla har klipp. Ny sond `_hjalpprobe.mjs` hookar `_playUrls`/`cancel` i den riktiga tjänsten
+och mäter vad som SPELAS, inte vad som sägs — det är skillnaden mellan de två som var buggen.
+**A2:s saknade kritikergranskning gjord i samma svep** (av mig, inte subagenten — sessionen
+tillåter inte Agent-verktyget): `_lyftprobe` alla mått goda · `_tystprobe` 0 döda träffytor ·
+`_idleprobe` 0.
+
+### Ett fynd granskades och FÖRKASTADES
+En sond visade att ballongbuketten överlappar Elviras balkong i alla lägen. Det är
+geometrin, inte en bugg — paketet ska upp TILL balkongen — och sonden hade bara härlett
+layouten igen. Ingen kod ändrades. **Tredje gången i det här repot en röd sond visat sig
+vara det trasiga.**
+
+**Commits (7):** `238fbd3` feat(varme) · `9ed62e8` feat(trollblandning) · `b0b07b3` docs ·
+`bd54a8f` fix(magnet-fiske) · `aa5670e` docs · `eba7409` docs (stängde två föråldrade
+listposter) · `f1da22c` fix(ballonglyft) · `d11dd4b` docs
+**Kontroll:** `check` 0 fel · `_kittelprobe` 14/14 · `_varmeprobe` (+6) · `_hjalpprobe` 5/5
+(verifierad RÖD på HEAD) · `_magnetprobe` C grön · `bildkoll` inga fynd · `test:all` 72/72 i
+tre av tre A/B-armar · slutkoll `test` 3/3 gröna.
+**Öppet — nästa naturliga steg:** **B3 `magnet-fiske` poler**, designen är redan beslutad och
+nedskriven i `.claude/state/nattkorning.md` (grindad på nivå ≥ 2; vanlig metall dras av BÅDA
+polerna så loopen aldrig kan blockeras; `Magnetfalt.polaritet` + `polDra()`; repulsionen
+måste takas). Därefter: §4 [Deep] dubbelhjul + back-hjul i `kugghjulen` · D1 platta ytor
+(mätt, obyggd) · D3 [Quick]-svep · ÅTGÄRDER V10 (kräver att man SPELAR spelen) · D2/MOSS.
+Sidofynd: `_livprobe` är röd på `trollblandning` (noll objekt med vilorörelse) — egen
+[Quick]-punkt, inte en regression.
+
+---
+
+## 2026-08-10 (morgon) · v1.90.0 · Remmen bär kraften över ett gap
+
+**Autonom fortsättning** på nattkörningens kö (`.claude/state/nattkorning.md`), punkt B1.
+
+### `kugghjulen` — drivremmen (`68d4c12`)
+
+Kugghjul kan bara greppa granne mot granne, så maskinen har alltid varit en obruten rad.
+Remmen är den **första delen som bryter det**: den kopplar två hjul som INTE rör varandra,
+och gör det med **samma** rotationsriktning i stället för motsatt.
+
+**Mesh-grafen är generaliserad.** Riktning och utväxling bärs nu av LÄNKEN, inte av djupets
+paritet: kuggar vänder, remmen behåller, och båda för över ytfarten (ω_v = ω_u · r_u / r_v).
+För en ren kuggkedja ger det *exakt* samma tal som förut — därför är alla nivåer utan rem
+oförändrade, vilket också är verifierat i bild.
+
+Ritad ur `lib/rep.js` (två verlet-spann + omslagsbågar), vilket ger gratis den enda egenskap
+som gör en rem läsbar för ett barn: den **hänger slak** när ett hjul saknas och **spänns** i
+samma stund den greppar. Nivå 5 bytte innehåll (tre hjul + gap), gamla femhjulsbygget är
+nivå 6, nivå 7 kombinerar rem med lockpinnar. `_remprobe` 17 mått gröna.
+`spelkritiker`: **klar att committa, inga blockerare** — två av tre förbättringar togs direkt.
+
+### Lärdomen tillhör SONDEN och BILDEN, inte remmen
+Två mått var falskt gröna av mig själv: ytfarten mättes över **två** bildrutor och jämfördes
+mot **en**, dolt av en ±120 %-tolerans (nu ±20 %). Och första skärmdumpen visade en **annan
+nivå i konfetti** — en tidigare mätarm hade vunnit nivån och `_onComplete`s `delayedCall`
+byggde om scenen mitt under exponeringen. **Bilden ändrade koden två gånger** (omslagsbågar
+helt dolda bakom hjullagret; slak rem som hängde från navet i stället för fälgen) — inget
+grönt mått hade fångat något av det.
+
+### `_vevprobe` är rött på HEAD → ÅTGÄRDER V13
+Glappmåttet föll på **båda** armarna i en A/B samma minut (19°/23° vardera). Tröskeln är
+bildrutetaktsberoende — samma kod mätte 12°/17° när `0da667d` skrevs. **Rör inte
+`_stegMaskin` på det fyndet.**
+
+**Öppet:** vevljudet hör inte tyngden (kritikerns tredje punkt, B1) · §4 [Deep] dubbelhjul +
+back-hjul · P3: `trollblandning`, `magnet-fiske` · D1 platta ytor (mätt) · ÅTGÄRDER V10 +
+V13 · MOSS-beroende `saknat-ljudklipp` i fyra spel.
+
+---
+
+## 2026-08-10 (natt) · v1.89.0 · Nattkörning: P2 klar, P3 inledd, sviten ren
+
+**Autonom nattkörning** med kön i `.claude/state/nattkorning.md`. Sjutton commits.
+
+### Runda P2 KLAR — fyra spel fick riktiga kraftfält
+`plask-i-vattnet` (SPH-vatten) · `fallskarmen` (luftmotstånd + kupol som buktar) ·
+`ballonglyft` (lyft mot vikt, barnet bestämmer när) · `sapbubblor` (hinnan ger efter för
+vinden). Två nya delade primitiver: **`lib/luftmotstand.js`** och **`mjukkropp.falt()`**.
+
+### `kugghjulen` — maskinen har tröghet (P3 inledd, v1.89.0 `3e2826c`)
+Fingret sätter en önskad FART, bygget hinner dit så fort massan tillåter, och släpper barnet
+rullar den vidare som ett svänghjul. Mätt: tom vev full fart efter **5 bildrutor**,
+femhjulsbygge efter **36** · utrullning **9,42 rad mot 1,61**. Trögheten summeras över de
+hjul som faktiskt greppar, så den är en avläsning av vad barnet byggt.
+
+### Svitens `tom-scen`-brus var harnessens eget mätfel (`9e41417`)
+Fyndet flyttade sig: `tvatta-djuret` två svep, sedan `flipperspel` och `folj-sparet`, medan
+varje spel var grönt ensamt. Skärmdumpen togs efter en TIMER, så `page.screenshot()`
+kapplöpte med WebGL-rutan och vann ibland under fyra parallella webbläsare. Nu väntar den på
+två `requestAnimationFrame` + tar om bilden en gång om den ändå blev tom. **Före: fynd i
+3 av 3 svep. Efter: 72/72 med noll fel-nivåfynd.**
+⚠️ Lärdomen: *ett återkommande fynd på samma plats är inte bevis för att platsen är orsaken.*
+
+### Röstkön var inte tom — den var osynlig (`dbc8f80`)
+`plask-i-vattnet`s namngivning byggs vid körning, och backstoppen såg den aldrig: testet hann
+säga två repliker på 6,2 s. Fraserna härleddes ur spelets egen tabell → **50 klipp, 0 fel**.
+
+**Öppet:** `kugghjulen`s `rep.js`-drivband (ny mekanik, egen runda) · P3: `trollblandning`,
+`magnet-fiske` · **D1 platta ytor är MÄTT**: `spara-linjen` 37 % av skärmen i en ton,
+`rulla-bollen-hem` 48 % i två omärkbart olika gröna, `folj-sparet` 24 % · ÅTGÄRDER V10
+(statisk restitution, 23 spel) · MOSS-beroende `saknat-ljudklipp` i fyra spel.
+
+---
+
+## 2026-08-10 (natt) · v1.87.0 · Spår 3 P2 — luften blev en kraft i två spel + röstkön tömd
+
+**Byggt i en autonom nattkörning** (kön ligger i `.claude/state/nattkorning.md`, som är
+sanningen mellan varven). Två spel, en ny delad primitiv, två kritikerrundor, 50 röstklipp.
+
+### `ballonglyft` — barnet bestämmer när (v1.87.0, `303d2e8` + `e36d1f7`)
+
+`lib/luftmotstand.js` andra kund. **Paketet är avfärdsknappen**: sitter minst en ballong på
+det skickas det iväg vid tryck. Doc §4 föreslog en ritad "Skicka iväg!"-knapp — bortvald med
+flit, eftersom P0 säger ikon-först och noll läsning, nederkanten redan är upptagen av de lösa
+ballongernas två band, och paketet ÄR föremålet som ska iväg.
+
+**Mätningen ändrade designen.** Första kravet var att "en för få" skulle ge ett hopp på
+60–160 px för alla N. Det gick inte att uppfylla: underskottet vid n = N−1 är exakt g/N,
+alltså 33 % vid tre ballonger men bara **12 % vid åtta**. Varje inställning som gav ett kort
+hopp vid N = 8 tog 7,5 s vid N = 3 eller lät sju ballonger lyfta ett åtta-paket. Det är
+geometrin i problemet — och nära-misset blev BÄTTRE av att skala: två av tre lyfter knappt
+(64 px), sju av åtta vänder 64 px under Elvira. **Räddningen föll ut gratis:** fäster barnet
+sista ballongen mitt i en resa som håller på att vända, så räddas den.
+
+**`spelkritiker` hittade två blockerare, båda mina:**
+1. **Auto-hjälpen skickade iväg paketet åt barnet** efter 12,5 s — och gav bort exakt den
+   agens rundan lades till för. Uppmätt: noll tryck gav ändå **framsteg 2 på 60 s**. Nu
+   upprepas lockandet i stället. Efter: `idleFramsteg` 0, spelet fortfarande lösbart.
+2. **P0-avståndet mellan träffytor höll inte** vid åtta ballonger: 111 px mellan mitterna mot
+   en 104 px träffyta = **7,4 px glapp** (krav ≥24). Och inte i ett hörn — `_N` fastnar på 8
+   från nivå ~6, så det var spelets normala läge. Banden breddade: nu 130 px och **26 px
+   glapp**, med mätningen kvar som permanent vakt i `_lyftprobe --spel`.
+
+### Röstkön var inte tom — den var osynlig (`0910d20` + `dbc8f80`)
+
+`plask-i-vattnet`s namngivning ("Anden flyter!") byggs vid körning, så `check.mjs` kan aldrig
+se den. Men **backstoppen såg den heller aldrig**: testkörningen hann bara säga två repliker
+på 6,2 s. Fraserna härleddes därför ur spelets egen tabell — 16 föremål × fast utfall × tre
+former = 48 repliker. `npm run voice`: **50 klipp gjorda, 0 misslyckade.**
+⚠️ Samma blindfläck gäller de återstående **27 körningsbyggda replikerna** i andra spel.
+
+---
+
+## 2026-08-10 (natt) · v1.86.0 · Spår 3 P2 — fallskärmen fick riktig luft
+
+**Byggt:** Andra kunden i runda P2, byggd i en autonom nattkörning (kön ligger i
+`.claude/state/nattkorning.md`). Ny delad primitiv **`src/lib/luftmotstand.js`**
+(`Motstandsvolym`) — motstånd mot farten *relativt luften*, och ur den enda lagen faller
+gränsfarten, vindens grepp och styrningens tak ut av sig själva. `lib/mjukkropp.js` fick
+**`falt(ax, ay)`** och kupolen blev dess fjärde kund.
+
+**Vad HEAD faktiskt gjorde** (mätt med nya `scripts/_fallprobe.mjs`, inte gissat):
+95 % av fallfarten nåddes efter **0,07 s** — ingen acceleration alls. Styrningen gav
+**248 px (Lätt) mot 245 px (Tung)** på en sekund, alltså gjorde tyngdknappen ingenting åt
+styrförmågan. Efter: Lätt 4,87 s / 75→82 px/s, Tung 2,97 s / 119→137 px/s, **kvot 1,67× =
+exakt HEADs**, accelerationen syns (0,20 resp. 0,32 s), styrning 227/190 px.
+
+**Fyra fällor, alla inskrivna som varningar i koden:**
+
+1. **En acceleration och en kraft är inte samma sak.** Med styrningen som acceleration drev
+   den TUNGA lasten *längre* i sidled än den lätta (65 mot 45 px) — samma acceleration,
+   högre gränsfart. Därav `driv()` (spelets hjälp, massoberoende) och `kraft()` (barnets
+   muskler, delas med massan).
+2. **`skjut()` är en impuls, inte ett kraftfält.** Verlet läser en positionsändring som
+   fart, så en `skjut` per bildruta blev en konstant FART och kupolen veks ihop till en
+   sned trekant — med helt riktig fysik bakom sig.
+3. **Med tre fästen roterade mjukkroppen** (toppunkten gled till x = −55, bredden 184 →
+   209 px) och kraftfältet drunknade: lätt, tung och sidby gav identiska former på 0,1 px.
+4. **`form(a)` skalar BÅDA axlarna**, så en platt underkant drog in skärmkantens hörn till
+   ±11 px i stället för ±92.
+
+**`spelkritiker`:** inga blockerare, alla sju grindpunkter håller. Domen värd att bära med:
+*större delen av fysikrundans finess levde i sondens utskrift och inte på skärmen.* Tre
+billiga fynd åtgärdade utan att röra kalibreringen — bukten överdrivs **×2,5 vid ritning**
+(2,8 px är sant men osynligt på en platta), glödringen var en **full cirkel fast träffen är
+rent vågrät** (läste som "flyg igenom ringen") och blev en liggande ellips, och **tyngden
+hörs** nu (Tung 260→130 Hz, Lätt 420→760).
+
+**Commits:** `1ff0d98` fysiken · `7690ccd` kupolen · `8e652a6` doc · `692707e` kritikfixar ·
+`fca7efd` ÅTGÄRDER V12 · `5f7dd34` V11 stängd
+**Kontroll:** `check` 0 fel · `test:all` **72/72 gröna** · `_motstandprobe` 17/17 ·
+`_kupolprobe` 6/6 · `_mjukprobe`/`_vobbelprobe` gröna · mjukkroppens tre andra kunder gröna.
+**Öppet:**
+- **ÅTGÄRDER V12:** `tom-scen` i `tvatta-djuret` två av två fulla svep, men grönt 6/6
+  ensamt och A/B-svepets sex armar rena. Hypotes att MÄTA: harnessens skärmdump hinner före
+  första bildrutan under parallell last — då är fixen i `test-games.mjs`, inte i spelet.
+- Fallskärmens **tomma luftrum** (~5 s "vänta tills marken") är där fysikens nyanser skulle
+  få en publik — doc §4 [Medium] "Samla på vägen ner".
+- Nattkön fortsätter: `ballonglyft` → `sapbubblor` → P3 → V10 → `/rost`.
+
+---
+
+## 2026-08-10 · v1.85.0 · Spår 3 P2 inledd — plask-i-vattnet fick riktigt vatten
+
+**Byggt:** Första kunden i runda P2. `plask-i-vattnet` har ett **SPH-ytskikt** ur
+`lib/vatska.js`: ytan svallar när något slår igenom den, nivån STIGER av undanträngd volym
+och vattnet slår ihop bakom det som sjunker. Bara ytskiktet simuleras (330–400, 416
+partiklar); djupet är samma ritade kropp som förut och skarven döljs av en påfyllning i
+exakt samma ton. Ny sond `scripts/_plaskprobe.mjs` (12 mått), och `_vatskeprobe` känner nu
+igen släpp-spel och tömmer hyllan i tanken.
+
+**Tre saker som bara mätningen kunde säga:**
+
+1. **Vilopackningen är 73 px² per partikel.** Första fyllningen (15 px-rutnät) sjönk ihop
+   till en 42 px hög sträng med ytan på y=428 — 98 px UNDER flytkraftens nollinje, alltså en
+   lysande blå stapel som svävade mitt i tanken. Fyllningen räknas nu ur den siffran.
+2. **Nedslagspunkten låg på fel sida om ytan.** Föremålet föddes 140 px under vattenytan
+   medan "plasket" var en ritad ring vid ytan. Med riktigt vatten syns det direkt: en sten
+   som föds under ytan rör inte en enda partikel.
+3. **Mer fart ger INTE större plask.** 5,4–7,0 px/steg mot 3,2–4,6 gav LÄGRE stänk (20 mot
+   23 px) och föremålet dök rakt igenom skiktet, så undanträngningen försvann med det.
+   Farten trycker undan vatten i sidled, den kastar det inte uppåt.
+
+**Ljusranden vid hyllan bortmaskad.** Metabollens kant hänger ner under skiktets osynliga
+hylla och lyste igenom påfyllningen: uppmätt 125,189,228 mot vattnets 112,182,225 i ett band
+y≈410–425 — en tunn vågrät linje tvärs tanken. Mask, inte `boundsArea`: filtrets rendermål
+växer med suddets padding, så klickar strax utanför ytan ritas ändå. Efter: 112,182,225 rakt
+igenom, 0 kostnad i FPS.
+
+**Uppmätt:** stänk 24–34 px över ytan · undanträngning 8–13 px på tre flytare · värsta fallet
+36–40 px kvar till rimmen · volymen konstant 416 → 416 · 0 partiklar utanför tanken · 58,9 FPS.
+
+**Commits:** `9ec3362` feat(plask-i-vattnet)
+**Kontroll:** `npm run check` 0 fel · `npm run test:all` **72/72 gröna** · bygge rent · serverad
+på :4173 (Tailscale 8445).
+**Öppet:**
+- ✅ **Fel-nivåfyndet är avfärdat med mätning, inte med resonemang** (ÅTGÄRDER **V11**, stängd).
+  Svitkörningen gav 72/72 gröna men loggade `tom-scen` i **`tvatta-djuret`** (helt tom
+  skärmdump). Ensam körning: grön, hela scenen ritad. Därefter **A/B växelvis i 3 rundor** över
+  hela sviten med vätskan i den ena armen och spelet före den i den andra — **alla sex armarna
+  72/72 gröna och rena**. Vätskefiltret höjer alltså inte flake-frekvensen, och sex fulla
+  körningar kunde inte återskapa fyndet. Metoden att A/B:a något som redan är committat står
+  nu i ÅTGÄRDER (lägg den GAMLA filen i arbetskopian; armarna byter etikett).
+  ⚠️ Svepet stashar filen — dör körningen ligger ändringen i `git stash list`, inte i trädet
+  (hände i den här sessionen: `tom-scen`-jakten dödade svepet mitt i en HEAD-arm).
+- Runda P2 fortsätter: `fallskarmen` (motståndsvolym) · `sapbubblor` (mjuka bubblor) ·
+  `ballonglyft` (lyftkraft).
+- ÅTGÄRDER V10 (statisk restitution, 23 spel) väntar fortfarande på ett eget A/B-svep.
+
+---
+
+## 2026-08-09 (natt) · v1.84.0 · Spår 3 P1 avslutad — kulbanas fjäderbräda
+
+**Byggt:** Den sista punkten i runda P1. `kulbana`s studsplatta är nu en **riktig fjäderbräda**:
+plankan har eget tillstånd, sväljer kulans anslag, dyker undan och kastar tillbaka den med sin
+egen fart uppåt.
+
+- **`lib/fjader.js` — `Fjaderbrada`** (ny primitiv, första kund `kulbana`). Fjäder i px/steg +
+  mjukkropp för silhuetten (`mjukkropp.js` tredje kund: plankan BÖJS, foten står still, två rosa
+  fjädrar trycks ihop mot undersidan via `undersida(x)`). API: `taEmot` · `steg` · `driv` ·
+  `flytta` · `path` · `nolla` · `destroy`.
+- **`physics.js` fick `beforeStep(fn)`** — en kropp som spelet driver med en fart måste röra sig i
+  matters takt (px/STEG; en bildruta rymmer 1–5 steg).
+- **`scripts/_fjaderprobe.mjs`** (19 mått, ingen webbläsare) + **`_fjaderbild.mjs`** (vila ·
+  djupast · efter · vriden). `test:all` **72/72 gröna**, `check` 0 fel, `_idleprobe` 0.
+
+**Det som gjorde jobbet värt mer än planerat — två mätningar som ändrade bilden:**
+
+1. **`restitution` på en STATISK kropp är en nullhandling i hela repot.** `_make` sätter statiskt
+   EFTER skapandet (NaN-fixen) och matters `Body.setStatic` nollar då restitution. Studsplattans
+   `0.95` hade alltså aldrig gjort något — den studsade exakt som en ramp, och det var kulans
+   egna 0,42 som avgjorde allt (plattans 0,02 och 0,95 ger identiskt studshopp: 31 px). Docens
+   rad *"studsplattan är livlös"* hade en tyst teknisk orsak, inte en designorsak. Fixen är två
+   rader men rör 23 spel → ligger som **ÅTGÄRDER V10** med krav på A/B över hela sviten.
+2. **Utkastet kommer ur att plankans kropp FLYTTAS uppåt genom kulan**, och `updateVelocity`-
+   flaggan är hela mekaniken: 10,83 px/steg med, 3,87 utan, 3,67 för en stillastående planka.
+   Samma flagga är ett minfält i draget — ett drag på 230 px gav kroppen farten (−651, −230) som
+   låg kvar hela byggfasen, och lösaren läste sedan kontakten som *separerande* → ingen impuls →
+   kulan föll rakt genom bräddan, utan konsolfel. Därav `driv()` (med fart) och `flytta()` (utan).
+
+**Uppmätt resultat** (fall 20 · 60 · 140 · 260 · 400 px): studshöjd **37 · 88 · 183 · 272 · 272 px**
+mot den styva plattans **3 · 7 · 17 · 31 · 46** — 10,8× vid medianen, med tak (max 14,1 px/steg).
+Inpressning 6,9 → 19,4 px av 22. **±30° vridning styr utkastet ±323 px i sidled** (ny agens: barnet
+siktar med bräddan). Tio studsar i rad trappar upp och LÅSER sig vid samma tak (platå 271 px). En
+kula som rullar över bräddan behåller 5,9 av 7 px/steg.
+
+**Sonden hade fel före koden, tre gånger** — värt att minnas som mönster: `lyft` var klippt av sin
+egen initiering, anslaget mättes som max över ALLA kontakter (icke-monotont, eftersom bräddan får
+tillbaka kulan), och en callback tog emot `{ x, y }` men plockade ut `{ bx, by }` → `part.x = NaN`
+→ kroppen försvann helt ur matter utan konsolfel, alltså en "bräddan gör inget"-bild som bara
+handlade om sonden.
+
+**Commits:** se nedan · **Öppet:** runda P1 är klar. Nästa: P2 kraftfältsspel (`plask-i-vattnet`
+SPH · `fallskarmen` motståndsvolym · `sapbubblor` mjuka bubblor · `ballonglyft` lyftkraft), sedan
+P3 maskiner. ÅTGÄRDER V10 (statisk restitution, 23 spel) väntar på ett eget A/B-svep.
+
+---
+
+## 2026-08-09 (kväll) · v1.83.0 · Spår 3 fysikdjup — P0 (tre primitiver) + P1 (fyra spel)
+
+**Byggt:** Hela runda P0 och merparten av P1.
+
+**P0 — de tre nya primitiverna, var och en med sin första kund** (aldrig bara ett bibliotek):
+
+- **`lib/flytkraft.js` — `Flytvolym`** (LYFTPLAN B6). En rektangel med en yta som äger
+  lyftkraft, motstånd, fartspärr, bottenlugn, banfjäder och gupp. **Kund: `plask-i-vattnet`**
+  (34 rader handrullad `_applyBuoyancy` borta). ETT tal styr allt: `flyt > 1` flyter med
+  jämvikt vid nedsänkningen `1/flyt`, massoberoende. Basen läses ur världens gravitation
+  VARJE steg — förut hade ett `setGravity()` mitt i leken tyst gjort allt flytande till
+  sjunkare.
+- **`lib/magnet.js` — `Magnetfalt`** + **`speedToAccel()` i `physics.js`**. Drag och knuff är
+  samma fält åt två håll; returvärdet ÄR närhetsvillkoret. Kalibreringen px/steg → matter
+  (den som en gång sög in hela dammen i den parkerade magneten) bor nu på ETT ställe med hela
+  härledningen. **Kund: `magnet-fiske`.**
+- **`lib/varme.js` — `Varmefalt`**. TVÅ tal, inte ett: `temp` (hur varmt något är NU, driver
+  utseende och mjukhet) och `grad` (hur färdigt det hunnit bli, SJUNKER ALDRIG, driver målet).
+  Att låta temp styra målet vore ett P0-brott. **Kund: `lagerelden`** — marshmallowen stelnar
+  nu igen när den lyfts ur elden, utan att tappa en enda gyllene procent.
+
+**P1 — fyra spel:**
+
+- **`knuffa-tornet`**: klosstyperna hade redan skild fysik men lät som EN träklots. Nu talar
+  var och en sitt material — sten 120 · trä 240 · gummi 320 · kronan 760 · glas 1180 Hz.
+- **`kulbana`**: ytorna lät redan olika men ALLTID lika hårt. Kraftskalan är kalibrerad mot
+  uppmätt kulfart (3–14,6 px/steg, median 7,4).
+- **`glasstornet`**: varje landad kula är en mjuk kropp som VOBBLAR — eftersläpning ur
+  matter-kroppens egen fartändring, ingen tween. Tre generella tillägg i `mjukkropp.js`:
+  `path(g, skala)`, `form(vinkel)` och `skjut(dx, dy)`.
+- **`studsa-ner`**: en FLÄKT på en räls — dra upp/ner för höjd, över mitten för att byta sida.
+  Uppmätt verkan 0,72 fickor: nog för att vända en nära-miss, för lite för att göra siktet
+  meningslöst.
+
+**Sex lärdomar, alla uppmätta:**
+
+1. **En port som inte kan vara bit-identisk måste mätas på rätt storhet.** Flytkraften blev
+   0 px avvikelse över 900 steg (samma uttryck). Magnetfältet blev det INTE — det rättar en
+   avrundad `277.78` till exakta dt², och matter med kollisioner är kaotiskt nog att förstora
+   den ulpen till 39,9 px på 900 steg. Banjämförelsen är fel mått; **fångsttiden** är rätt, och
+   den är identisk steg för steg (80/150/220/290 px → 15/41/74/116 steg).
+2. **`mat()` sprider materialets fysik — även fält spelet aldrig satt.** `knuffa-tornet` satte
+   aldrig `frictionAir`, så tabellens trä-värde 0,012 hade tyst ersatt matters 0,01 i ett
+   handtrimmat spel utan att ett enda test blivit rött. Skriv ut talen du vill BEHÅLLA.
+3. **En adoptionsräkning säger vad ett spel inte importerar — aldrig vad det redan gör.**
+   Planens "billiga impactAudio-våg" höll bara i ett av fyra fall: fem kandidatspel har egna
+   tonade `onCollision`-svar och `bowling` har en stämd pentatonisk kombo-stege på fallande
+   käglor. Kriteriet står nu i LYFTPLAN under B5.
+4. **En kortvarig kraft går inte att dimensionera i terminalfart.** `speedToAccel` ger
+   accelerationen för en SLUTHASTIGHET, men fläktens mynt är i strömmen ~0,3 s. Första
+   räckvidden lämnade 6 % av kraften kvar där mynten faktiskt faller: uppmätt verkan 8 px.
+5. **Sonderna hade fel före koden fyra gånger.** Rostsonden rostade klart och mätte en NY
+   marshmallow; sedan mätte den formen med en bounding box, men marshmallowen VRIDER sig runt
+   pinnen (kontrollmätt på HEAD). Fläktsonden mätte en avstängd fläkt två gånger i rad och
+   rapporterade 8 och 10 px — båda sanna, om en fläkt som inte blåste.
+6. **Mät alltid HEADs egen frekvens bredvid din egen.** `_idleprobe` gav 1 framsteg på
+   `studsa-ner` och såg ut som en regression; växelvis mätt blev det 2 av 3 i BÅDA armarna.
+   Samma sak med `fysik-svalt`: i andra svit-körningen landade den på `bowling`, ett orört spel.
+
+**Commits:** `a1c5ac8` flytkraft+plask · `1aff9de` magnet+speedToAccel+magnet-fiske ·
+`51b21d9` varme+lagerelden · `196d592` impactAudio-kriteriet · `ff58ce6` knuffa-tornet ·
+`62631bd` kulbana+P1-lägesbild · `2d2c7ac` glasstornet · `8c0de39` studsa-ner
+
+**Kontroll:** `npm run check` 0/0 · `npm run test:all` **72/72 gröna** (fyra körningar) ·
+sex nya sonder gröna: `_flytprobe` · `_faltprobe` · `_varmeprobe` · `_rostprobe` ·
+`_vobbelprobe` · `_flaktprobe` · `_tornprobe`. Bygge deployat på Tailscale för ägarens
+telefonkoll.
+
+**Öppet:** **Spår 3 fortsätter — kvar i P1 är `kulbana`s fjäderbräda** (`mjukkropp` som
+trycks ihop under kulan). Sedan:
+
+- **Runda P2 (kraftfältsspelen):** `plask-i-vattnet` SPH-vatten ovanpå flytkraften ·
+  `fallskarmen` luftmotståndsvolym (äger ingen matter-värld i dag — spelbyte, inte port) ·
+  `sapbubblor` mjuka bubblor · `ballonglyft` lyftkraft mot last (räknar ballonger i dag).
+- **Runda P3 (maskinerna):** `kugghjulen` vridmoment · `trollblandning` gegga + `varme`-kok ·
+  `magnet-fiske` poler (fältets `styrka` tar redan tecken).
+- **Mjukkroppens väntelista** (B2): `sapbubblor` · `mata-monstret` · `hamburgerbygget` ·
+  `pruttbad`.
+- **Röstklipp saknas för `plask-i-vattnets` namngivning** ("Anden flyter!", "Stenen sjunker!"
+  m.fl., 32+ repliker som byggs vid körning). Lägg in dem i `scripts/voice-phrases.json` och
+  kör `npm run voice` — F5-TTS fungerar.
+- **MOSS är fortfarande nere:** `saknat-ljudklipp` i `bajs-och-kiss`, `kittla-figuren`,
+  `peka-pa-kroppen`, `sapbubblor`.
+- **Ägarens manuella telefonkoll av full bleed** är fortfarande ogjord.
+
+---
+
+## 2026-08-09 (sen natt) · v1.76.0 · Spår E runda A4 — glöd, emitters, MeshRope, kameran
+
+**Byggt:** Hela runda A4. Fyra punkter, var och en med en verklig kund i ett spel.
+
+- **`lib/glod.js` (nytt)** — additiv glöd som delat idiom (C4). Ett Canvas2D-bakat atlasark
+  med `prick` och `stjarna`, EN vit textur för hela appen som färgas med `tint`. `glod()`
+  ger en additiv Sprite, `glodBakom()` lägger den under ett föremål. Inga tweens, inga
+  timers — exit-säker av konstruktion. **Kund: `lagerelden`**, vars glöd var en platt
+  orange skiva på alpha 0.18 och nu är en halo som växer 240→540 px med värmen och lyser
+  upp stockar, stenar och gräs.
+- **`Emitter` i `partiklar.js`** — `spray()`/`rain()` är engångshändelser; allt som PÅGÅR
+  krävde ett `spray()`-anrop per bildruta. Emittern föder i jämn takt ur EN ticker-callback,
+  och döda partiklar **återuppstår på plats** så ett jämnt flöde gör noll add/remove efter
+  uppstarten. Plus `blend: 'add'` på `spray()` (eget fält, eftersom blandningen sitter på
+  containern). **Kund: `trollblandning`**, vars kittel puttrade ur ~30 rader handrullad loop
+  med tak på ÅTTA bubblor och en ny Graphics per bubbla.
+- **`repMesh()` i `rep.js`** — repet som MATERIAL. `repTextur()` bakar ett tvärsnitt med
+  Canvas2D i tre profiler (`rep` · `slang` · `slat`); 64×32 är tvåpotenser med flit, för
+  `textureScale > 0` sätter `addressMode: 'repeat'` och en del drivrutiner klämmer i stället
+  för att wrappa annars. **Kund: `zackes-biltvatt`**, vars slang ritades med tre strokes och
+  nu bär ribbor och dager som åker med i varje böj.
+- **Kameran fick sin första kund: `spindel-zacke-svingar`** (efter ägarens grind — 18 spel
+  utreddes, se LYFTPLAN §9). Banan var hårdklämd till 920 px av
+  `Math.min(cfg.gap, 920 / (count - 1))`, och eftersom antalet fästen växte med nivån blev
+  varje hopp **kortare** ju längre barnet kom (nivå 1: 3 fästen à 300 px · nivå 6: 6 à 184).
+  Progressionen gjorde alltså varje enskilt hopp lättare, och hela stan syntes från första
+  svinget. Nu: konstant 300 px gap, och nivån lägger till FÄSTEN (3 → 4 → 6 → 8 → 10) i en
+  värld på upp till 3400 px. Fem lager — scenens band, en fjärran stadssiluett på
+  `DJUP.fjarran`, spelplanet, **ett eget fx-lager i världen** och HUD på faktor 0.
+- **Och ett dygn som går** (v1.74.0). Spelet är en slinga — rädda en kattunge, rädda en till
+  — så utan något som förändras mellan varven blir den femte räddningen identisk med den
+  första. Stämningen följer nu nivån: `dag → morgon → skymning → kväll → natt`, sedan om
+  (`nivå % 5`; nivå 0 är oförändrad). Byggt på `createScene`s befintliga `tid`-tonning plus
+  `night` — ingen ny scenkod. **Husen tintas i TVÅ delar:** kroppen mörknar
+  (`0xffffff → 0x6f77ad`) medan fönstren går åt andra hållet och tänds
+  (`0xfff6d0 → 0xffd95c`). En enda tint hade släckt fönstren i samma andetag som väggen
+  mörknade, och ett mörkt hus med mörka fönster läser som en kuliss, inte som en stad där
+  någon bor. Nytt i `kamera.js`: **`byteScen()`** — scenens band ÄR kamerans understa lager
+  och ligger i `_layers`, så de gamla måste plockas ur listan, annars flyttar kameran
+  osynliga containrar varje bildruta. Uppmätt: lagerantalet står still på 14 över sex
+  nivåbyten.
+- **Och §4:s hela Variation-sektion avbockad** (v1.75.0). Stadsdelen blir finare åt höger
+  (fönster → balkongräcken → spira), fästena glöder starkare mot kattungen, och fågel/ballong/
+  stjärna hänger mellan fästena och ger ett pling ur en pentatonisk stege när båg-kastet stryker
+  förbi. Höjden på husen rörs INTE: `ROOF_Y` är fångstgolv och kattungen sitter på
+  `ROOF_Y − 46`, så högre hus mot målet hade lagt takåsen över båda.
+- **Och superhjälte-posen** (v1.76.0, §4 Juice). Zacke snurrade förut bara
+  (`rotation += 0.04`) — det läser som att han tappat kontrollen, och en hjälte STYR sin
+  flykt. Nu ritas kroppen om till en flygpose vid släpp (armarna rakt fram förbi huvudet,
+  benen ihop bakåt) och vrids mot `atan2(vy,vx) + π/2`, klämt till [0,42; 1,85] rad så han
+  aldrig dyker som om han störtade. **Fart-strecken bor i hans egna koordinater** — då följer
+  de med när kroppen vrids och pekar alltid rakt bakåt, utan en enda vinkelberäkning.
+
+**Fem lärdomar, alla uppmätta:**
+
+1. **Additivt ljus kräver TVÅ saker — C4-listan tänkte bara på det ena.** Inte bara en mörk
+   botten att lysa upp, utan också en KÄLLA MED TAKHÖJD KVAR. Lägereldens lågtungor ligger
+   med flit 5–10 djupt och `_flameColor` startar på nära vitt: summan av tio nästan vita
+   skivor är vit oavsett bakgrund, så elden blev en vit klump i BÅDA stämningarna. Lågorna
+   är därför medvetet kvar på normal blandning; bara halon är additiv. Trollblandningens
+   bubblor faller på det omvända villkoret — brygdfärgerna är mörka och adderar nästan
+   ingenting. **C4:s sju kandidatnamn måste läsas om mot båda villkoren.**
+2. **En stoppad emitter återskapade sitt tomma fält varje bildruta.** `_falt()` bygger ett
+   fält när det saknas och anropades först i `steg()`, alltså direkt efter att städningen
+   rivit föregående — det vilande fältet på ett app-långlivat lager som CLAUDE.md varnar
+   för, byggt på nytt 60 ggr/s. Hittat av sonden, inte av ögat.
+3. **`npm run test` visar alltid nivå 0.** Lägereldens `sunset → night` vid nivå 2 var
+   därmed osynlig för hela sviten. Nya `scripts/_nivabild.mjs` tar en bild per nivå — och
+   skriver genom appens EGEN SaveService, för att peta i localStorage träffar ett tomt
+   dokument i en färsk kontext (och `profiles` är en array, inte en uppslagstabell).
+4. **`ctx.fxLayer` är skärmrymd, och det märks först när kameran rör sig.** En `sparkle()`
+   vid ett fäste 2000 px in i världen hade dykt upp 2000 px in på SKÄRMEN. Ett spel med
+   kamera behöver ett eget fx-lager i faktor 1; kvar på `ctx.fxLayer` hör bara det som
+   följer FINGRET. Samma sak i andra riktningen: `kam.moveTo()` krävs vid nivåstart,
+   eftersom Zacke teleporterar och kamerans hårda ruta annars rycker bilden med.
+
+**Commits:** `5ee3481` glod+partiklar+lagerelden · `6dc07c3` trollblandning ·
+`0d5ae03` rep+zackes-biltvatt · `961594e` spindel-zacke-svingar+kamera · `25d441b` dygnet ·
+`9e45c1d` snart framme + skörden · `d9ef2d2` superhjälte-posen
+**Kontroll:** `npm run check` 0/0 · `npm run test:all` **72/72 gröna** ·
+`_glodprobe.mjs` helgrön (additivitet bevisad mot en normal-kontrollarm: 255,60,60 mot
+247,2,2) · `_varldprobe.mjs` 13/13 (kameran 1045 px mot fjärranbandets 188 = kvot 0,18,
+precis lagerfaktorn; Zacke utanför bilden i 0 av 130 prover; stämningarna cyklar utan
+lagerläckage; 2 av 2 passerade godsaker plockade; 0 av 5 liv-tweens tickar efter exit) · `_svingprobe.mjs` fortsatt
+7/7 · `_repprobe.mjs` fortsatt grön i Node.
+
+**Öppet:** **Spår E är klart (A1–A4)** — nästa naturliga steg är **spår 3 fysik**
+(`flytkraft.js` · `magnet.js` · `varme.js`, var och en med första kund; sedan rundorna P1–P3).
+
+Kvar i mindre högar:
+
+- **`spindel-zacke-svingar` §4** — Variation & överraskning och Juice är avbockade. Kvar:
+  **[Medium] synligt släpp-fönster** och **[Medium] belöna bra släpp** (de enda två som
+  ändrar hur spelet SPELAS — resten är dekor), [Medium] räddnings-galleri, [Quick] Elvira
+  reagerar längs vägen, [Quick] folk i fönstren, samt 🔶 vind-sus/moln-pluff som väntar på
+  att MOSS kommer upp.
+- **`domino`** är kamerans starkaste nästa kund (`nSlots = Math.min(7 + level, 13)` av rena
+  skärmbreddsskäl — från nivå 6 slutar spelet växa) men kräver ett designbeslut om
+  bricktråget, som idag förutsätter att tråg och lucka syns samtidigt. Se LYFTPLAN §9.
+- **C4:s glödkandidater måste läsas om** mot BÅDA villkoren innan fler rullas ut — se
+  lärdom 1 ovan. `enhorning-glitterbajs` (candy-bakgrund), `blixt-och-dunder` (sunset) och
+  `golvet-ar-lava` (ljus vulkanhimmel) ser ut att falla på det ena eller andra.
+- **MOSS är fortfarande nere:** `saknat-ljudklipp` i bajs-och-kiss, kittla-figuren,
+  peka-pa-kroppen och sapbubblor är saknade manifest-poster. Rösten (F5-TTS) fungerar.
+- **Ägarens manuella telefonkoll av full bleed** är fortfarande ogjord (bygge → preview →
+  Tailscale, rotera mitt i ett spel).
+
+**Två svit-transienter observerade, båda avfärdade med mätning, inte med gissning:**
+`golvet-ar-lava` flaggade `tom-scen` i en `test:all`-körning men var ren enskilt (0 bildfynd),
+och `spindel-zacke-svingar` flaggade `saknat-ljudklipp` för `djur_katt` — ett klipp som FINNS
+på disk — i en körning. Växelvis mätt: 0 av 3 med ändringen, 0 av 3 utan. `sample()` hinner
+före avkodningen.
+
+---
+
+## 2026-08-09 (natt) · v1.71.0 · Spår E runda A3 — karaktärsriggen är utrullad, 22 av 22
+
+**Byggt:** De sex sista Bobo-spelen bytte från stillbild till riggen `lib/karaktarer.js`:
+`domino`, `flipperspel`, `hamburgerbygget`, `kulbana`, `sapbubblor` och `knuffa-tornet`
+(det sista från `figurer.js`). Därmed är utrullningen KLAR — **`mascot.js` har en enda
+kund kvar, `gravmaskinen`**, som är det dokumenterade undantaget (r 11 ⇒ ögonen blir
+1,7 px och en min går inte att läsa).
+
+- **Ägarreglerna höll rakt igenom.** `view.scale` = alltid riggens andning (knuffa-tornets
+  egen andnings-tween togs bort); `view.y` = den med största gesten (domino 52 px,
+  sapbubblor 34, kulbana 26 — alla större än `jubel`, så spelen behöll sina hopp och riggen
+  bidrar med `setMood('stolt')`); `kropp: false` när den ritade kroppen ÄR rollen
+  (grillmästarens förkläde, kulbanans blå byxor, Bobo bakom flipperbordet, den svävande
+  kulkroppen i sapbubblor).
+- **Handrullad mimik ersatt av riggen.** sapbubblors `_boboMouth` (en gap-mun med
+  alpha-tween) är borta — riggens `nam` ÄR att tugga och svälja. Det var precis den sortens
+  per-spel-mimik riggen byggdes för.
+- **`look()` gav mest per rad:** flipperspel följer kulan, hamburgerbygget det barnet drar
+  (annars bygget), kulbana kulan hela vägen ner — alla via
+  `outer.toLocal(mål.getGlobalPosition())`.
+
+**Två fynd:**
+1. **Bygghjälmen i knuffa-tornet täckte hela ansiktet.** Brättet låg på `y = 0`, och riggens
+   ögon ligger på −0,12·r medan `makeBobo` hade dem lägre. Hittat i en **närbild** —
+   `npm run test` var grönt hela tiden. Lyft till −0,46·r.
+2. **En rigg som byggs om under spelets gång måste `destroy()`:as.** kulbanas mottagare byggs
+   per bana. Uppmätt: 10 ombyggnader → 0 gamla riggar lever, 0 aktiva tweens kvar.
+
+**Commits:** `bd06566` domino+flipperspel · `8fc1a75` hamburgerbygget+kulbana ·
+`4d864ac` sapbubblor+knuffa-tornet
+**Kontroll:** `npm run check` 0/0 · `npm run test:all` **72/72 gröna** · sex närbilder
+granskade i `_narbild.mjs`.
+**Öppet:** A4 (blendMode-add glow, kontinuerliga emitters i partiklar.js, MeshRope via
+Canvas2D-textur, kamerans första kund), sedan spår 3 fysik. Ägarens manuella telefonkoll
+av full bleed är fortfarande ogjord.
+
+---
+
+## 2026-08-09 (sen kväll) · v1.70.0 · Spår E runda A2 — övergångar med riktning, vilorörelse
+
+**Byggt:** Andra rundan i animationsspåret: skärmbytena fick en riktning, och sex spel som
+stod helt stilla i vila fick liv.
+
+- **`Nav.js`** — den nya skärmen läggs **underst och full direkt**; det är den GAMLA som
+  glider undan och tonar bort ovanpå (vänster djupare in, höger tillbaka). Ordningen ger
+  både riktningen och frihet från cremeblänk — med en korstoning är båda skärmarna
+  halvgenomskinliga en stund och skalets creme lyser igenom. `_busy` hålls nu tills
+  övergången är klar.
+- **`GameHost`** — ankomst-takt från skala 1.06 ned mot 1. Aldrig UNDER 1: en scale-in
+  underifrån hade visat creme runt kanterna en halv sekund.
+- **`feedback.liv()`** — gupp + vaggning med **egen fas per föremål** (`breathe` var
+  skal-bara och synkron). Tänd i loopdjuren, hamburgerbygget, enkelt-pussel,
+  vart-tog-det-vagen, fyrverkeri och gravmaskinen. Mönstret som gör det ofarligt: lägg
+  rörelsen på en INRE behållare när det yttre objektet ägs av någon annan (drag, hyllans
+  svep, spelets egen blandning). djurorkester lämnades med flit — korten pulsar redan i takt
+  med rytmen.
+- **Två nya sonder:** `_navprobe.mjs` (riktning, creme mitt i bytet, routerlås) och
+  `_livprobe.mjs <id>` (amplitud, fasspridning, tickar något efter exit).
+
+**Två lärdomar, båda uppmätta:**
+1. **`isActive()` ljuger** om en tween som dödat sig själv inifrån sin `onUpdate` — den
+   fryser sin `totalTime` men rapporterar fortfarande aktiv. Mät att den slutar **ticka**.
+2. **Ändrad övergångstiming gör latenta exit-buggar deterministiska.** `studsbollar`
+   tweenade målgjorda bollar 0,2 s ner i korgen; de hade redan lämnat `_balls`/`_shot`, så
+   `destroy` hittade dem inte och tweenen skrev till en förstörd Container. Rött 3 av 3 med
+   A2-skalet, grönt 3 av 3 utan (växelvis mätt) — buggen var gammal, A2 gjorde den synlig.
+
+**Commits:** `fda74a6` feat(lib) liv() · `e1eb6e2` feat(shell) övergångar ·
+`0172b83` feat(6 spel) vilorörelse · `27cba25` fix(studsbollar) exit-bugg
+**Kontroll:** `npm run check` 0/0 · `npm run test:all` **72/72 gröna** (en `tom-scen` på
+tvatta-djuret i parallellkörningen var svitens kända transient — grön enskilt).
+**Öppet:** A3 (riggens sista 6 spel: domino, flipperspel, hamburgerbygget, knuffa-tornet,
+kulbana, sapbubblor), A4 (add-glow, emitters, MeshRope via Canvas2D, kamerans första kund),
+sedan spår 3 fysik. Ägarens manuella telefonkoll av full bleed är fortfarande ogjord.
+
+---
+
+## 2026-08-09 (kväll) · v1.69.0 · Spår E runda A1 — rörelse-tokens, delad squash, tyngd i draget
+
+**Byggt:** Andra spåret i treprogrammet (skärm → animation → fysik) startade med den runda
+som bara rör lib: tokens, delat rörelseordförråd och tyngd i draget.
+
+- **`ANIM` fick konsumenter.** Tokens i theme.js hade NOLL användare — värdena var
+  handkopierade med drift till fem filer (fade 0,16/0,18/0,2/0,25). Button, Nav,
+  LibraryScreen och MenuScreen läser tokens nu; `ANIM` fick `settle`, `lift` och `squash`.
+- **Tre delade hjälpare i feedback.js:** `squash(t,{intensity,hop})` (djurorkesters `_hop`
+  befordrat — spelet anropar nu lib-versionen och blev 18 rader kortare), `landa(t,{base})`
+  och `stegra(list, fx)`. Alla exit-säkra, alla följer vilolägesregeln.
+- **Tyngd i DragController** (23 dragspel ärver): eftersläpning via `gsap.quickTo`, lutning
+  ur eftersläpningen (blir automatiskt fartproportionell utan hastighetsmätning), översläng
+  + `landa()` i målet, och en lyft-skugga. **Eftersläpningen är bara visuell** —
+  träffprövningen använder fingrets position (`rec.tx/ty`), så inget mål blev svårare att
+  träffa (mätt mot HEAD: samma träffutfall i harnessens autodrag).
+- **Två fällor, båda uppmätta.** (1) Lyftet måste pinna både vilo-skala OCH vilo-rotation:
+  sortera-skraps `wiggle()` vid fel släpp läste annars LUTNINGEN som vilovinkel och lämnade
+  föremålet 0,15 rad snett. (2) Skuggan gjordes **opt-in** — ungefär hälften av dragspelen
+  ritar redan en egen, och två skuggor som glider isär under ett snabbt drag syns direkt.
+  Tänd i de fem som saknade en (enkelt-pussel, kla-efter-vadret, kugghjulen, plask-i-vattnet,
+  siffertaget).
+- **Ny sond `scripts/_dragprobe.mjs`** mäter eftersläpning, lutning (mot föremålets EGEN
+  vilovinkel), skuggans liv, barnantalet i lagret och exit mitt i ett drag. Sju spel: 12–16 px
+  släp, 0,10–0,13 rad lutning, allt städat. Sondens egen fälla: `page.screenshot()` tar
+  ~100 ms — mät FÖRE fotot, annars har bilden hunnit i kapp och släpet mäts till 0.
+
+**Commits:** `3773cc1` feat(lib) tokens+feedback · `3fd73a0` feat(lib) tyngd i draget ·
+`6ef9202` feat(5 spel) skugga · `53c5028` refactor(djurorkester)
+**Kontroll:** `npm run check` 0 fel/0 varningar · `npm run test:all` **72/72 gröna**
+(kvar: de fyra kända `saknat-ljudklipp` som väntar på att MOSS kommer upp).
+**Öppet:** A2 (riktningsmedvetna Nav-övergångar + `liv()`-idle), A3 (riggens sista 6 spel),
+A4 (add-glow, emitters, MeshRope via Canvas2D, kamerans första kund). Ägarens manuella
+telefonkoll av full bleed är fortfarande ogjord.
+
+---
+
+## 2026-08-09 · v1.68.0 · Full bleed — bakgrunder täcker hela telefonskärmen (LYFTPLAN spår D)
+
+**Byggt:** Ägarens Pixel 10 Pro (20:9) visade creme-lister vid sidorna och spelobjekt
+"parkerade utanför skärmen" stod fullt synliga i dem. Fixat i tre rundor + ett treprogram
+planerat (skärm → animation → fysik, godkänd plan i `~/.claude/plans/immutable-soaring-hippo.md`):
+
+- **Runda 0 (alla 72 spel):** `lib/view.js` — `VIEW` = synlig designyta (muteras av Scaler),
+  tak `BLEED_X 240`/`BLEED_Y 160`, `onViewChange`. `ctx.view` i GameContext (läs vid
+  användning, cachea/mutera aldrig — dokumenterat i spelkontrakt-skillen). `scene.js` ritar
+  full bleed med platta kjolar/remsor UTANFÖR 16:9 → 1280×720-bilden pixelidentisk, ingen
+  ombaslinjering; vinjetten enda responsiva lagret. Konfettiregn över VIEW. `PhysicsWorld`
+  fick `bounds`-param (opt-in med flit — testad fysik får inte tyst avvika per enhet).
+  Testharnessen: `--viewport WxH` (tryck mappas genom letterboxen → samma designkoordinater
+  träffar rätt i alla viewports) + `kant-cream`-koll i bildkoll.
+- **Runda 1 (16 spel, 3 spelbyggare-agenter):** egna bakgrunder breddade, pop-in fixade
+  (siffertågets lok, vad-forsvanns filt, såpbubblors studs 163 px in i bilden). **Fällor
+  hittade:** himmelsgradienter får bara breddas i SIDLED (bbox-höjden styr mappningen;
+  runda 0 hade glömt själva breddningen — en agent hittade det med pixelmätning);
+  `COLORS.bg` som spelbakgrund kan ALDRIG passera kant-cream (färgen ÄR letterboxen) →
+  varm ton 0xfff0d6. Kollen mäter nu värsta ZONHALVAN + två design-undantag (creme-bord
+  ≥35 %, creme-ram ≥60 % — folj-sparet).
+- **Runda 2:** natskott-pa-stan (lagersådd/återvinning täcker bleed-zonen, mål-spawn mot
+  `ctx.view`). Seam-kollarna (klappa-mullvaden, glasstornet, enhorningen-elvira) granskades
+  i bild och läser som avsiktliga kort/paneler — lämnade.
+
+**Mätning:** `test:all` 72/72 · bred svep 952×428: 0 äkta kant-cream kvar. OBS: parallell-
+svepen kastar tom-scen/konsolfel-transienter på ORÖRDA spel (~3–4 per körning) — kör om
+enskilt innan du tror på dem.
+
+**Commits:** `d635d45` runda 0 · `ad393c1` himmel+kollförfining · 16× `fix(<id>)` ·
+`ea91a1d` natskott · `10ffc8a` docs/LYFTPLAN spår D · + denna sessionslogg.
+
+**Öppet:** (1) **Ägarens telefonkoll återstår** — build → preview → Tailscale, rotera mitt
+i spel. (2) Planens spår 2 (animation: A1 ANIM-tokens+squash/landa/stegra+DragController-
+vikt · A2 Nav-övergångar+`liv()`-idle · A3 riggens 6 sista · A4 add-glöd/emitters/MeshRope-
+via-Canvas2D/kamerans första kund) och spår 3 (fysik: flytkraft/magnet/varme-libbar + tre
+fördjupningsrundor P1–P3) väntar i plan-filen. (3) saftbarens `FluidView.area` klipper
+spill ~40 px före kanten på bredaste telefonerna (mät med `_vatskeprobe` före breddning).
+
+## 2026-08-09 · v1.66.0 · Karaktärsriggen, omgång 4 — fyra spel till (16 kunder, 6 kvar)
+
+**Byggt:** `vippbradan` · `lagerelden` · `pizzabageriet` · `zackes-biltvatt`. Alla fyra fick
+riggen i en **yttre container** (spelet äger `y`/`pop`/`wiggle`, riggen sin `view.scale`), och
+alla fyra fick `look()` — figuren tittar på det barnet håller i, inte rakt fram.
+
+| Spel | Kropp | Vad figuren gör nu |
+|---|---|---|
+| `vippbradan` | rigg | följer grodan hela flygbanan · `jubel` vid landning · `hoppsan` vid miss |
+| `lagerelden` | `kropp: false` | `hungrig` i vila · blicken följer marshmallowen · `nam` per bit |
+| `pizzabageriet` | `kropp: false` | följer dragen ingrediens · `nyfiken`→`hungrig` med ugnen · `heja` |
+| `zackes-biltvatt` | `kropp: false` | följer svampen/munstycket · `heja` per ren yta · `stolt` |
+
+**Vippbrädans handritade kropp togs inte bort — den kändes igen.** `karaktarer.js:_byggKropp`
+skrev av precis de måtten (skugga 2,36·r = 118, fötter 2,16·r = 108, bål 1,36·r = 68, axel
+±0,54·r = ±27, tass ±1,04·r = ±52). 15 rader `Graphics` blev ett anrop. De tre andra behöll sina
+kroppar (`kropp: false`) för att de bär något som är figurens ROLL: bagarens förkläde, ägarens
+lila jacka, och Bobo som tittar fram över ett moln där en kropp hade hängt ner genom molnet.
+
+**Två mätningar som omgången lade till:**
+
+1. **Ett grönt test bevisar inte att en rigg som byggs om under körning städas bort.**
+   `zackes-biltvatt` byter ägare en gång per bil med `removeChildren().destroy()` — det river
+   displayträdet men rör inte gsap. En rigg utan `destroy()` lämnar **två odödliga tweens**
+   (andningen på `view.scale` + den självbokande blinkningen). Ny sond `scripts/_agarprobe.mjs`
+   kör 12 ägarbyten via `window.__barnspel.game` och läser levande tweens ur gamelogs
+   `render/prov`: **utan `_kar.destroy()` 10 → 18 (+8 på 4 Bobo-bilar = 2 per rigg), med den
+   10 → 8.** Och det viktiga: gamelogs egen `tween-lacka` sa **0 i BÅDA armarna** — den dömer
+   bara tweens vars mål har `.destroyed`, och andningens mål är `view.scale`, en
+   ObservablePoint utan den flaggan. Sonden validerades mot en avsiktligt trasig arm innan
+   den fick uttala sig (regeln "en röd sond är ett påstående" gäller åt båda hållen).
+2. **Ögat läste blicken fel — igen.** I närbilden av biltvättens ägare tyckte jag pupillerna
+   pekade höger; uppmätta centroider låg **14 bildpunkter till vänster** om ögonmitten, alltså
+   mot bilen. Därför ny sond `scripts/_narbild.mjs`: klipper ut en ruta ur ett spel med
+   `deviceScaleFactor` (pixlarna FINNS, en uppskalning efteråt hittar bara på dem), går via
+   canvasens verkliga läge så letterboxen inte förskjuter rutan. Bryn på 0,02–0,3 rad är
+   några få pixlar i en 1280×720-bild.
+
+**Commits:** `3c2d9e0` vippbradan · `5270a56` lagerelden · `bbf4dba` pizzabageriet ·
+`cc3ccbf` zackes-biltvatt · `docs` (den här posten + §5 i fyra spel-docs)
+
+**Öppet:** 6 verkliga kandidater kvar för riggen — `domino` · `flipperspel` · `hamburgerbygget`
+· `knuffa-tornet` · `kulbana` · `sapbubblor` — plus de två dokumenterade undantagen
+(`gravmaskinen` r=11 för liten för en min, `bajs-och-kiss` lokal figur som spolas ner).
+`test:all` 72/72, `check` 0/0. Kvarvarande `saknat-ljudklipp` i fyra spel är MOSS-hålet, inte
+en regression.
+
+## 2026-08-09 · v1.65.0 · Karaktärsriggen, omgång 3 — fyra spel till (12 kunder, 10 kvar)
+
+**Byggt:** `blixt-och-dunder` · `fallskarmen` · `saftbaren` · `tarta-i-ansiktet`.
+
+**Två spel ströks efter läsning — dokumenterade undantag, inte glömska:**
+
+- `gravmaskinen` kör `makeMascot(11)`. Vid r 11 är ögonen 1,7 px och brynen 0,8 px breda; en
+  min går inte att läsa, och riggen hade lagt en andnings-tween per bildruta på något osynligt.
+- `bajs-och-kiss` använder en **lokal** `makeMascotHead(38)` för en gäst som snurrar fritt i
+  virveln — kodens egen kommentar säger varför den ritas lokalt. Vilo-andning på ett föremål
+  som spolas ner är fel verktyg.
+
+**Två saker omgången lade till:**
+
+1. **En YTTRE container är svaret när spelet speglar figuren.** `fallskarmen` sätter
+   `scale.x = ±1` för att vända Bobo mot mattan. Riggens andning tweenar `view.scale` till
+   0,988 — den hade **raderat spegelvändningen** och vänt honom åt fel håll, utöver att hacka.
+   Med riggen i en egen container äger spelet spegling + rotation och riggen sin egen skala,
+   och `toLocal` går genom `scale.x` så `look()` pekar rätt utan en enda specialrad.
+2. **Häng reaktionen på mätningen, inte på en timer.** `saftbaren` tuggar (`nam`) bara när
+   `drain()` faktiskt returnerade partiklar — munnen rör sig när det rinner i den.
+
+**Räkningen är gjord på importer, inte på ordet i en kommentar.** Flera redan bytta spel
+nämner fortfarande `makeBobo` i en kommentar om origo, så en naiv `grep -l makeBobo` gav 17
+"kvarvarande" spel av vilka 5 var klara.
+
+**Commits:** `483a488` blixt-och-dunder · `a8a4698` fallskarmen · `39fc83f` saftbaren ·
+`5997294` tarta-i-ansiktet
+
+**Öppet:** 10 verkliga kandidater kvar + fyra med egen mimik. `test:all` 72/72, `check` 0/0.
+
+## 2026-08-09 · v1.64.0 · Karaktärsriggen, omgång 2 — fyra spel till (8 av 23)
+
+**Byggt:** `studsmatta` · `poppa-ballonger` · `glasstornet` · `klambubblor`. Omgången handlade
+mindre om att byta figur och mer om **vem som äger vilken egenskap** när riggen flyttar in i ett
+spel som redan animerar sin maskot:
+
+- **`view.scale` är alltid riggens andning.** Ett `pop()` på samma nod blir hackigt. Antingen
+  flyttas det till den yttre containern (`poppa-ballonger`, `glasstornet`) eller byts mot en
+  `react()` (`klambubblor`, `studsmatta`).
+- **`view.y` ägs av den som har den största gesten.** `klambubblor` har fyra hopp på 40 px och
+  behöll dem — därför `setMood('stolt')` i stället för `react('jubel')`, som hade tweenat samma
+  `y` samtidigt.
+- **`rotation` är fri.** Riggen rör den aldrig utom via `huvud`.
+
+**En placeringsregel värd att skriva ner:** `makeBobo` och riggen delar origo (huvudets centrum)
+och 2,36·r till skuggan, så de byts rakt av. En **handritad** kropp gör det inte —
+`glasstornet`s skugga låg på 158 px, alltså 26 px längre ner, och origo måste flyttas lika
+mycket för att fötterna ska stå kvar på golvlinjen.
+
+**Och en gång till: mät minen, titta inte bara.** `glasstornet`s Bobo såg vid första anblicken
+skeptisk ut i en 3×-uppzoomad skärmdump. Uppmätta brynlutningar: **−0,045 / +0,092** mot
+designens −0,040 / +0,100 för `hungrig` plus huvudets 0,03 lut. Asymmetrin ÄR huvudets lutning,
+inte en trasig spegling — och mitt första mätförsök var fel för att fönstret råkade innehålla
+pupillerna, vilket gav två parallella bryn som inte finns.
+
+**Commits:** `f527b93` studsmatta · `f96f8d9` poppa-ballonger · `a8e7f16` glasstornet ·
+`e056660` klambubblor
+
+**Öppet:** 15 spel kvar med `makeMascot`/`makeBobo` + fyra med egen mimik. `test:all` 72/72,
+`check` 0/0.
+
+## 2026-08-09 · v1.63.0 · Utrullning av karaktärsriggen, omgång 1 (pilot om tre spel)
+
+**Byggt:** `lib/karaktarer.js` gick från 1 kund till 4. Piloten valdes så att de tre spelen
+kräver olika sorters byte: `trollblandning` byter bara HUVUD på en egen figur (`kropp: false`,
+manteln/armarna/staven står kvar), `gungan` byter hel figur (`makeBobo` → riggen), och
+`bowling` byter huvud **plus** en handritad kropp som var en kopia av `makeBoboBody`.
+
+**Tre fynd, alla ur mätning och ingen ur lib-koden:**
+
+1. **`destroy()` dödade aldrig pupillerna.** De saknades i nodlistan, och `look()` är det enda
+   som rör dem — hålet var osynligt så länge ingen kund använde `look()`. Ett spel som följer
+   ett rörligt mål anropar det varje bildruta: 120 tweens/s på två Graphics, `_track` slängde
+   de äldsta ur `_tw`, och efter exit skrev en tween `.y` på en riven Graphics varje bildruta.
+   Uppmätt i `gungan`: **7 pageerror + 1 `tween-lacka` → 0.**
+2. **En armgest måste svinga UTÅT.** Tassen står i vila på `sida·1.04r`, huvudet når `0.97r` —
+   marginal 0,07·r. En rotation uppåt (0,62 rad räckte) drar in tassen bakom huvudet och Bobo
+   står med armarna BORTA. Jag skrev först om `jubel` som en "teckenbugg" och hade fel: den
+   befintliga riktningen gav en synlig pose, min "fix" gjorde armarna osynliga.
+   `_karaktarbild.mjs` avgjorde; koden såg lika rimlig ut åt båda hållen.
+3. **Ny reaktion `heja`** — halva `jubel`s utslag, inget hopp. En upprepad handling som firas
+   med `jubel` gör firandet till bakgrundsljud, och då markerar ingenting längre att målet
+   faktiskt nåddes.
+
+Ordningsregel för nästa kund: `gsap.killTweensOf(bobo)` träffar även riggens egen hopp-tween
+på `view.y` — en `react()` före rensningen dödas direkt. Och skalan är upptagen av riggens
+andning, så ett `pop()` på samma nod blir hackigt.
+
+**Commits:** `8e01eec` heja + armregel · `7e2b2ab` trollblandning · `e3ab4b3` pupill-läckan ·
+`9c1d549` gungan · `ddb5e08` bowling
+
+**Öppet:** 19 spel kvar med `makeMascot`/`makeBobo` + fyra med egen mimik. `test:all` 72/72,
+`check` 0/0. Oförändrat: `saknat-ljudklipp` i 4 spel (MOSS nere), två `npm run dev`-instanser
+och en död `.server.pid`.
+
+## 2026-08-09/10 · v1.62.0 · Nattpass — LYFTPLAN 7·8·9·11·12 klara, V9 stängd, och fyra sonder som ljög
+
+**Byggt:** en obruten nattkörning på ägarens begäran ("jobba vidare medan jag sover, gå på din
+rekommendation"). Fem LYFTPLAN-rader stängda, plus ett P0-fynd som visade sig vara mätfel.
+
+### 1. Fjorton "P0-brott" var mätfel (`5da515d`, v1.50.0)
+
+Baslinjen visade 14 spel med `sen-aterkoppling` och `tryck-utan-ljud`. **Alla var harnessens
+auto-DRAG, inte tryck.** `judge()` i `gamelog.js` testade `outputs.length` FÖRE `dragged`, så
+samma rörelse dömdes av två regler beroende på om något råkade låta: ett tyst drag hamnade i
+`gest-utan-ljud` och gick fritt, ett identiskt drag som råkade starta en lyft-animation eller
+sammanföll med ett omgivningsljud larmade. `lagerelden` mätte fasen till nästa knaster i eldens
+280 ms-loop (169/228/277 ms) och kallade det svarstid; `studsbollar` mätte nästa boll som
+poppade av sig själv. **Efter fixen: `tryck-utan-ljud` 6 spel → 0, `sen-aterkoppling` 4 → 1.**
+Utan den här mätningen hade natten gått åt till att "fixa" fjorton spel som var hela.
+
+### 2. Det som var ÄKTA: tysta tryck under upptagen-fas (`1168e24`, `35defca`, `3d30e32`)
+
+`dod-traffyta` var på riktigt: ett spel som firar eller demonstrerar svarade med TYSTNAD, och
+för ett barn som inte kan läsa "vänta" är en tyst skärm inte en paus — den är trasig. Ny delad
+`kvittera()` i `feedback.js` (dämpad ton + tunn ring) och fem kunder. `vad-forsvann` hade
+dessutom en **död yta mitt på skärmen**: trycket landade på filten, inte på rutorna under, och
+filten hade ingen hanterare alls.
+
+Tre körningar i rad gav tre OLIKA spel med samma bugg — harnessens åtta sekunder träffar rätt
+fas av en slump. Därför **`scripts/_tystprobe.mjs`**, som följer pekbindningarna och flaggar
+tidiga returer utan kvitto: **53 kandidater i 28 spel**, lagda som `ATGARDER` V9. Inte fixade
+blint — sonden läser text, inte beteende.
+
+### 3. LYFTPLAN rad 8 — material som LÅTER (`045d6f3`, v1.52.0)
+
+`MATERIAL` + `mat()` (trä · metall · sten · gummi · glas) och `onImpact`/`impactAudio` i
+`physics.js`: anslagsfart → volym OCH tonhöjd. Rösten är syntes, inte klipp — repot har inga
+klipp som heter `knack`/`duns`/`klirr`, och ett klipp har EN dynamik. Kunder: `domino`,
+`bygg-tornet`. Taket (3 anslag/bildruta + 28 ms på väggklockan) är inte valfritt.
+
+### 4. LYFTPLAN rad 9 — Bobo blir en rigg (`f419d4f`, v1.55.0)
+
+`lib/karaktarer.js`: sju humör som ren data, fem reaktioner, blick, blink, andning. Första kund
+`harma-melodin`, vars tre handritade Graphics och egen `_setMood` försvann — koden blev kortare.
+
+### 5. LYFTPLAN rad 7 och 11 — rep och mjuka kroppar (`8bb208f`, v1.56.0 + v1.57.0)
+
+`lib/rep.js` (verlet-tråd, kund `zackes-biltvatt`, −59 rader) och `lib/mjukkropp.js`
+(tryck-soft-body, kund `lagerelden` — marshmallowen sjunker ihop på riktigt i stället för att
+bara byta färg).
+
+### 6. LYFTPLAN rad 12 — `p2-es` borttagen (`231caad`, v1.49.0)
+
+Noll importer på två månader. Ett dokumenterat teknikval som ingen kod använder är en lögn om
+appen. `ARCHITECTURE.md` nämnde den aldrig — docens A1 var inaktuell på den punkten.
+
+### 7. ATGARDER V9 stängd — 32 spel fick kvitto (`8f2394c` · `560aa08` · `ddae3d8` · `8ed92fd` + v1.62.0)
+
+Hela sondens lista genomgången i fem batchar, varje kandidat läst mot koden först.
+**53 kandidater i 28 spel → 6**, och alla sex är medvetna undantag: fyra `_onUp` (ett uppsläpp
+behöver inget kvitto, nedtrycket fick redan sitt) plus `pruttbad:733` och `vandkort:206`, båda
+falska positiva och båda dokumenterade så ingen jagar dem.
+
+Tre spel hade en kod-form som en mekanisk mönsterersättning hade brutit: `gungan._pumpDown`
+tog aldrig emot `ctx`, `kittla-figuren._tickle` tar en zon i stället för ett event, och
+`saftbaren` har ingen `ctx` alls i pekhanterarna (den ligger på `this._ctx`).
+
+### Svitens flakighet — nu mätt, inte gissad
+
+`npm run test:all` kördes **10 gånger** under natten. **3 av 10 gav `tom-scen`** i 1–3 spel,
+alltid olika spel, aldrig ett spel som ändringen rörde, och alltid exakt 0,0 % innehåll. En
+omkörning av IDENTISK kod var ren varje gång. Det bekräftar siffran CLAUDE.md redan angav
+("HEAD flakade själv 1 av 3") och ger regeln: **två körningar av samma träd som skiljer sig är
+icke-determinism, inte en regression** — `_ab.sh` behövs bara när HEAD och en ändring ska
+jämföras.
+
+En körning visade dessutom mekanismen: `fysik-svalt` med `deltaMS 100` (≈10 fps), och ett
+`kulbana`-tryck vars `pointerup` kom **5 sekunder** efter `pointerdown`. Svälten skapar både
+`tom-scen` och falska `dod-traffyta`.
+
+⚠️ **Rättelse:** ett tidigare påstående i den här sessionen (och i `8f2394c`) om "39
+kvarliggande Chrome-processer" var **fel** — det kom ur ett slarvigt `tasklist | grep -c chrome`.
+Verklig mätning: 7 chrome.exe, varav 2 headless. Chrome-ackumulering förklarar ingenting här.
+Det som däremot står: **två `npm run dev`/vite-instanser** kör mot samma repo (vite 5480 äger
+5173, vite 4908 är föräldralös) och `.server.pid` pekar på en död PID.
+
+### Metodfynd — natten handlade om sonder som ljuger
+
+**Varje sond jag skrev fällde sig själv minst en gång, och varje gång på ett sätt som såg grönt
+eller rimligt ut:**
+
+- `_slagprobe` var **grön medan den inte mätte någonting**: den mätte `impactAudio` på en rasande
+  hög, men 180 bildrutor simuleras på ~40 ms verklig tid, så väggklocke-spärren släppte igenom
+  exakt en ton oavsett vad som hände.
+- `_tystprobe` rapporterade **"0 kandidater i hela repot"** två gånger, av två olika regex-fel
+  (bindningens kropp lästes fram till första `)`, och "nästa metod började" matchade `if (`).
+- `_repprobe` **felade ärligt** och tvingade fram två riktiga fixar: en 20-punkterskedja med
+  vilolängd 760 px blev 2870 px lång vid ett hårt drag.
+- `_mjukprobe` hade **fel två gånger innan koden hade det**: först fel fall (ett mjukt föremål
+  som hänger i toppen ska töjas ut — fysiken var rätt, testet fel), sedan fel mätstorhet
+  (underkantens absoluta läge blandar ihop hoptryckning och dropp).
+- Och **skärmdumpen** hittade det tabellen inte kunde: karaktärsriggens bryn gav `ledsen` och
+  `forvanad` ARGA ansikten — en tillsägelse, alltså ett P0-brott — och `scale.x = −1` vände
+  rotationens riktning så brynen blev osymmetriska.
+
+**Eget misstag värt att komma ihåg:** jag redigerade `karaktarer.js` medan `test:all` körde.
+Vite laddade om mitt i sviten, som kom tillbaka 68/72 med `gles-scen` på exakt 5,5 % i tre spel
+— signaturen för en omladdad sida, inte för en regression. En omkörning orörd gav 72/72.
+**Rör aldrig `src/` medan sviten kör.**
+
+**Commits:** `231caad` p2-es · `5da515d` gamelog-domen · `1168e24` kvittera · `045d6f3` material ·
+`35defca` peka-pa-kroppen · `3d30e32` tystprobe · `f419d4f` karaktarer · `8bb208f` rep ·
+`69ea2bb` mjukkropp
+
+**Öppet:**
+- **`ATGARDER` är tomt** — V9 stängd, inga öppna ägarrapporter, inga öppna verktygsfynd.
+- **Miljö att titta på:** två `npm run dev`/vite-instanser kör mot samma repo och `.server.pid`
+  pekar på en död PID. Inte åtgärdat i natt — jag dödar inga processer på ägarens maskin.
+- LYFTPLAN: rad 2 (`atlas.js`) är den enda kvarvarande ⬜. **Kunder saknas** för de nya libben:
+  `karaktarer.js` 1 av 23 · `mjukkropp.js` 1 av 6 · `rep.js` 1 av 4 · `kamera.js` 0.
+- `MeshRope` (C5) är inte byggd — den kräver en textur, och `generateTexture()` är den kända
+  destabiliseraren. Vägen är Canvas2D-bakning som i `partiklar.js`.
+- Oförändrat: `saknat-ljudklipp` i 4 spel (MOSS nere).
+
+## 2026-08-09 · v1.48.0 · LYFTPLAN rad 6 klar + rad 3/A2 påbörjad — vätska och volym
+
+**Byggt:** fyra omgångar. Två spel fick riktig vätska, och två omgångar gav spelobjekt och
+stora ytor volym — allt utpekat av mätning, inte av magkänsla.
+
+### 1. `vattenvagen` — riktig vätska (v1.45.0, `ccaef5c`)
+
+`lib/vatska.js` (SPH + metabollar) driver vattnet på de tre ställen där det SYNS: kranens
+stråle, läckan ur sista öppna porten, och muggen. **Inuti rören simuleras ingenting** — kanalen
+är 26 px och röret ogenomskinligt, så vattnet sugs in i mynningen och kommer ut i andra änden
+efter `140 + celler·95` ms. Den gamla "droppar längs en polylinje"-vägen är borta. Muggens
+fyllnad läses som vattenYTANS höjd.
+
+Fem fel som ett grönt test aldrig sett:
+1. **Strålen var osynlig** — 49 partiklar, noll pixlar. En droppe faller ~480 px/s, så med
+   saftbarens takt (145 ms) hamnar dropparna 70 px isär mot en 55 px klick: de överlappar
+   aldrig, når aldrig metaboll-tröskeln och ritas i KANTfärgen (nästan vit) mot ljusblå himmel.
+2. **Banan löste sig själv** — muggen låg i kranens kolumn, så läckan föll rakt i mål.
+3. **Spillet åt partikelbudgeten** (132 och stigande) → `drain()` fick en `pal`-parameter.
+4. **Fyra rader tryckte muggen bakom brickan och ur bild** från nivå 3 och uppåt. Banorna
+   växer nu i bredd (4→6 kolumner), aldrig i höjd.
+5. **Plantan blommade aldrig** — `this._plant.text = '🌸'` på en `Graphics` gör ingenting.
+
+### 2. `golvet-ar-lava` — lavan blir ett föremål (v1.46.0, `5d69147`)
+
+Bara flodens översta 46 px simuleras; djupet är samma ritade berg. Poängen är inte att lavan
+rör sig snyggare utan att **varje sten bär en cirkelkollision**: lavan delar sig runt stenen,
+kryper upp mellan stenarna, och en sten som DRAS över floden plogar lavan framför sig.
+Stenens kollisionsradie är 28, inte 46 — med full radie steg ytan 35 px och nådde klippkanten.
+
+### 3. `lib/foremal.js` — delad boll och stjärna i 8 spel (v1.47.0, `62b91db`)
+
+`makeBoll` (5 spel) + `makeStjarna` (3 spel), byggda med `form.js`-fyllningar: A2 (dedupe) och
+C1.3 (gradient på spelobjekt) i samma ändring. Glansellipsen är borttagen, inte kvarlämnad —
+gradienten ÄR dagern. **Läsningen ändrade docens lista:** `makeBasket` ×3 är tre OLIKA korgar
+och `makeBumper` ×2 två olika; att slå ihop dem hade tagit bort variation, inte en dubblett.
+
+### 4. Volym på de stora ytorna (v1.48.0, `bce776d`)
+
+Ny `scripts/_plattprobe.mjs` rankar de 72 skärmdumparna på största enfärgade fältet. Den pekade
+inte på spelobjekt utan på marker och bakgrunder: `plantera-fron`s jord 301 300 px i en ton,
+mullvadens gräsmatta 215 742, lavaklipporna 135 828, och **fyrverkeriets natthimmel var 48
+staplade rektanglar** — samma mönster `scene.js` lämnade i rad 3, gömt i en spelfil. Ny
+`verticalFill()` i `form.js`.
+
+**Två mätfel värda att minnas:** (a) rankning på SUMMAN av platt yta är fel — en bakad gradient
+kvantiseras till band, så summan STIGER av en korrekt fix (mullvaden 536 849 → 735 907) medan
+största fältet föll 215 742 → 32 889. (b) **Platt är ibland rätt** — `spara-linjen` (ritpapper)
+och `rulla-bollen-hem` (fotbollsplan uppifrån) toppar listan och ska göra det.
+
+### Ett falskt flaky-alarm, dokumenterat som sådant
+
+`_ab.sh` gav först lavaändringen **2 flakiga rundor av 8** (`glittergrottan:konsolfel` =
+WebGL-kontext som inte kunde skapas, plus tom-scen i tre-fyra spel) mot HEAD 0 — exakt
+signaturen från `generateTexture`- och `FillGradient`-fällorna. Två kostnadssänkningar gjordes
+på den grunden (`FluidView.area` som kör filtret bara över den yta vätskan kan nå, och ett delat
+metaboll-filter per sida i stället för per montering). Men i tredje körningen flakade **HEAD
+självt** med `golvet-ar-lava:tom-scen`. Slutläge över **11 växelvisa rundor: HEAD 1, ändringen
+2** — inte skiljbart. Ändringarna behölls för att de är billigare, inte för att de bevisligen
+fixade något. Mekanismen jag först skrev in i koden var dessutom **fel**: `Filter.from` går via
+`GlProgram.from`, som cachar per källkod. Kontrollerat i `node_modules/pixi.js` och rättat.
+
+**Nya verktyg:** `scripts/_vatskeprobe.mjs` (partiklar · ytans höjd · målade pixlar mot vätskans
+egen färg · FPS med CPU-strypning · exit + återinträde; hittar vätskan på FORM, inte fältnamn)
+och `scripts/_plattprobe.mjs`. `GameHost` exponerar `window.__barnspel.ctx` i DEV så sonder kan
+driva spelets egna metoder med den riktiga ctx:en.
+
+**Commits:** `ccaef5c` feat(vattenvagen) · `5d69147` feat(golvet-ar-lava) · `62b91db`
+feat(foremal) · `bce776d` feat(form)
+**Kontroll:** `npm run check` 0 fel/0 varningar · `npm run test:all` **72/72** efter varje
+omgång · FPS 56,7–56,9 vid CPU 6× strypt i båda vätskespelen (oförändrat mot tom scen) ·
+`_idleprobe` 0 framsteg utan tryck i båda.
+
+**Öppet:**
+- **Bygget är inte kört/serverat den här sessionen** — `npm run build` + `npm run serve` och en
+  runda på plattan återstår innan v1.48.0 kan kallas telefontestad.
+- **Rad 3/A2 fortsätter.** Nästa mätta kandidater ur `_plattprobe.mjs`: `tarta-i-ansiktet`
+  (132 675 px), `hamburgerbygget` (126 186), `enkelt-pussel` (111 539), `vart-tog-det-vagen`
+  (184 874 — men kolla bilden först, en bordsskiva får vara platt). Och de 203 lokala
+  rit-funktionerna i övrigt; sortera efter hur STORT föremålet ritas.
+- **B1 har sex spel kvar** som fejkar vätska: `zackes-biltvatt`, `tvatta-djuret`, `pruttbad`,
+  `trollblandning`, `plask-i-vattnet`, `pizzabageriet`. Mönstret och sonden finns nu.
+- `rimLight` i `form.js` väntar fortfarande på sin första kund.
+- Oförändrat sedan tidigare: MOSS nere (`kristall_klirr` + `duns` köade), p2-es-beslutet (rad 12)
+  väntar på ägaren.
+
+---
+
+## 2026-08-09 · v1.44.0 · LYFTPLAN rad 5 — `lib/kamera.js` (app-brett, inget enskilt spel rört)
+
+**Byggt:** kameran som gör rad 4:s **statiska** djupband till riktig parallax. `class Camera`
+äger inga spelobjekt, bara **lager**: `parallax(faktor)` ger en Container där 0 = fastspikat i
+skärmen (vinjett, HUD), 1 = spelarens plan, däremellan = bakgrund som glider långsammare.
+Spelet bygger i faktor 1 och tänker i världskoordinater. `follow` · `moveTo` · `panTo` ·
+`shake` · `zoomTo` · `attach(ticker)` · `destroy()`. Pekpunkter behöver ingen omräkning —
+lagren är riktiga Pixi-containrar, så `varld.toLocal(e.global)` räcker.
+
+`createScene(tema, { kamera: { bredd } })` delar scenen i tio djuplager och ritar **varje
+lager exakt så brett som dess faktor kräver** (`lagerBredd(f) = vy + f·(värld − vy)`). Utan
+flaggan är utfallet oförändrat: samma container, samma ritordning, samma bild.
+
+**Tre fel som mätningen hittade — inget av dem gick att se i koden:**
+
+1. **`hardBox` 0.42 satte resten av kameran ur spel.** Rutan klämmer mot målets läge varje
+   bildruta, så en snäv ruta gör kameran klistrad vid figuren och låter dödzon, lead och
+   fartsspärr bara verka inne i rutan. Nu 0.75. Priset är mätt och dokumenterat: en
+   **teleport** rycker bilden med (3880 px på en bildruta) — ett spel som flyttar sin figur
+   långt ska anropa `moveTo()` i samma andetag.
+2. **Zoomen skalade varje lager med sin egen faktor** (`1 + (zoom−1)·f`). Det lät fysikaliskt
+   och gled isär: vid zoom 1.4 hamnade markens horisont på skärm-y 874 och fjärranbandets på
+   673. En zoom ändrar **brännvidd** — den flyttar inte lagren i förhållande till varandra.
+   Det gör bara panoreringen, och den bär faktorn. Zoomen är nu uniform kring vyns mitt.
+3. **Zoom-UT under 1 kräver marginal åt båda håll**, vilket `lagerBredd` (som bara ger
+   marginal åt höger) inte ger. Zoom-IN är däremot gratis — vid 1.6 landar markens högerkant
+   exakt på världens. Därför är `minZoom` 1 som golv, dokumenterat i stället för tyst trasigt.
+
+**En gräns gjordes hörbar i stället för tyst:** scenens lager är låsta i höjdled, så en värld
+med vertikalt utrymme skulle låta figuren glida av den ritade marken — synligt bara i rörelse,
+aldrig i en stillbild. `adopt()` varnar därför i DEV när `worldH > vyns höjd`.
+
+**Kostnad: ingen mätbar.** `_kamerabild.mjs --fps --cpu 6`: scen utan kamera 56,6 FPS, samma
+scen i 10 parallaxlager med följning i rörelse 56,6 FPS.
+
+**Nya verktyg:** `scripts/_kameraprobe.mjs` (beteendet i tal — dödzon, hård ruta, spärr, skak,
+zoom, klämning, exit; kör i **Node utan webbläsare**, eftersom kameran bara rör
+`.position`/`.scale` och Pixis Container laddar där) och `scripts/_kamerabild.mjs` (ett
+kameraläge per ruta, maskad, plus `f<faktor>:x<offset>` per lager — en fin bild kan mycket väl
+ha noll parallax, och `--fps` mäter kostnaden).
+
+**Kontroll:** `npm run check` 0 fel/0 varningar · `_kameraprobe.mjs` allt grönt ·
+`scripts/_ab.sh src/lib/scene.js --rundor 3` växelvis: **HEAD flakade 2 av 3** rundor
+(`glittergrottan:tom-scen`, en gång även `konsolfel` + `golvet-ar-lava:tom-scen`),
+**ändringen 0 av 3 — 72/72 rent i alla tre**. Utan HEAD-armen bredvid sig hade den enstaka
+`tvatta-djuret:tom-scen` i den första sekventiella körningen sett ut som en regression.
+
+**Öppet:**
+- **Kameran har ännu ingen kund bland de 72 spelen.** Ingen befintlig `createScene`-scen rullar
+  i sidled, och de två spel som har egen kamera vill ha något den med flit inte gör:
+  `snobollen` härleder kamerans HÖJD ur backens yta (`camY = surfaceY(camX + LEAD)`) med backen
+  ritad i skärmrymd. Att byta den mot generisk följning vore att tuna om ett fungerande spel
+  utan synlig vinst. Första kunden blir ett **nytt** spel byggt för en värld bredare än rutan,
+  eller en `/polera`-runda som medvetet ger ett spel en sådan värld.
+- Rad 6 (`FluidWorld` → `vattenvagen` + `golvet-ar-lava`) är nästa i arbetsordningen.
+- `setDetaljniva` saknar fortfarande en anropare i skalet (2 är hårdkodat).
+
+---
+
+## 2026-08-08 · v1.43.0 · LYFTPLAN rad 10 + rad 4 (app-brett, inget enskilt spel rört)
+
+**Byggt:** två rader ur arbetsordningen, båda delade filer som lyfter många spel på en gång.
+Inget enskilt spel ändrades — därför är `docs/games/*` orörda med flit; nuläget för de här
+raderna bor i `docs/LYFTPLAN.md`.
+
+**Rad 10 — volym på alla 121 ikoner** (`src/lib/artikoner.js`, 13 spel). Varje mallgren fyller
+sin HUVUDFORM med en gradient efter en regel i stället för per-form-smak: `sphereFill` runda
+kroppar, `cylinderFill` rör och stavar (ny `axis`-parameter), **ny `topLightFill`** för allt
+annat (karosser, kläder, verktyg, polygoner). Smådetaljer lämnas platta med flit. Handrullade
+glans-ellipser bredvid platta fyllningar är **borttagna**, inte kvarlämnade — det var samma
+dubblett som gradienten ersätter. `setDetaljniva(0|1|2)` i `form.js` är kostnadsratten: på 0
+returnerar fyllningsfunktionerna **råfärgen**, så ingen ritgren behöver en egen if-sats.
+Accenter har dessutom en storleksgrind (≥64px).
+
+**Rad 4 — djup i `scene.js`** (55 spel). Tre avståndsband bakom marken, disband vid horisonten
+(ritat **mellan** band 1 och 2 — ordningen ÄR effekten), markstruktur i två lager, vinjett, och
+`tid` (`morgon`/`skymning`/`kvall`) som en nyansparameter. Allt bakom egna flaggor och allt i
+scenroten, alltså **bakom spelytan** — vinjetten kan aldrig mörka ner något barnet ska trycka på.
+De tre banden ersätter gamla `hills` (två cirklar med radie 220–280 som läste som bleka bubblor).
+Nytt temafält `gras` avgör strån eller prickar.
+
+**Fyra mätningar som ändrade koden — inga av dem syntes i ett grönt test:**
+
+1. **Radiella gradienter kostar 256× linjära.** Pixi bakar en linjär till `256×1` (~1 KB), en
+   radiell till `256×256` (~256 KB). Ikonbiblioteket låg på **15,30 MB** GPU-textur;
+   `textureSize: 64` tog det till **1,00 MB** utan banding ens på en 300px-ikon.
+2. **En radiell gradient kan inte ha genomskinlig mitt.** `buildRadialGradient` fyller HELA
+   duken med sista färgstoppet först; en genomskinlig källa raderar ingenting i source-over.
+   Vinjetten blev en **jämn** mörkning (himlens mitt [176,227,250] → [146,189,208], samma
+   faktor överallt). Nu fyra **linjära** kanttoningar — mitten pixelidentisk med baslinjen.
+3. **En gradient per scen destabiliserade sviten.** Disbandets `FillGradient` byggdes inne i
+   `createScene` = ny duk + texturuppladdning vid varje montering. `_ab.sh`: HEAD rent 3/3,
+   ändringen `tom-scen` i 1 av 3 (tre spel samtidigt). Efter cache av **både** dis- och
+   himmelsgradienten: HEAD 1/3 flaky, ändringen **0/3**. Himlen bakades om per montering redan
+   före den här raden, så scenen gör nu färre texturbakningar än HEAD gjorde: noll.
+4. **Två ikonbuggar.** 🌙 ritade en cream-cirkel ovanpå en hel måne för att få skäran —
+   osynlig **bara** mot cream bakgrund. 🍐 var cirkel plus ellips, båda stroke:ade, så sömmen
+   syntes och päronet läste som en snögubbe. Båda är nu egna slutna drag.
+   `.cut()` fungerar INTE för månen: `GraphicsContext.cut()` bryter efter första instruktionen
+   utan hål, så med `.fill().stroke()` fastnar hålet på konturen och fyllningen förblir hel.
+
+**Tre saker byggdes, granskades i skärmdump och ströks** — de är resultat, inte glömska:
+pälstofsar (blev bubblor med egen kontur på kanin/panda/pingvin), kantdager som ljus båge
+(mjuk vid 130px, hårt streck tvärs över pannan vid 300px), och separat ocklusion (gradienterna
+mörknar redan mot underkanten). Strån på `water` var samma sort av fynd: de såg ut som skräp
+i sjön och blev prickar i stället.
+
+**Nya verktyg:** `scripts/_ikonkostnad.mjs` (vad gradienterna kostar i GPU-minne — mäter de
+**bakade texturerna på ritinstruktionerna**, inte modulens cache-räknare, eftersom ett probe
+får en annan modulinstans än appen), `scripts/_scenbild.mjs` (`createScene` i rutnät utan att
+gå via ett spel). `scripts/_ab.sh` tar numera filer som argument + `--rundor`.
+
+**Commits:** `540fb18` feat(artikoner) · `d6fe304` feat(scene) · `67fbcdf` feat(artikoner, början)
+**Kontroll:** `npm run check` 0 fel/0 varningar · `npm run test:all` **72/72 gröna**, inga
+fel-nivåfynd · skärmdumpar granskade per tema (sky meadow water candy sunset night warm).
+
+**Öppet:**
+- **Rad 5 `lib/kamera.js`** är nästa i ordningen — och det är den som gör rad 4:s **statiska**
+  djupband till riktig parallax. Banden är byggda redo för det.
+- `setDetaljniva` har ingen anropare ännu; den behöver en inställning i skalet för att bli
+  verklig (2 är hårdkodat).
+- Rad 3:s rest / A2: de 205 lokala rit-funktionerna i spelfilerna. Största kvarvarande visuella
+  vinsten; `artikoner.js` är nu mallen att kopiera.
+- Rad 12 **`p2-es`** väntar fortfarande på ett ägarbeslut.
+
+---
+
+## 2026-08-08 · v1.39.0 · 🎉 Projektgenomgång + partikelsystemet (app-brett, inget enskilt spel)
+
+**Byggt:** ägaren bad om en genomgång av helheten — hur allt hänger ihop (assets, funktioner,
+motorer), var fysiken är underutnyttjad, och hur grafiken kan bli bättre. Resultatet är ett
+**mätt** planeringsdokument plus första raden i arbetsordningen byggd.
+
+**`docs/LYFTPLAN.md`** — tre spår (A integration · B fysik · C rendering) och en 12-radig
+arbetsordning. Allt är räknat, inte uppskattat, mot v1.38.0:
+
+- **`FillGradient`, `ParticleContainer`, `generateTexture`, `cacheAsTexture`, `Mesh`/`MeshRope`,
+  `TilingSprite`, `BitmapText` = 0 användningar i hela appen.** 1461 `new Graphics()`-anropsställen
+  i spelen och **noll** `Sprite`. Himlen i `scene.js` är 48 staplade rektanglar.
+- **205 unika lokala rit-funktioner** i spelfilerna mot **8** delade. Dubbletter redan mätbara:
+  `makeBall` ×5, `makeStar` ×3, `makeBasket` ×3, `makeElvira` ×2 (en i `figurer.js` OCH en lokal).
+- **`p2-es` är en död dependency** — noll importer, men står som låst teknikval i `CLAUDE.md`,
+  `ARCHITECTURE.md` och skill `fysik-spel`. Dokumenten lovar fyra motorer, appen kör två.
+- **SPH-vätskan (`vatska.js`, 739 rader, 6 material) används av 1 spel** av åtta möjliga
+  (`vattenvagen` säger rakt ut i sin header att vattnet INTE är fysik). `three3d.js`: 1 spel.
+- **Mjuka kroppar: 0.** `Composites` används aldrig. `lagerelden`s marshmallow som sjunker ihop
+  när den blir varm ÄR spelets mekanik och är idag bara ett färgbyte.
+- Bobo finns i **29** spel men `makeMascot()` är ett statiskt huvud utan uttrycks-API — därför
+  handrullar alla 29 sina reaktioner. Det *är* mönstret "ingen mottagare" i `docs/games/README.md`.
+
+**Rad 1 byggd: `src/lib/partiklar.js`.** Canvas2D-atlasark + ETT `ParticleContainer` per lager +
+EN tween per svärm (analytisk rörelse). `feedback.js` (`puff`/`burst`/`sparkle`/`bigCelebration`)
+går den vägen med Graphics-vägen kvar som fallback. **Alla 72 spel fick 3× partikeltäthet utan
+att ett enda spel ändrades.** Mätt kostnad (CPU 6× strypt): gamla vägen viker vid ~2 000 samtidiga
+partiklar (43,5 FPS), nya håller 56,5 FPS vid ~21 800.
+
+**Två fällor kostade en hel felsökningscykel var — båda nu i `CLAUDE.md`:**
+
+1. **`generateTexture()` destabiliserade sviten, inte spelet.** Första versionen bakade arket med
+   Pixi Graphics. `test:all` gav `tom-scen` i **5 av 7** körningar (0 av 7 på HEAD) + en
+   WebGL-kontextkrasch i `glittergrottan`. Förbakning vid uppstart hjälpte inte. Canvas2D rör
+   inte GL-tillståndet. `lib/atlas.js` byggdes för detta och **revs igen** — oanvänd kod är samma
+   skuld som `p2-es`.
+2. **Ett cachat fält på `fxLayer` dör aldrig** (app-långlivat lager). Canvas2D med kvarliggande
+   fält flakade 1 av 3; `stad()` som river tomma fält → **0 av 4**.
+
+Metod värd att återanvända: `scripts/_ab.sh` (HEAD mot ändringen **växelvis** i full skala — en
+delmängd på 8 spel var ren medan 72-svitens last flakade, och sekventiellt före/efter är
+förorenat av maskindrift). `scripts/_fpsprobe.mjs` **kräver CPU-strypning** — ostrypt pinnar både
+gamla och nya vägen mot 60-taket och mätningen säger ingenting.
+
+Sonden fick fel två gånger innan koden fick det (*verifiera sonden innan du tror på ett rött
+resultat* — samma stående regel som `CLAUDE.md` och tidigare sessioner): den första
+tryckte på fasta punkter i ett spel med *svävande* ballonger, träffade inget, och dömde ett
+fungerande system som dött; och en `import('/src/lib/atlas.js')` på bar sökväg är en **annan
+modulinstans** än appens `?t=`-suffixade HMR-kopia, så den rapporterade `hasRenderer: false` om en
+registrerad renderare.
+
+**Commits:** `9a471d1` feat(partiklar): ParticleContainer-system, 3x tathet i alla 72 spel + LYFTPLAN
+
+**Öppet:** LYFTPLAN rad 3–12. Nästa naturliga steg i ordning: **rad 3** `FillGradient` i
+`scene.js` + nytt `lib/form.js` (radiella gradienter ger volym åt varje föremål — störst utseende
+per rad), **rad 4** fördjupad `scene.js` (parallaxband, dis, vinjett — lyfter 57 spel), **rad 5**
+`lib/kamera.js`. **Beslut som kräver ägaren: rad 12, `p2-es`** — bygg ett spel som behöver den
+eller ta bort beroendet och stryk påståendet i de tre dokumenten. Sedan tidigare öppet: ATGARDER
+**V8** (första trycket i ett spel får aldrig sitt ljudklipp — `_predecodeAll` startar vid samma
+`pointerdown` som ska låta), `glittergrottan` §4 principfacit, `natskott` §4, MOSS nere
+(`kristall_klirr` + `duns` köade). Röstkön tom.
+
+---
+
+## 2026-08-08 · v1.38.0 · 🕸️ Nätskott på stan: tre händer, nätbollar och en gata som svarar
+
+**Byggt:** `/polera natskott-pa-stan` omgång 2 — ägarens sex beställningar i ett svep. Tre
+`spelbyggare`-agenter parallellt (monsterarter · butiksfasader · gatuobjekt) medan jag byggde
+styrningen. Modulen växte 2 063 → 6 200 rader.
+
+- **Växelknappen är borta.** Spelet styrs av **tre näthänder**: den aktiva är armen mitt i bild,
+  de två andra ligger och väntar nere i vardera hörnet. Tryck på en och den kliver fram. Alla
+  tre har samma pose — det är dräkten som är språket (röd/svart = dragnät, vit/lila = fästnät,
+  svart/rött = nätboll).
+- **Nätbollar:** matter-kropp som flyger och studsar (mätt 652 px, 3 studsar, tak 3 i luften).
+  Träffat mål **snärjs in** — faller, lägger sig ner, får en vit nätboll runt kroppen så bara
+  huvud och fötter sticker ut, och går fortfarande att dra hem.
+- **Handposen tog fem försök.** Framifrån läste som en KANIN gång på gång. Insikten som löste
+  det: en lodrät spegelaxel plus två utstickande delar blir ALLTID ett ansikte — samma fälla som
+  butiksagenten gick i när cykelbutikens ruta med två symmetriska hjul lästes som ögon. Jag
+  byggde tre kameravinklar, renderade dem sida vid sida (`_handval.mjs`) och lät ägaren peka.
+  Profil vann. Alla tre finns kvar bakom `HAND_VINKEL`.
+- **Baksätet** blev en bilinteriör — och flyttades BAKOM dörrkanten. Ritordningen var hela
+  skillnaden: ovanpå bilen läste samma former som en soffa parkerad på trottoaren.
+- **12 monsterarter** · **6 butiksfasader** (~1 av 3 hus, med krossbara rutor) · **11 gatusaker**
+  med 33 reaktioner, tre per sak — brandposten sprutar en räknad kastbana, brevlådan spottar ut
+  brev, dörren öppnas och ett monster vinkar, äpplen ramlar, korven far upp i luften.
+
+**Tre buggar sonderna hittade som gröna test aldrig sett:** `_phys.link` skriver
+`view.rotation = body.angle` varje bildruta, så tweenen på det liggande insnärjda målet nollades
+tyst (rotationen ligger nu på `inner`) · nätbollen snärjde in det som råkade gå förbi framför
+bilen i födelseögonblicket i stället för det man siktade på · butiks- och gatublocket
+deklarerade **båda** `ritaCykel`, en dubbeldeklaration som hade dödat hela modulen.
+
+**Kritikern fällde två av mina påståenden:** `_natprobe.mjs` tryckte fortfarande på
+växelknappens borttagna koordinat och trodde i 150 s att spelet vägrade byta nät — spelets
+viktigaste sond var tyst trasig. Och min kommentar om träffytan räknade i LOKALA tal: `hitArea`
+skalas av containerns `SIDO_SKALA`, så 236×320 var 118×160 på skärmen. Ytan är höjd till
+130×180 och sonden mäter i skärmpixlar nu.
+
+**Commits:** `ff963da` feat(natskott-pa-stan) · (denna: docs + version)
+**Kontroll:** `npm run check` 0 fel · `npm run test:all` **72/72** · `_bollprobe` ·
+`_gatuprobe` · `_repprobe` · `_natprobe` (hel runda 60 s + exit mitt i firandet) ·
+`_idleprobe` 0 — alla gröna. **Prestanda oförändrad: 17,97 ms snittruta och fps 56, exakt
+samma som baslinjen före omgång 1.**
+**Öppet:** natskotts §4 — hemkomsthuset som lever, natt/regn-kulisser, uppdrag som använder de
+NYA systemen (nätbollen ger ingen uppdragskredit i dag), krossbara skyltfönster (kräver ett
+genomskinligt läge i `_drawWindow`), fler tjuvbeteenden. ATGARDER **V8** kvarstår: `thwip`
+saknar klipp så varje skott faller tillbaka på `whoosh`. MOSS nere.
+
+---
+
+## 2026-08-08 · v1.37.0 · 🕸️ Nätskott på stan polerat — repet blev ett rep, monstren blev en familj
+
+**Byggt:** `/polera natskott-pa-stan` på ägarens beställning (fem punkter), plus två
+verktygsfynd ur ATGARDER avklarade tidigare på dagen.
+
+- **V6 + V7 fixade** (`e219f19`, `1160ad1`): `npm run sfx` byggde om sfx-manifestet ur sin egen
+  fraslista och tappade tyst Kenney-nycklarna `tap`/`soft`/`flip` → manifestet byggs nu ur
+  `out_dir.glob('*.mp3')`, alltså ur filerna på disk (mätt om med MOSS nere: 24 klipp, varav 3
+  från andra källor). `vandkort` sa havsdjursnamn utan klipp — fyndet gällde ett namn, hålet var
+  elva: hela `SEA_NAME` saknades. Mätt statiskt ur spelets egna tabeller i stället för att hoppas
+  på rätt slumpat tema: 18 unika namn, 0 utan klipp.
+- **Poleringen** (`9a38180`): nätlinan är en **verlet-tråd** i stället för en ritad kurva;
+  dragnätet **vinschar i vevtag** så hemfärden blir ryck–släpp–ryck; monstren är en **familj på
+  sex arter** inkl. ägarens **goblin i grönt med lila mössa**; **fönstermonstren går att fånga**
+  med båda näten; och ett monster **snor paket** som motgång med hårt tak.
+- **Vevmodellen tog fyra mätrundor.** Jämn indragning gav 0 ryck (kroppen sprang ifrån vinschen).
+  Snabbare vev gav motsatsen — spänt rep hela vägen. Slumpad vevfas ur `rec.seed` gjorde att
+  SAMMA avstånd gav 0 eller 2 ryck olika gånger → egen vevklocka per fångst. Och till sist räckte
+  ett enda vevtag hela vägen hem på nära mål → farttaket skalas mot avståndet. Ny sond:
+  `scripts/_repprobe.mjs`.
+- **Kritikern fällde två saker jag trodde var klara:** kodkommentaren lovade "2–3 ryck" när
+  mätningen gav 0–1 (kommentaren säger nu exakt vad sonden mäter), och första omtaget av
+  handposen lästes fortfarande som ett fredstecken — två uppåtriktade fingrar ÄR ett V oavsett
+  vinkelskillnad. Lillfingret pekar nu nästan vinkelrätt ut.
+- **Agenten som ritade monstren lämnade över två risker** som visade sig vara äkta: arten
+  tappades mellan gatan och baksätet (`_seatList` bär nu `{kind, golden, art}`) och flaxis vingar
+  stack bara ut 13 px förbi öronen (breddade 24 % efter skärmdumpen). Dess egen bildsond hittade
+  också en fördelningsbugg som dess gröna geometrisond var blind för — samma läxa som repots.
+- **Ny sond `scripts/_monsterbild.mjs`** ställer upp alla sex arter i det RIKTIGA spelet och tar
+  en skärmdump (`.test-shots/natskott-monster.png`). Agentens verifiering gick genom en egen
+  Pixi-stubb; bilden är beviset.
+
+**Commits:** `e219f19` fix(sfx) · `1160ad1` fix(vandkort) · `9f7222b` docs(ATGARDER) ·
+`9a38180` feat(natskott-pa-stan) · (denna: docs + version)
+**Kontroll:** `npm run check` 0 fel · `npm run test:all` **72/72** · `_natprobe` full runda +
+exit mitt i finalen 0 konsolfel · `_idleprobe` 0 · prestanda oförändrad (17,97 ms snittruta
+före och efter, baslinje i `.test-logs/_natskott-HEAD-baslinje.txt`).
+**Öppet:** ATGARDER **V8** (nytt): första trycket i ett spel hinner aldrig få sitt ljudklipp —
+`AudioService` börjar avkoda först vid första `pointerdown`. Kvar i natskotts §4: hemkomsthuset
+som lever, fler kulisser, fler uppdragstyper, fler tjuvbeteenden. MOSS fortfarande nere
+(`kristall_klirr` + `duns` i kön).
+
+---
+
+## 2026-08-08 · v1.35.0 · 💎 Glittergrottan polerad till ✅ — 🔧-backloggen är NOLL
+
+**Byggt:** `/polera glittergrottan` (sista 🔧-spelet). Alla §4-punkter utom principfacit:
+kamera-drift på idle (±17/11 px, somnar vid tryck — mätt 15,9 → 2,3 px), kub som tredje
+formgrupp vid n=6 (mätt 2/2/2, kuben sist), glimmerdjuret heter **Glimma** (presenterar sig
+vid första klappet + jublar med namn varannan runda, 4 nya F5-TTS-klipp), tända kristaller
+klirrar (stämd C7/E7/G7-syntes tills MOSS är uppe), melodin börjar på slumpat skalsteg,
+dimman från nivå 1/~10 s.
+
+- **P0-fix ur skärmdumpen (inte ur docen):** första kristallen kunde gömma sig BAKOM Glimma
+  — nedre vänstra platsen på x≈278 mot djurets hit-kant x≈286. `_avoidPet()` håller låga
+  platser på x≥396. Docens §5 påstod att avstånden var mätta; det gällde inte petzonen.
+- **Kritikfynd (5/5-sviten håller):** slumpat z-djup ±60 gav upp till ~16 % skenbar
+  storleksskillnad — lika mycket som storleksregelns eget steg vid n=6, så "minsta" kunde SE
+  större ut. Storleksregler kör nu nästan platt djup (±12).
+- **Två lib-buggar uppmätta med ny sond (`scripts/_glitterprobe.mjs` — spelar nivå 0→13):**
+  (1) `forceContextLoss()` i ThreeLayer.destroy fick Chrome att BLOCKERA nya WebGL-kontexter
+  — andra inträdet kraschade med tom scen. Renderern återbrukas nu mellan instanser.
+  (2) Vid kontextförlust no-op:ar render() och nya meshar fick aldrig matrixWorld → pick()
+  missade dem trots rätt position (mwPos [0,0,0]; pick 0 → 2 efter updateMatrixWorld).
+  Ticken uppdaterar matriserna explicit — spelet överlever flikbyte/GPU-reset spelbart.
+- **Sondfällor (två nya):** med ThreeLayer finns TVÅ canvasar — `querySelector('canvas')`
+  ger three-canvasen (pointer-events: none), trycken måste till den SISTA (Pixi). Och en
+  sond som importerar spel-URL:en själv får en ANNAN modulinstans när Vite HMR-stämplat
+  modulen — GameHost exponerar nu `window.__barnspel.game` (DEV-only).
+- **Verktygsfynd → ATGARDER:** `npm run sfx` tappar tyst Kenney-nycklarna (tap/soft/flip)
+  ur sfx-manifestet (V6, manifestet återställdes före commit) · `vandkort` säger "Delfin!"
+  utan klipp (V7).
+
+**Commits:** 9321376 feat(glittergrottan) · (denna: docs)
+**Öppet:** 🔧-backloggen tom — alla 72 spel ✅. Kvar i glittergrottans §4: principfacit
+[Medium]. ATGARDER V6 (gen-sfx-manifestet) + V7 (vandkort-klipp). MOSS nere: `kristall_klirr`
++ `duns` väntar i sfx-kön.
+
+---
+
+## 2026-08-08 · v1.34.0 · 🚙 Nätskott på stan — 72:a spelet, bibliotekets första förstapersonsspel
+
+**Byggt:** `/spel natskott-pa-stan` efter ägarens spec-ja (meddelandet "ja" på session 4-korten).
+Alla åtta ägarbeslut ur IDEER.md implementerade ordagrant. `spelbyggare` byggde hela modulen
+(~1900 rader); `spelkritiker` grindade före commit.
+
+- **Spelet:** förstaperson ur bilfönstret — Spindel-Zackes arm i webb-pose, parallax i tre djup
+  (stad→förort), tap → nät (thwip + rekyl <100 ms), stor växelknapp: klibbnät fäster målet där
+  det är, dragnät drar hem det **synligt genom luften** till baksätet (kritikern mätte genom fem
+  skärmdumpar — ingen teleport). Uppdragsrundor ikon-först som kräver båda näten; fönster krossas
+  och självlagas (max 2, monster vinkar ur hålet); vindby + skata med tak; guldpaket ~1/8;
+  hemkomst-parad som final. matter.js.
+- **Kritikerns blockerare:** 0 av 8 röstklipp inspelade — spelet talade robotröst rakt igenom.
+  `npm run voice` genererade alla 8 (inkl. "Hämta hem tre ballonger!" som byggaren korrekt lade
+  till utöver spec-listans 7 — ballonguppdraget saknade replik).
+- **Åtgärdat ur kritiken:** gatan töms när bilen bromsar (strövare stod bredvid paradfigurerna
+  i finalen); vindby-strecken förankras vid paketen och lossningen sker när strecket når fram
+  (orsak → verkan synlig); byggarens sond hade ett **dött fält** (`seen.gust` sattes aldrig —
+  rapporterade alltid false utan att mäta) — mäter nu spelets `loosened`-flagga.
+- **Bildläxa åt andra hållet:** hemkomst-dumpen såg ut att ha kvarglömda strövare kvar TROTS
+  städfixen — mätning (`[hemkomst] mål på gatan: [] säte: 11`) visade att "strövarna" var
+  paradvänner **mitt i språnget** ur sätet. En skärmdump kan även larma falskt; mät innan fix.
+- Kvar i spelets §4 (medvetet): hand-posen läser som V-tecken, dubbelkredit för åter-klibbat
+  paket (gör bara lättare), hemkomst-huset reagerar inte på paraden.
+
+**Mätt:** `scripts/_natprobe.mjs` full runda 40–43 s, exit mitt i finalen + återinträde 0 fel ·
+`_idleprobe` 0 · `npm run check` 0/0 · `npm run test:all` **72/72** · bygge rent · serverat på
+:4173 + Tailscale 8445 (mobiltest). **Commits:** `089bc50` feat(natskott-pa-stan)
+**Öppet:** 🔧-backloggen: `glittergrottan` (kamera-drift). `mata-munnen` väntar på fotoshooten
+(ägarens uppgift — 19–20 bilder + 9 ljud enligt IDEER.md-listan). Röstkön tom.
+
+---
+
+## 2026-08-07 (natt 4) · v1.33.0 · 🕸️ Spindel-Zacke: spök-båge + kramscen — 🔧-backloggen nere på 1
+
+**Byggt:** `/polera spindel-zacke-svingar` — backloggens två kvarvarande [Deep]-punkter
+(spök-båge + nivå-intro). Spelet är nu ✅; kvar som 🔧 är bara `glittergrottan` (kamera-drift).
+
+- **Spök-båge:** 📏-trycket ritar en prickad bana ur **samma integrator som flykten**
+  (G/L/AMP, dt=1 — förhandsvisningen kan inte ljuga) med landnings-ring, tonar bort ~2 s.
+  Sonden mäter Lång maxX 781 vs Kort 676 (+105 px). Längd-valet är äntligen läsbart.
+- **Mini-berättelse + egen vinstscen:** "Kattungen sitter fast på taket!" + riktigt jam vid
+  mount; vid mål landar Zacke på taket, Elvira springer fram i skutt och kramar (❤️ + match),
+  kattungen jamar och hoppar upp i famnen — **sedan** delat firande. `complete()` sist så
+  spelets replik inte klipps (biltvätt-läxan). "En kattunge till behöver hjälp!" driver vidare.
+- **Elvira har hållit i en osynlig käpp sedan hon skapades** — `arc()` efter `fill()` utan
+  `moveTo` strokar en implicit linje från origo (fötterna) till leendets start. Synlig i varje
+  skärmdump, sedd först när kramscenen satte henne i fokus (kritikern hittade + pixelverifierade
+  den). Samma fälla låg i Zackes leende. Ny fallgrop att känna igen.
+- **Skärmdumpen avslöjade en fryst nättråd:** `_update`-ticken som anropar `_attach` fortsätter
+  till `_drawWeb()` längst ner — `_resolving` kollades bara i funktionstoppen, så tråden ritades
+  om EFTER att vinstscenen rensat den. Vakt i `_drawWeb`.
+- **Sonden var trasig först** (probe-before-believing höll): `waitForFunction` med
+  **async**-predikat returnerar en Promise-handle — alltid truthy → falsk träff direkt, 0 släpp.
+  Synkront predikat via en engångs-exponerad singleton-referens. Sedan 7/7: spelaren når målet
+  med 2 riktiga tajmade mustryck, exit mitt i kramscenen 0 fel.
+- **"Kort nät!" har aldrig kunnat få ett klipp** — ternären `say(x ? 'Långt nät!' : 'Kort nät!')`
+  är osynlig för check.mjs statiska literal-läsning. Kritikern fann den; klippet genererat nu
+  (+ de två nya replikerna). P0-fix: tryck under flykt gav gnistor men inget ljud.
+
+**Mätt:** `scripts/_svingprobe.mjs` **7/7** · `npm run check` 0/0 · `npm run test:all` **71/71**
+· bygge rent · serverat på :4173. **Commits:** `fa7e45c` feat(spindel-zacke-svingar)
+**Öppet:** **1 spel kvar som 🔧** — `glittergrottan` (kamera-drift). Röstkön tom. Spec-korten
+`natskott-pa-stan` + `mata-munnen` väntar fortfarande på ägarens ja (mata-munnen även på
+fotoshooten). Medvetet lämnat i spindel-zacke: superhjälte-pose i flykten, vind-sus,
+stigande tak, räddningsgalleri.
+
+---
+
+## 2026-08-07 (session 4) · v1.32.0 · 🧠 Planering: ansiktssektionen + nätskott — noll kod
+
+**Byggt:** ingen kod — en ren planeringssession, allt landade i `docs/IDEER.md`.
+
+- **Ansiktssektionen detaljerad av ägaren:** rigg = frilagt porträtt i **två halvor** (delning
+  vid överläppen), nedre halvan translateras för gap/tugg/prat; **endast neutralfotot klipps**,
+  grimaser är helbildsfoton som korsbleknar; ögonlager i 8 riktningar följer det man drar;
+  bus = mat som fastnar på ansiktet och blir gegga. Beslut (via frågerunda med ägaren):
+  karaktären heter **"Pappa"** (roll, inte namn — theme.js-regeln får tillägget i samma commit
+  som sektionen), bara ägarens ansikte nu, mål = mättnadsmätare med tallriksrundor, ligger i
+  Roligt tills sektionen har 2–3 spel, webp ≤3 MB.
+- **Fotoshoot-listan låst:** 19–20 bilder + 9 ljudinspelningar i EN session (stativ, samma
+  ljus/vinkel), leverans till `assets-src/ansikte/pappa/`. **Ägarens uppgift — blockerar
+  bygget av `mata-munnen`.**
+- **`egna-ansikten` utbruten som egen idébankspost** (fota ansikten + spela in röst i
+  telefonen): P0 DATA-lagringsfrågan måste utredas först; byggs tidigast när riggen och minst
+  ett spel finns.
+- **`natskott-pa-stan` planerad:** beslut — fönster **krossas på riktigt** (ägarens uttryckliga
+  val mot rekommendationen; P0-tonen hålls med självlagning ~5 s + monster som vinkar ur
+  hålet), inga människor (djur/monster/föremål), uppdragsrundor som mål, stor växelknapp för
+  klibb/drag, antydd bilram, mottagare = baksätet, matter.js.
+- **Båda spec-korten står i sin helhet i IDEER.md** under respektive post.
+
+**Mätt:** `npm run check` 0/0 (inga spel rörda, ingen versionsbump — inget app-synligt ändrat).
+**Commits:** se git-loggen (docs(ideer) + docs sessionslogg).
+**Öppet:** **Båda spec-korten väntar på ägarens ja.** `natskott-pa-stan` har inga beroenden och
+kan starta med `/spel` direkt vid ja; `mata-munnen` väntar dessutom på fotoshooten. Kvar sedan
+tidigare: 2 spel som 🔧 (`spindel-zacke-svingar` spök-båge + nivå-intro · `glittergrottan`
+kamera-drift). Röstkön tom.
+
+---
+
+## 2026-08-07 (natt 3) · v1.32.0 · 🛁 Pruttbadet: varje runda ett nytt bad och ett nytt fynd
+
+**Byggt:** `/polera pruttbad`. Spelet hade **inga öppna [Deep]-punkter** — dess 🔧 var ett
+**kvalitetsomdöme** från `spelkritiker`: variation och mjuk progression endast delvis uppfyllda
+"så länge rundorna ser identiska ut". Omgången riktade sig rakt mot det omdömet.
+
+- **Badsort per runda:** bubbel (blått) → jordgubb (rosa) → blåbär (lila) → citron (gult) →
+  mint (grönt). Vatten, vattentoning och skum byter färg, och rundan säger sitt namn.
+- **Gömt fynd i skummet:** en ritad badleksak (båt/stjärna/fisk/badboll/krabba, cyklar per
+  nivå) ligger dold 35–80 % upp. Skummet stiger förbi → gnistor, `reveal`-ton, replik.
+- **Skärmdumpen avslöjade en bugg inget test såg:** rosa skum över blått vatten under hela
+  firandet. `_level` ökar direkt när rundan klaras men karet målas om först 1,5 s senare, och
+  skummet läste nivån *live*. Badsorten ligger nu på ett enda ställe och allt byter samtidigt.
+- **Blockeraren `spelkritiker` hittade:** nästa rundas fynd avslöjade sig självt direkt i
+  **3 fall av 4**. Firandets pruttsvärm driver skummet långt förbi målet (mätt 350–450 mot ett
+  nytt mål på 88), och nästa runda placerar sitt fynd innan skummet hunnit tömmas — leksaken
+  gungade synligt i ett tomt kar. Fyndet **armeras** nu: skummet måste först ha setts *under*
+  det. Det är oberoende av all tajming, till skillnad från en `_resolving`-spärr.
+- **Fjärde gången i rad missade min sond den verkliga bristen.** Den testade bara via
+  `setLevel` + sidladdning — alltså alltid via `init()` där skummet är 0 — aldrig en **levande**
+  vinst → ny runda. Kritikern skrev en egen sond som spelade den riktiga vägen och mätte 3/4.
+
+**Mätt:** `scripts/_badprobe.mjs` **8/8 ×3** · `npm run check` 0/0 · `npm run test:all` **71/71**
+· 0 fynd i loggen · bygge rent. **Commits:** `5fda2fe` feat(pruttbad)
+**Öppet:** **2 spel kvar som 🔧** — `spindel-zacke-svingar` (spök-båge + nivå-intro) ·
+`glittergrottan` (kamera-drift). Röstkön tom.
+
+---
+
+## 2026-08-07 (natt 2) · v1.31.0 · 🛁 Kladdlera gör verktygsvalet äkta
+
+**Byggt:** `/polera tvatta-djuret` — spelets sista äkta [Deep]-punkt, "Smutsiga zoner med olika
+behov". Förut krävdes båda verktygen *globalt* (`renhet = 0,6·skrubbat + 0,4·sköljt`) men aldrig
+ett val om **vilket** verktyg som skulle användas **var** — det var samma svep två gånger med
+olika partikel.
+
+- **Två lersorter.** Torr lera (varm brun, matt) skrubbas som förut. **Kladdlera** (kall
+  skifferblå, blank dager + rinnande droppe) biter svampen inte på — duschen **mjukar upp** den
+  till vanlig lera, och då biter svampen. Klumpen guppar segt och får en **egen låg ton**, inte
+  samma `soft` som en lyckad skrubb, så örat hör skillnad på "det lossnade" och "den sitter fast".
+- **Zoner, inte prickar.** Första versionen slumpade kladd i.i.d. per ruta. `spelkritiker`:
+  det läser *prickigt* snarare än "ett annat material HÄR" — och då är det inget verkligt val.
+  Nu 1–3 zoner per djur, aldrig över ansiktet. Skillnaden syns direkt i skärmdumpen.
+- **Färgen valdes mot en krock.** `DARKMUD` betyder redan "dubbelt lager, skrubba två gånger".
+  En mörkbrun kladd hade alltså burit **två olika regler i nästan samma färg** — därför kall
+  slate. Första utkastet var mörkbrunt och gick inte att skilja åt i skärmdumpen.
+- **Blockeraren `spelkritiker` hittade:** `_idleCue` valde närmaste fläck oavsett sort och sa
+  alltid "dra svampen". På en bana med upp till 40 % kladd kunde **spelets egen hjälp säga fel
+  handling** i precis det ögonblick barnet pausat och behöver den mest. Åtgärdad.
+- **P0 MOTGÅNG hålls:** tak på andelen, nivå 0 helt kladdfri, duschen inte längre låst bakom
+  70 %-regeln när kladd finns (annars vore fläckarna olösbara), mätaren går aldrig bakåt.
+- **Sonden var fel tre gånger till.** Den grep verktyget 200 ms efter släpp medan det glider
+  hem på 400 ms (→ "svampen biter inte" såg ut som en spelbugg), och den mätte "auto-hjälpen
+  når 100 %" fast hjälpen medvetet tar **en fläck per 9 s** — 128 fläckar = ~19 min. Rätt
+  egenskap att mäta var att kladd inte **låser** hjälpen.
+
+**Mätt:** `scripts/_tvattprobe.mjs` **8/8** · `npm run check` 0/0 · `npm run test:all` **71/71** ·
+bygge rent. `spelkritiker`: inga blockerare kvar.
+**Commits:** `8a55054` feat(tvatta-djuret)
+**Öppet:** **3 spel kvar som 🔧** — `spindel-zacke-svingar` (spök-båge + nivå-intro) ·
+`glittergrottan` (kamera-drift) · `pruttbad` (variation/progression). Röstkön tom.
+
+---
+
+## 2026-08-07 (natt) · v1.30.0 · 🎠 Elvira galopperar över regnbågen
+
+**Byggt:** `/polera enhorningen-elvira` — spelets sista äkta [Deep]-punkt. Vinsten var en 0,4 s
+förflyttning + `pop` + **samma `bigCelebration` som alla andra 70 spel**; grindpunkt 7 föll
+alltså rakt av efter en genuint fin klättring.
+
+- **Finishen:** hon hoppar fram till regnbågens vänstra fot, gnäggar med ett riktigt
+  `djur_hast`-sample och **galopperar längs regnbågens egen båge** över krönet — samma
+  parametrisering som `makeRainbow` ritar bandet med, radie 142 mot bandets 116, så hon rider
+  ovanpå den och lutar med den. **Varje åttondel av bågen spelar nästa ton i en pentatonisk
+  skala — galoppen ÄR melodin**, inte ett ljud ovanpå en animation. Glitterspår, tänd regnbåge,
+  flarande krönstjärna, och ett **föl** på gräset som hoppar och möter henne.
+- **Fölets placering tog fyra försök — och tre av dem var osynliga i ett grönt test.**
+  Höger fot: Elvira ritas efter fölet och **dolde det helt vid landningen** (10 px). Vänster
+  fot: flyttade bara krocken till galoppens *start*, som börjar där (28 px). Fast offset under
+  målet: regnbågen stiger med nivån, så fölet blev svävande på nivå 8. Till slut **marken** —
+  den enda punkten som är oberoende av både bågen och nivån. Och även då: rakt under regnbågen
+  står fölet **bakom kontrollpanelen**, bara huvudet stack upp. Det syntes bara i skärmdumpen.
+- **Två gånger i rad mätte min sond fel sak.** Förra passet: prickbanans *förutsagda* slutpunkt
+  var 1 px från målet — grönt — medan `predictTrajectory` inte känner studsmoln alls. Den här
+  gången: sonden mätte att fölet *fanns och låg innanför skärmen*, inte att det **syntes** när
+  hon kom fram. Båda gångerna hittade `spelkritiker` hålet. Lärdomen är skriven i minnet:
+  **fråga vad mätningen INTE täcker.**
+- **Sonden testade dessutom fel nivå i tre körningar.** `goal.x` vandrar 1010→1170, så högra
+  regnbågsfoten (1286) hamnar utanför 1280-ytan och galoppen red ut ur bild — men bara på höga
+  nivåer. `highestLevel` via `localStorage` + reload räckte inte: `SaveService` flushar sitt
+  eget doc vid pagehide och skrev tillbaka den gamla nivån, så passet körde i själva verket
+  nivå 1. Sonden skriver nu i den **levande** `SaveService`-instansen.
+- **P0-fix utanför rundans scope** (hittad av `spelkritiker`): molnens träffyta var 90 px,
+  6 px under P0:s 96 px-golv. Halon höjd 22 → 26 = 98×184 px.
+
+**Mätt:** `scripts/_elviraprobe.mjs` **10/10 på både nivå 0 och nivå 8** · `npm run check` 0/0 ·
+`npm run test:all` **71/71** · 0 fynd i loggen · bygge rent. `spelkritiker`: inga blockerare
+utöver fölet ovan, alla 7 grindpunkter håller.
+**Commits:** `33392c1` feat(enhorningen-elvira)
+**Öppet:** **4 spel kvar som 🔧** — `spindel-zacke-svingar` (spök-båge + nivå-intro) ·
+`glittergrottan` (kamera-drift) · `tvatta-djuret` (zoner i leran) · `pruttbad`
+(variation/progression). Röstkön tom.
+
+---
+
+## 2026-08-07 (sent) · v1.29.0 · 🕷️ Hjälpen slutade spela spelet åt barnet
+
+**Byggt:** `/polera spindelhjalten` — spelets sista äkta [Deep]-punkt, och den sista
+**ersättande** formen av auto-hjälp-mönstret i repot.
+
+- **Förr:** efter 2 missar räknade `_autoAssist` ut ett nästan-perfekt skott och **avfyrade
+  det åt barnet**. Ett barn som släppte rakt ner tre gånger fick ändå alla stjärnor.
+- **Nu:** `_offerAssist` ritar ut skottets prickbana och tänder en **Skjut!**-knapp. Hjälten
+  står kvar tills barnet trycker. Slangbellan stängs aldrig av — det går lika bra att sikta
+  själv, och griper barnet hjälten försvinner erbjudandet, så två lägen är aldrig aktiva
+  samtidigt. Mall: `enhorningen-elvira:_placeHelperCloud`.
+- **No-fail-golvet är orört.** 12 s utan tryck → samma garanterade glid som förr. Inbjudan
+  flyttar agensen till barnet **utan** att ta bort garantin att en stjärna alltid samlas.
+- **`spelkritiker` hittade hålet i omgångens egen huvudgaranti.** Inbjudan får inte ljuga, och
+  därför återanvänder `_solveShot` sin egen `predictTrajectory`-bana som prickbana. Men
+  `predictTrajectory` känner golv och väggar — **inte studsmoln**. En bana kunde alltså gå rakt
+  genom ett moln och lova en flykt som i verkligheten studsar bort, precis i det ögonblick
+  erbjudandet ska bygga tillit. Min egen sond mätte fel sak (bandens *förutsagda* slutpunkt),
+  så den var grön. `_solveShot` slutar nu läsa en kandidatbana vid första studskontakten.
+  **Mätt efter: minsta marginal bana↔moln 75 px** (var negativ).
+- **Studsmolnen syns nu.** `makeCloudBumper` ritade ett moln identiskt med ängens dekor-moln —
+  ingen kunde veta vilka som studsade, och jag läste dem själv som bakgrund i skärmdumpen.
+  De har nu en krans av blå studsprickar + två uppåtpilar, och stjärnor spawnar inte längre
+  ovanpå ett moln.
+- **Fjärde gången docen ljög.** Två av tre punkter jag föreslog i omgången (`[Quick]` studsmoln,
+  `[Quick]` kombo-pling) var **redan byggda** — jag hade bara kodkollat [Deep]-punkterna när jag
+  skrev förslaget. Även `[Medium]` kattung-räddningen visade sig klar (`_rescueKitten:460`).
+  Alla strukna med kodbevis i samma commit som bygget, enligt regeln från förra passet.
+
+**Mätt:** `scripts/_offerprobe.mjs` **11/11** · `npm run check` 0 fel/0 varningar ·
+`npm run test:all` **71/71** · 0 fynd i `.test-logs/spindelhjalten.json` · bygge rent
+(1520 precache-poster). `spelkritiker`: **inga blockerare**, alla 7 grindpunkter håller.
+**Commits:** `767b77b` feat(spindelhjalten)
+**Öppet:** **`spindelhjalten` 🔧 → ✅ — 5 spel kvar som 🔧** (`enhorningen-elvira` generisk
+finish · `spindel-zacke-svingar` spök-båge + nivå-intro · `glittergrottan` kamera-drift ·
+`tvatta-djuret` zoner i leran · `pruttbad` variation/progression). Röstkön tom.
+
+---
+
+## 2026-08-07 (kväll) · v1.28.0 · 🔧 Röstkön tömd + 🔧-backloggen visade sig vara bokföring
+
+**Byggt:** Inga kodändringar alls den här omgången — men repots bild av sig självt är nu sann.
+
+- **Röstkön är tom.** `/rost` genererade de 6 sista klippen (`spara-linjen`s fem kritrepliker
+  + `Så fint!`) via F5-TTS. `npm run check`: 5 väntande → **0**. Verifierat i körning, inte
+  bara statiskt: `npm run test spara-linjen` ger **0 `rost-utan-klipp`** i loggen, alltså
+  resolvar manifestet på riktigt vid uppspelning. Klippen är sinsemellan olika filer
+  (md5-kontrollerade) och 1,0–1,2 s långa.
+- **Avstämning av de 8 kvarvarande 🔧-spelen mot koden — och det var mest bokföringsskuld.**
+  Badge-regeln i `docs/games/README.md` är smal: 🔧 = har öppna [Deep]-punkter i sin §4. Läste
+  `index.js` för alla åtta i stället för att tro på planen. **5 [Deep]-punkter var redan
+  byggda men aldrig strukna:** `vippbradan` (mottagare, byggd 08-04) · `domino` (äkta
+  kedjereaktion, byggd 07-01, stod öppen i **fem veckor**) · `enhorningen-elvira` (hjälpen
+  bjuder in) · `spindelhjalten` (hjälten firar eget, byggd 08-06) · `tvatta-djuret`
+  (djur-specifik finish). **`vippbradan` + `domino` bar 🔧 helt i onödan → ✅.**
+- **Det här är CLAUDE.md:s egen fälla, tredje träffen.** "Docens §4 kan vara inaktuell — läs
+  koden före planen." Jag valde först `domino` som poleringsmål just för att §4 påstod att
+  rasfysiken var fejkad; koden visade `_stepCascade` + `FALL_GUARANTEE` sedan 07-01. Lagt in
+  en explicit varning i `docs/games/README.md`: **stryk punkten i §4 i samma commit som du
+  bygger den.** `domino` §3 beskrev dessutom den skriptade kedjan som *nuläge* och motsade sin
+  egen §1 — nu märkt som ögonblicksbild.
+- **`pruttbad` är motexemplet och står kvar som 🔧.** Det har noll [Deep]-punkter, men §5 säger
+  att kritikern bedömt `variation` och `mjuk progression` som endast delvis uppfyllda så länge
+  rundorna ser identiska ut. Ett ärligt omdöme, inte eftersläpning — badgen ska vara kvar.
+- **Indexet rättat:** stod "70 spel" och "70/70 polerade" trots 71 rader; alla 20 Pussel-rader
+  är polerade. Nu 71 resp. 20/20.
+
+**Kvar och äkta öppet efter avstämningen** (verifierat i kod, inte antaget):
+`spindelhjalten` `_autoAssist:542-559` avfyrar skottet ÅT barnet · `enhorningen-elvira` har
+generisk `bigCelebration:890-905` som finish · `spindel-zacke-svingar` saknar spök-båge och
+nivå-intro · `glittergrottan` ger röst-ledtråd vid idle (`:883-888`), ingen kamera-drift ·
+`tvatta-djuret` kräver båda verktygen globalt men har ingen zon-variation.
+
+**Commits:** `762be16` feat(voice): 6 nya klipp · `03bf1a5` docs(games): stäm av de 8
+kvarvarande spelen mot koden
+**Kontroll:** `npm run check` 0 fel · 0 varningar · `npm run test spara-linjen` + `spindelhjalten`
+gröna · bygge rent (1518 precache-poster).
+**Öppet:** `/polera spindelhjalten` är **föreslagen och väntar på ja** — omgången är
+[Deep] hjälpen bjuder in i stället för att ersätta (vid miss 2 ritas `_solveShot`s egna
+`predictTrajectory`-punkter som prickbana + en ≥96px **Skjut!**-knapp; hjälten väntar på
+barnets tryck; miss-3-glidet ligger kvar som no-fail-golv) + [Quick] studsmoln i luften +
+[Quick] stigande kombo-ton. Mall: `enhorningen-elvira:757-794`. Kattung-räddningen [Medium]
+sparas medvetet till en egen omgång.
+
+---
+
+## 2026-08-07 · v1.27.0 · ✏️ Ritbordet — repots tommaste scen fick kritor
+
+**Byggt:** `spara-linjen` polerad (V3, sista öppna posten i `docs/ATGARDER.md`).
+**Repot har nu noll öppna ägarrapporter och noll öppna verktygsfynd.**
+
+- **Verktygsfyndets första spår var fel i sak.** V3 sa "tom vit panel, fyra grå prickar och en
+  ✏️-emoji som *hela* verktyget". Kodläsningen visade att motiv-silhuetterna OCH den ritade
+  pennan fanns sedan 2026-08-04 — `icon: '✏️'` är bara bibliotekets bricka. Det verkliga felet:
+  svårighetsplanen började på `genLine(4)`, så **det första ett barn såg var fyra grå prickar
+  på tomt papper**. Precis den fälla CLAUDE.md varnar för: läs koden före planen. Fyndets
+  *mätning* (4,3 % innehåll, repots lägsta av 71) var däremot helt korrekt.
+- **Två ändringar räckte:** motiv (berg) redan från runda 1, och en **kritlåda med fem ritade
+  vaxkritor** under pappret. Vald krita lyfts ur lådan och andas; grannarna vilar nedtonade.
+- **Kritvalet är äkta agens, inte dekor:** kritans färg ÄR linjens färg, den kan bytas mitt i
+  en teckning (redan dragna segment behåller sin via `d._wcol`), pennan i handen får samma
+  färg, och valet sparas i `progress.custom.krita` så det minns sig mellan besök. Kritorna är
+  dessutom stämda i samma pentatonik som linjens melodi — lådan är ett litet instrument.
+- **`spelkritiker` hittade en punkt jag missat:** kurv-rundorna (ungefär varannan tidig runda)
+  hade fortfarande ingen mottagare — bara `PRAISE` + konfetti, alltså ett steg tillbaka direkt
+  efter en runda där ett berg vaknar. Fixat med `_celebrateLine`: pennan hoppar till och
+  gnistor vandrar längs spåret. Inga blockerare i övrigt.
+- **V5-lärdomen återanvänd:** `destroy()` dödar tweens på hela displayträdet i stället för en
+  handhållen lista med `if (!x.destroyed)`-vakter. Ny fälla noterad: **`breathe()` tweenar en
+  proxy, inte `.scale`** — `killTweensOf(obj.scale)` biter inte på den, tweenen måste sparas
+  och dödas explicit.
+- **Mätt, inte antaget** (`scripts/_kritprobe.mjs`): kritval ✓ · flerfärgat spår (grön + lila i
+  samma berg) ✓ · runda klar → nivå 1 ✓ · kritan följer med ✓ · minns valet efter återbesök ✓ ·
+  0 konsolfel vid exit mitt i firandet. Bildkoll: `gles-scen` borta.
+
+**Commits:** `77902dd` feat(spara-linjen) · `54a842d` docs(spara-linjen)
+**Kontroll:** `npm run check` 0 fel / 0 varningar · `npm run test:all` **71/71** · bygge rent ·
+serverad på :4173 (Tailscale 8445).
+**Öppet:** 6 repliker väntar på röstklipp — de fem kritfärgerna + "Så fint!" (`sapbubblor` sa
+den vid körning utan klipp; runtime-backstoppen i `check.mjs` fångade den när `test:all` råkade
+ta den vägen). Kör `/rost`. Nästa naturliga steg: `docs/IDEER.md` §1 `ansiktssektionen`, eller
+de 8 spel som fortfarande står 🔧 med [Deep]-punkter kvar i sin doc §4.
+
+---
+
+## 2026-08-07 · v1.26.0 · 💩 Läckan som bara syntes när alla 71 spelen kördes
+
+**Byggt:** `bajs-och-kiss` V5 — det sista röda i `test:all`. **Sviten är 71/71 igen.**
+
+- **Symptomet var lätt att avfärda:** `pageerror ×112` + `tween-mot-forstort ×3` +
+  `tween-lacka ×1`, men BARA i full `test:all`. Ensamt grönt, fyra parallellt grönt, alla 71
+  rött — tre fulla körningar i rad. Det är inte flakigt, det är **lastberoende**.
+- **Reproducerat utan att köra 71 spel:** ny sond `scripts/_bajsprobe.mjs` stryper CPU:n via
+  CDP (`Emulation.setCPUThrottlingRate`) och lämnar spelet vid en rad olika tidpunkter. Det
+  återskapar precis det loggen visade före kraschen — `lang-ruta 100 ms` + `fysik/svalt`, alltså
+  långa bildrutor där teardown förlorar kapplöpningen. Träffbild före fixen: **~1–2 av 20
+  avhopp**. Stacken pekade ut både varianten där en tween *initieras* mot ett rivet mål
+  (`_addPropTween` → `get y`) och den där en *löpande* tween skriver (`render` → `set y`).
+- **Grundorsak:** `destroy()` dödade tweens objekt för objekt ur en **handhållen lista** över de
+  referenser spelet råkade ha kvar. Allt spelet tappat greppet om missades — t.ex. en tidigare
+  bajs-vy vars plopp-tween fortfarande gled — och varje `if (!x.destroyed)`-vakt **hoppade över
+  städningen i precis det läge då den behövs mest**. Kvar blev en tween som skrev `.y` på ett
+  rivet objekt; Pixi v8 nollar `_position` i `destroy()`, så settern kastade varje bildruta.
+  **112 konsolfel ur EN läcka.**
+- **Fix:** `dodaTrad(this._root)` går igenom hela displayträdet och dödar tweens på varje nod
+  (plus `.scale`/`.position`), oavsett om spelet har en referens kvar. De sparade
+  proxy-tweenarna och `ctx.later`-timrarna dödas som förut — de sitter på hjälpobjekt, inte i
+  trädet. Nettot är dessutom **20 rader kortare** än listan den ersätter.
+- **Mätt efter:** 0 fel på 24 strypta avhopp · `npm run test bajs-och-kiss` grönt ·
+  **`test:all` 71/71**.
+
+**Commits:** `fb21221` fix(bajs-och-kiss)
+
+**Öppet:**
+- Bara **V3 `spara-linjen`** kvar i `docs/ATGARDER.md` (tommaste scenen i repot, 4,3 %
+  innehåll). 8 spel kvar med 🔧. Inga öppna ägarrapporter.
+- Kvarvarande varningsnivå-ledtrådar i loggen är oförändrade: `saknat-ljudklipp` (MOSS nere),
+  `tryck-utan-ljud`, `dod-traffyta`, `sen-aterkoppling`.
+- **Metodfynd:** "grönt ensamt, rött i mängd" är ett eget felmönster, inte flakighet. CPU-strypning
+  via CDP är ett billigt sätt att framkalla det — och en `if (!x.destroyed)`-vakt före
+  `killTweensOf` är alltid fel väg: att döda tweens på ett rivet objekt är ofarligt, att låta bli
+  är buggen.
+
+## 2026-08-07 · v1.25.0 · 🥤 Hällningen som aldrig flyttade en droppe
+
+**Byggt:** `saftbaren` V4 — spelets **kärnloop** gjorde bokstavligen ingenting. "Häll ett glas
+i ett annat → färgerna blandas" körde hela sekvensen snyggt (glaset åkte till rätt plats, nådde
+vinkel 1,02, väntade, åkte hem) men inte en droppe lämnade glaset. Hittades i går genom en
+mätning, fixat i dag.
+
+- **Grundorsak: `TILT` och `OFFS` är samma tal sett från två håll och var aldrig mätta mot
+  varandra.** Mynningen ligger på `(0, IN_TOP)` i glasets egna koordinater, så vid lutningen θ
+  hamnar den `-IN_TOP·sin θ` px åt sidan och `IN_TOP·cos θ` px i höjdled från foten. Vid
+  `TILT = 1,05` rad (60°) nådde saften **aldrig över läppen** — och eftersom OFFS var satt för
+  den vinkeln kunde ingen av dem ändras ensam.
+- **Kalibrerat mot det tal som betyder något** (`scripts/_pourtune.mjs`: fullt källglas,
+  riktigt målglas, spelets egen geometri) — partiklar som hamnar **i målet** av ~103:
+  `1,05 → 0` · `1,5/205 → 29` · `1,9/205 → 19` · **`2,2/100 → 77`** (spill 7) ·
+  `2,4/100 → 81` · `2,6/100 → 86` (spill 13). Att hålla glaset högre mättes också och blev
+  **sämre** (längre fall → mer skvätt: 59 i målet, 25–38 spill). Valt **2,2 + 100**: 75 % över,
+  minst spill, minst extrem vinkel — glaset tippar förbi vågrätt som en riktig hällning.
+- **Tre vägar delade konstanterna och behövde skiljas åt.** Hinken har bred öppning och vill ha
+  en fritt fallande stråle → `MOUTH_DX` (178, härledd ur TILT). Bobo *dricker* — hans mun är en
+  drain-ruta där saften ska ligga stilla, inte hällas på golvet → egna `SERVE_TILT/SERVE_OFFS`
+  (de gamla 1,05/205, som gör exakt det).
+- **Fixen skapade en egen bugg, som mätningen fångade direkt.** Ett fullt glas på väg till
+  hinken tappade hela innehållet till glas 2 när det gled förbi lågt (52 partiklar blev
+  liggande med medel-x 740 ≈ glas 2:s 750). Orsaken var gårdagens djup-ägarregel: den låter det
+  **stående** glaset vinna när ett rörligt glas glider lågt förbi, eftersom deras inre överlappar.
+  Fix: `SAFE_Y` + `_moveOver()` — ett glas som flyttar sig i sidled lyfts, bärs ovanför
+  grannarna och ställs sedan ner. Ser dessutom ut som att glaset lyfts och bärs i stället för
+  att glida genom disken, och `_tiltFor` fungerar äntligen för dragna glas.
+- **Verifierat via spelets egna vägar** (`scripts/_pourprobe.mjs`): glas→glas **61 partiklar
+  över och målet blir GRÖNT, renhet 1,00** (gul i blå — hela poängen med spelet) · glas→hink
+  **58 av 58 slukade**, 0 kvar liggande · hela beställningen: Bobo serveras, dricker upp, ny
+  beställning kommer.
+
+**Commits:** `5ee202a` fix(saftbaren)
+
+**Öppet:**
+- V3 `spara-linjen` (tommaste scenen, 4,3 %). 8 spel kvar med 🔧.
+- **V5 `bajs-och-kiss` är nu inringad:** undantaget är `Cannot read properties of null
+  (reading 'y')` kastat **inifrån GSAP** — en tween som skriver `.y` på ett mål vars transform
+  redan är rivet (`tween-mot-forstort ×3`). Föregås i loggen av `lang-ruta 100 ms` +
+  `fysik/svalt steg:5`: under full parallell last blir bildrutorna långa och tweenen hinner
+  före teardown. `test:all` står därför kvar på **70/71** (112 konsolfel i den körningen).
+- **Metodfynd:** två gånger i rad var det *proben* som var trasig, inte spelet — först en
+  hällmätning som siktade fel, sedan en som fyllde glaset med precis den färg Bobo beställt
+  (spelet serverade då glaset till honom, helt korrekt). Bägge gångerna räddades av att köra
+  om mot HEAD respektive isolerat. En röd sond är ett påstående, inte ett bevis.
+
+## 2026-08-07 · v1.24.0 · 🧲 Magneten som fiskade själv + 🥤 saften som bytte glas
+
+**Byggt:** ägarens fyra rapporterade buggar i `docs/ATGARDER.md` — alla fyra fixade, mätta
+före och efter, och båda spelen hade **en gemensam grundorsak per spel**, inte fyra separata fel.
+
+- **`magnet-fiske` #1 + #2 — krafterna var aldrig kalibrerade mot matters enheter.**
+  matter räknar `velocity += (force/massa) · steg²` med steg = 16,667 ms, så en acceleration
+  `a` ger `a · 277,78` px/steg direkt och `a · 4629,6` px/steg i längden (mätt mot matter-js,
+  inte hämtat ur minnet). Spelets konstanter var satta som om force vore hastighet — **~280×
+  för starka**.
+  - #1: uppmätt **5 av 5 metallsaker fast innan första provet hann tas**, toppfart 79 px/steg,
+    saker rakt igenom dammens 40 px väggar. Två fel i ett: fältet var absurt starkt OCH
+    påslaget medan magneten hängde **parkerad i luften** 115 px från översta spawn-raden.
+    Nu anges krafterna i px/steg (`SPEED_TO_A`) och fältet verkar bara när magneten är
+    **doppad** — plask-ögonblicket betyder något. Efter: **0 av 5 efter 8 s utan input**,
+    toppfart 2,6, 0 tunnling, `_idleprobe` `idleFramsteg: 0`.
+  - #2: fastklistrade kroppar pinnas till sin slot varje bildruta men **krockade** fortfarande
+    — slottarna ligger 38 px isär, kropparna har 38 px radie, så solvern sprängde isär klasen
+    varje steg och nästa bildruta teleporterades den tillbaka. Uppmätt **53 px svängning,
+    47 px hopp mellan bildrutor** med magneten stilla → **0,1 px** efter `isSensor`.
+- **`saftbaren` #3 + #4 — två tillstånd som satt på fel objekt.**
+  - #3: `_lastMix` satt på SPELET i stället för på glaset, så två glas med var sin blandfärg
+    pingpongade värdet var 12:e bildruta och varje växling utlöste både `reveal` och en
+    röstreplik. Uppmätt **48 ljud + 48 repliker på 5 s helt utan input** → **1 + 1**.
+  - #4: ägarregeln `it.g.y > own.y` ("lägsta glaset vinner") kan aldrig utse en vinnare mellan
+    två glas i **samma** höjd — och ett draget glas låg kvar på disken. Jämförelsen blev falsk
+    varje gång och ägarskapet föll tillbaka på ordningen i `_glasses`: glas 0 draget förbi
+    glas 2 tog **hela innehållet, 56 av 56**. Hållna glas lyfts nu (`HALL_Y`) och ägaren är
+    det glas partikeln ligger **djupast** inne i → **0 stulna**. Lyftet rättade en tyst bugg
+    till: `_tiltFor` kräver `g.y < o.y - 120`, så ett draget glas lutade sig **aldrig** förut.
+
+**Commits:** `1e3f20a` fix(magnet-fiske) · `dd6b3aa` fix(saftbaren)
+
+**Öppet:**
+- **NYTT: `saftbaren` V4 — hällningen flyttar noll vätska.** Spelets kärnloop gör ingenting:
+  hela sekvensen körs snyggt (rätt plats, vinkel 1,02, väntan, hem igen) men inte en droppe
+  lämnar glaset. `TILT = 1,05 rad` ligger under tröskeln för glasets geometri —
+  `scripts/_tiltprobe.mjs` på 103 partiklar: **1,05 → 0 rann ur**, 1,2 → 1, **1,35 → 19**,
+  1,5 → 23. Verifierat på HEAD, alltså inget nytt fel, och medvetet **inte** fixat här
+  (utanför `/fixa`-uppdraget). En större `TILT` kräver att `OFFS = 205` mäts om samtidigt.
+- **NYTT: `bajs-och-kiss` (V5) faller bara i FULL `test:all`** — `pageerror ×3` +
+  `tween-lacka ×2` + `tween-mot-forstort ×2`. Ensamt grönt, fyra parallellt grönt, alla 71
+  rött i två körningar i rad → last-/timingberoende i exit-cykeln, inte slumpflak. Orört av
+  dagens commits (de rör bara `magnet-fiske` + `saftbaren`). **`test:all` står alltså på
+  70/71**, inte 71/71 som efter v1.22.0.
+- Oförändrat: V3 `spara-linjen` (tommaste scenen), 8 spel kvar med 🔧 (`pruttbad` ·
+  `vippbradan` · `domino` · `spindelhjalten` · `enhorningen-elvira` · `tvatta-djuret` ·
+  `spindel-zacke-svingar` · `glittergrottan`).
+- **Metodfynd, tredje gången på tre sessioner:** inget av dagens fyra fel syntes i konsolen
+  eller på skärmdumpen. Alla fyra föll ut ur en **sond som spelade spelet och läste siffror**
+  (`_magnetprobe`, `_saftprobe`, `_tiltprobe`, `_idleprobe`). Två av ATGARDERs fyra "första
+  spår" pekade dessutom fel — reproduktionskravet i `/fixa` gjorde nytta.
+
+## 2026-08-07 · v1.23.0 · ❄️ Snöfälten som aldrig gick att se
+
+**Byggt:**
+- **`snobollen` 🔧 → ✅.** Frågan var om spelet bara saknade sin ✅-rad i indexet (det
+  polerades i `13a8cbd`). Svaret: nej — dess **enda sätt att växa var osynligt**.
+- Snöfälten renderades med **vågrät skala i tusental** och en skjuvning på hundratals, så de
+  smetades ut till en blek hinna över backen i stället för vita fläckar att styra mot. Uppmätt
+  `worldTransform` på ett fält: **a = 3660 (fältets världs-x!), c = 591 (fältets y!)** — trots
+  `scale.x = 1` i hela föräldrakedjan.
+- **Rotorsak: ett namn.** `_addField` sparade världspositionen i `f._cx` / `f._cy`. Det är Pixi
+  v8:s **egna** fält i `Container` — den cachade cosinus/sinus för rotationen — och
+  `updateLocalTransform()` räknar `lt.a = _cx * scale.x`. Spelet skrev rakt in i renderarens
+  transform-cache. Ingen krasch, inget konsolfel, grönt test: bara osynliga spelobjekt.
+  Omgången 2026-07-30 fixade *symptomet* (bakade in världspositionen i geometrin) men lämnade
+  namnkrocken kvar — därav den återkommande "slät vit platta"-känslan.
+- Efter fixen (`_wx`/`_wy`): `worldTransform` a=1, c=0; ett fälts bounds **126×101 px** (var
+  579 048 px brett), `_fieldLayer` 4 084 px (var 20 395 341), `_root` 5 669 = banans längd.
+- **Klassfix:** `check.mjs` felar nu på varje `<objekt>._cx/_cy/_sx/_sy/_position/_scale/_pivot/
+  _origin/_skew/_rotation/_updateFlags/_worldTransform/_maskEffect/_filterEffect =` i ett spel.
+  Verifierat åt båda håll: regeln faller på den gamla koden, är tyst på den nya. Hela repot är
+  rent — snöbollen var enda träffen.
+
+**Commits:** `8d6d579` fix(snobollen): snofalten var osynliga
+
+**Öppet:**
+- Kvar med 🔧: `pruttbad` · `vippbradan` · `domino` · `spindelhjalten` · `enhorningen-elvira` ·
+  `tvatta-djuret` · `spindel-zacke-svingar` · `glittergrottan` (8 st).
+- Oförändrat: ägarens fyra buggar i `magnet-fiske`/`saftbaren`, V3 `spara-linjen`.
+- **Metodfynd:** två av dagens tre buggar (NaN-kropparna och snöfälten) var osynliga för både
+  konsolen och skärmdumpen men uppenbara i en **bounds-/transform-mätning**. Överväg att lägga
+  en `utanfor-rimligt`-kontroll i `gamelog` (ett objekt vars bounds är tiotusentals px brett).
+
+## 2026-08-07 · v1.22.0 · 🧱 Klossarna som försvann i tomma intet
+
+**Byggt:**
+- **`bygg-tornet` gick inte att spela klart** — diagnostikloggen visade `nan-kropp ×5` och
+  `nan-transform ×6` per körning, helt utan konsolfel, och harnessen sa grönt hela tiden.
+- **Grundorsaken låg i det delade fysikbiblioteket, inte i spelet.** En matter-kropp som
+  *skapas* med `{ isStatic: true }` i sina options får flaggan satt som en vanlig egenskap —
+  `Body.setStatic()` körs aldrig, så `_original` (massa · tröghet · densitet) fångas **aldrig**.
+  Ett senare `Body.setStatic(kropp, false)` hittar då inget att återställa: kroppen blir
+  dynamisk med massa OCH tröghet kvar på `Infinity`, och första simsteget räknar
+  `Infinity/Infinity` = NaN. Kroppen teleporteras till NaN, dess länkade Pixi-vy följer med.
+- I spelet betydde det att **varje kloss försvann i släppet**: `_settleActive` jämförde NaN mot
+  tröskeln, alla jämförelser blev falska, klossen räknades som en miss — tornet kunde aldrig
+  växa. Ett barn hade sett en kloss lyftas upp av kranen och sedan bara upphöra.
+- `PhysicsWorld.rectangle/circle/polygon` skapar nu alltid kroppen dynamisk och sätter
+  `isStatic` **efteråt**. Sex spel skapar statiska kroppar och väcker dem senare:
+  `bygg-tornet` · `flipperspel` · `knuffa-tornet` · `kulbana` · `snobollen` · `studsmatta`.
+- Ny sond: `scripts/_nanprobe.mjs` spelar ett spel med riktiga tryck och läser spelets **egna
+  fält** var 100:e ms — första bildrutan där något blir NaN skrivs ut med hela tillståndet
+  runtomkring. Den pekade ut exakt bildruta och fält på under en minut.
+
+**Commits:** `fe45a2f` fix(fysik): kroppar som skapas statiska gick aldrig att vacka
+
+**Öppet:**
+- Samma som v1.21.0 (hög 3 med 9 🔧-spel, ägarens fyra buggar i `magnet-fiske`/`saftbaren`,
+  V3 `spara-linjen`), minus NaN-fyndet. **Repot har nu 0 fel-nivåfynd i hela `test:all`.**
+- Kvarvarande varningsnivå-ledtrådar i loggen: `tryck-utan-ljud` (9 spel), `dod-traffyta` (4),
+  `sen-aterkoppling` (6), `saknat-ljudklipp` (5, MOSS-pipelinen ligger nere).
+
+## 2026-08-07 · v1.21.0 · 🔊 Röstklippen som aldrig spelades + 💥 Knuffa Tornet får sitt pussel
+
+**Byggt:**
+- **V1 — introt talades av robotrösten fast klippet fanns.** `VoiceService` hämtar manifestet
+  asynkront i konstruktorn medan spelen säger sin `voiceIntro` vid mount: ett spel som startade
+  under de första millisekunderna föll därför ALLTID till Web Speech. `say()` skjuter nu upp
+  repliken tills manifestet landat (tak 1500 ms så en hängande fetch aldrig tystar appen), och
+  `cancel()` ogiltigförklarar en väntande replik så inget börjar tala efter att spelet lämnats.
+  `gamelog` dömde likadant i blindo — loggraden skrivs i tid, fyndet väntar in manifestet.
+  **Mätt: 16 spel / 17 träffar `rost-utan-klipp` → 0 av 71.**
+- **V2 — repliker som byggs vid körning var osynliga för kontrollen.** Template-repliker
+  (en `voice.say` med backtick och `${...}` i) kan omöjligt slås upp statiskt; de räknas nu
+  bara (27 st) och
+  verifieras där sanningen finns: `check.mjs` läser `rost-utan-klipp` ur `.test-logs/<id>.json`
+  och varnar för den EXAKTA text körningen sa. Backtick utan `${}` läses som vanlig literal
+  (var helt osynlig förut). Första körningen: **4 äkta luckor, noll falska** — "Lätt vikt!" +
+  "Tung vikt!" (`vippbradan`, där `voice-phrases.json` hade Liten/Stor medan etiketterna heter
+  Lätt/Tung), "Nästan!" (`bygg-tornet`) och "en" (`ballonglyft`). Alla fyra har klipp nu.
+- **💥 Knuffa Tornet, hög 2 (variation & agens) — 🔧 → ✅.** Hjälpen **bjuder in** i stället för
+  att spela klart: efter två missar ställs kulan i perfekt läge med kranen siktad på närmaste
+  kvarvarande kloss och blinkar i en gul ring; spelet svingar själv först efter 7 s. Fem
+  tornformer roterar per nivå (torn · trappa · port · pyramid · dubbel). Tre specialklossar —
+  sten, gummi, glas — gör valet av tyngd och rep till ett pussel, och står bara sten kvar
+  pekar spelet på tyngdknappen i stället för att ta över. Mätaren är en prick per kloss
+  (kronan sist). Finishen är spelets egen: dammoln längs avsatsen → flagga hissas till en
+  durtreklang → Bobo jublar → konfetti.
+
+**Fem balansfynd som inget grönt test hade visat** (`scripts/_tornprobe.mjs` spelar varje nivå):
+1. **Repets längd var hela balansen.** 330 px lade kulans underkant 24 px OVANFÖR understa
+   klossraden — ett fullt sving nöp bara toppen. 348 halverade antalet svingar per nivå.
+2. **Friktion 0,7/1,4 limmade ihop stapeln** så tornet gled 80 px i sidled per sving i stället
+   för att rasa.
+3. **Springan mellan avsatsen och skärmkanten var exakt en kloss bred** — en kloss kilade fast
+   där och räknades aldrig som nere. Målet mäts nu i x ("av avsatsen"), inte bara i fallhöjd.
+4. **En hjälp som siktar på den bortersta klossen flyttar kranen och lämnar den där** (nivå 1
+   gick 4 → 8 svingar). Sikta på den närmaste.
+5. **`_drawChain` måste ritas sist i bildrutan** — `_freezeBall` teleporterar kulan efter att
+   repet ritats, vilket frös fast på varje skärmdump som ett rep hängande bredvid kulan.
+
+**Commits:** `ec21e80` fix(rost): vanta in klippmanifestet fore say() · `a7edc8c` docs: V1+V2
+till Avklarat · `52bd308` feat(knuffa-tornet): variation och agens
+
+**Öppet:**
+- **Poleringskampanjen fortsätter.** Hög 2 är klar (6/6). Indexet visar fortfarande **9 spel
+  med 🔧**: `pruttbad` · `vippbradan` · `domino` · `spindelhjalten` · `enhorningen-elvira` ·
+  `tvatta-djuret` · `spindel-zacke-svingar` · `snobollen` · `glittergrottan`. Notera att
+  **snobollen redan polerats** (13a8cbd) — antingen missades indexraden eller så saknas en
+  grindpunkt; kolla dess doc §5 innan den köas om.
+- `docs/ATGARDER.md`: V3 (`spara-linjen`, tommaste scenen i repot) är kvar, plus ägarens fyra
+  rapporterade buggar i `magnet-fiske` och `saftbaren`.
+- Knuffa Tornet flaggar ibland `tween-per-ruta` (~125) i bildrutan där vinsten infaller. Det är
+  firandets engångsskur, inte en tween per bildruta.
+
+## 2026-08-06 · v1.18.0 · 🚜 Grävmaskinen: fem laster, och två mätare som ljög (polerings-hög 2, 5/6)
+
+**Byggt:**
+- **Fem laster i stället för en** — sand · grus · snö · småsten · godisströssel turas om per
+  nivå. Varje last har egen palett (**även högen man gräver ur byter färg** — snönivån har en
+  snöhög, godisnivån en regnbågshög), egen kornform, egna skatter, egna ljud och egna
+  repliker. Sandens fyra repliker är oförändrade strängar eftersom de redan hade klipp.
+- **Egen rasvinkel per last.** Branta laster (snö, småsten) kräver **två cellers fall** för
+  att glida i sidled och bygger spetsiga koner; lösa laster lägger sig platt. Regeln är
+  deterministisk med flit — en *sannolikhet* hade bara fördröjt utplaningen, eftersom ett
+  vilande korn får ett nytt tärningskast varje simsteg.
+- **Auto-hjälpen mjukad + tap-fusket borta.** Triggern "4 tippningar" sköt in magi mitt i
+  aktivt spel och är borttagen; kvar är 14 s **helt** utan handling **och** lasten minst 55 %
+  färdig → högst 14 korn, målet sänks aldrig. Tap vid högen gräver nu på riktigt.
+- **Agens i gesten:** fyllnaden skalar med svepets längd *och* djupet (djupt tag ≈ 3× ett
+  ytskrap); lugn hand vid släpp ger tät stråle, ryck ger bred spridning — aldrig en
+  tillsägelse när det blir slarvigt.
+- **Ny finish + mottagare:** fylld dumper kör iväg med lasten, en tom **backar in från höger**
+  (från vänster hade den kört rakt genom grävmaskinen), Bobo vinkar från hytten. Bommen är nu
+  bom + knäled + sticka med hydraulcylinder som sjunker med lastens vikt; Zacke andas och
+  lutar sig mot grävtaget. Grävmaskinen 🔧 → ✅.
+
+**Fyra fynd som gröna tester aldrig hade visat:**
+1. **Fyllnadslinjen ljög.** Målet var 55 korn ≈ 2,4 rader medan linjen satt 6 rader upp —
+   `total >= target` slog alltid först och linjen var ren dekoration. Linjen härleds nu ur
+   målet.
+2. **"Full last" räknade korn i LUFTEN.** `_countFill` räknade fallande korn, så en enda hög
+   tippning kunde klara nivån direkt — harnessen klarade nivå 0 på **3,4 sekunder** och
+   rapporterade ändå grönt. Nu räknas bara korn som vilar.
+3. **Mätaren var osynlig på snönivån** — den ärvde lastens färg, och vitt på gräddvitt syns
+   inte. Hittad i skärmdumpen, inte i något test.
+4. **Mätaren stod på 45 % när spelet sa "full last"** — två indikatorer som säger olika saker
+   är värre än en som ljuger. Den visar nu den av de två vägarna till full last som kommit
+   längst.
+
+**Metod:** `scripts/_lastprobe.mjs` (sond som *spelar*: gräver, kör över flaket, släpper) gav
+balansen sand 4 lass · grus 4 · snö 3 · småsten 3 · godis 6, och en bild per last.
+`scripts/_exitprobe.mjs` testar det harnessens standardcykel aldrig hinner till: att lämna
+spelet **mitt i** den 3 s långa leveransen (rent i alla tre faser).
+
+**Commits:** 6f2195d feat(gravmaskinen) · a0d538c chore(rost): 48 röstklipp genererade
+
+**Öppet:** hög 2 har **1 kvar: knuffa-tornet**. Därefter hög 3 (finish, ~3 spel). Rapporterade
+buggar i `docs/ATGARDER.md` väntar fortfarande (magnet-fiske, saftbaren).
+
+---
+
+## 2026-08-06 · v1.17.0 · 🍦 Glasstornet: kärlet byter per nivå (polerings-hög 2, 4/6)
+
+**Byggt:**
+- **Kärl-cykel per nivå** — våffelstrut → bägare → skål. Skillnaden är **fysik**, inte bara
+  utseende: skålen har jättebred mynning men låg kant (nästan omöjligt att missa, men hela
+  tornet står i blåsten), bägaren smalare mynning men höga raka väggar som håller de två
+  nedersta kulorna stilla. `_buildVessel()` river och bygger om de statiska kropparna per
+  torn; `mouthR`/`columnMax` följer med så siktguiden alltid talar sanning. Rösten säger
+  vilket kärl som står framme. Verifierat hela vägen: strut(3) → bägare(4) → skål(4).
+- **Topping-överraskningar** — sällsynt **regnbågskula** (~1/9, egen Graphics per band) som
+  glittrar medan den bärs och smäller av i färgexplosion + treklang; annars ibland
+  **strössel** eller **såsdrypning** som ligger KVAR på kulan. Tak: en per kula.
+  **Strösselregn** över den färdiga glassen — finishen är glass-egen.
+- **Hjälpen delad i två steg (docens hög-2-punkt).** Tre bortblåsta i rad ger bara
+  **klister**; **magneten går bara till den sista kulan** och är kapad. Efter två bortblåsta
+  **blinkar honungsburken** och rösten berättar vad den gör — hjälp som *lär ut kontrollen*
+  i stället för att bygga tornet. Glasstornet 🔧 → ✅ (alla 8 grindpunkter).
+
+**Tre fynd som gröna tester aldrig hade visat** (hittade med en Playwright-sond som spelar
+med spelets **egen** `_predictLanding` och mäter mot en HEAD-baseline):
+1. **`frictionStatic` (matter-default 0,5) är det som håller en kula kvar på en slänt** —
+   låg `friction` ensamt räcker inte. Skålens grunda slänt parkerade kulorna så att två
+   hamnade **i bredd**, vilket bryter hela "ETT torn"-idén.
+2. **En kula som kilar fast på en annans axel** (dy≈63 i stället för 84) låser tornet snett,
+   och sedan finns **ingen giltig plats kvar** för nästa kula. Bygget blev obyggbart utan
+   att något såg trasigt ut — testet var grönt hela tiden. Sådana landningar glider nu av.
+3. **`frictionAir` EFTER nedslaget avgör om kulan stannar**, inte friktionen mot underlaget:
+   det är farten kulan har kvar (plus vinden) som rullar av den. `SCOOP_STICKY` 0,02 →
+   **0,055** gjorde honungen till spelets verkliga lösning. Med honung tar ett torn 5–6
+   släpp (strut 5 · bägare 5 · skål 6) mot HEAD-baselinens 6 för *tre* kulor — alltså
+   snällare än förut, trots att den automatiska magneten dragits tillbaka.
+
+**Metod värd att återanvända:** när en balansändring ska bedömas, **mät mot HEAD**. Första
+versionen av den mjukare hjälpen kändes rimlig i koden men tog 14 släpp utan att bli klar —
+det syntes bara genom att köra samma sond mot `git show HEAD:...`.
+
+**Även i denna session (utanför poleringskörningen):**
+- **Agentregeln ändrad** — det tidigare totalförbudet mot att starta subagenter oombett är
+  ersatt av **upp till 3 subagenter**; fler kräver att ägaren frågas. Workflows och
+  deep-research kräver fortfarande en förfrågan. Regeln står nu i `CLAUDE.md` (Arbetsregler).
+  Obs: originalformuleringen ligger inte i någon fil i repot eller i `~/.claude/settings.json`
+  — den injiceras av harnessen vid start, så den kan dyka upp igen; `CLAUDE.md` går före.
+- **`docs/ATGARDER.md` — ny stående åtgärdslista** för buggar ägaren rapporterar när hen
+  spelar (återupptar formatet från den avbetade `bugfixes-progress.md`). Fyra öppna rader:
+  `magnet-fiske` (allt sitter redan fast i magneten vid start · fastklistrade saker skakar)
+  och `saftbaren` (ljudet hakar upp sig efter färgbyte · vätskan följer med glas som dras
+  förbi). Varje rad har ett **första spår** från kodläsning, märkt som ledtråd och inte som
+  diagnos — `/fixa` ska reproducera i harnessen först. Två observationer värda att spara:
+  magnetfiskets spawn-ruta ligger *långt* utanför fastna-radien, så startbuggen är troligen
+  inte överlapp; och saftbarens `_carryAll()` har redan en ägarregel vars egen kommentar
+  säger att den ska hindra exakt det som händer — det är en **trasig** fix, inte en saknad.
+
+**Commits:** a3628ec feat(glasstornet) · 9031c0c docs v1.17.0 · 4c91f11 sessionslogg ·
+f71dbba docs agentregel · cb622fc docs åtgärdslista
+**Öppet:** hög 2 har 2 kvar (`gravmaskinen`, `knuffa-tornet`), sedan hög 3 (finish, ~3 spel).
+Glasstornets kvarvarande §4: [Deep] smak-staplings-mål, [Medium] kund-kö, [Quick] ambient.
+De fyra raderna i `docs/ATGARDER.md` är ett naturligt `/fixa`-pass när som helst.
+6 repliker väntar på klipp — kör `/rost` när narratorn är uppe.
+
+---
+
+## 2026-08-06 · v1.16.0 · 🔍 Diagnostiklogg + snöbollens banvariation (polerings-hög 2, 3/6)
+
+**Byggt:**
+- **Diagnostiklogg (`src/lib/gamelog.js`) — ny, DEV-only.** Spelar in input, utdata, fysik,
+  rendering, motorernas interna läge (matter · Pixi · GSAP · three) och fel, kopplad på de
+  **delade chokepoints** så att inget av de 71 spelen behövde ändras: GameHost (livscykel,
+  progress, timers), en global pointer-capture på `window` (fångstfas — Pixis egen lyssnare
+  ligger på canvasen och kör annars FÖRE oss, vilket förskjuter varje svarstid ett helt
+  tryck), `PhysicsWorld`, `DragController`, `drawIcon`, `AimLauncher`, `ThreeLayer`
+  (`renderer.info`) och en patch på `gsap.to/from/fromTo/timeline/delayedCall`.
+  Ovanpå råloggen ligger **16 härledda fynd**: `dod-traffyta`, `tryck-utan-ljud`,
+  `sen-aterkoppling`, `saknad-ikon`, `rost-utan-klipp`, `saknat-ljudklipp`, `tween-lacka`
+  (animation som lever efter destroy), `forstort-i-scen`, `nan-transform`, `utanfor-bild`,
+  `tom-scen`, `snal-snappyta`, `kropp-rymde`, `fysik-svalt`, `tween-per-ruta`, `scen-svall`.
+  Harnessen hämtar loggen efter varje körning → `.test-logs/<id>.json`, och `npm run test`
+  listar fynden per spel. **Noll kostnad i produktion:** `import.meta.env.DEV` foldas till
+  `false` och minifieraren slänger kroppen — grep efter diagnostiksträngar i `dist/assets`
+  ger noll träffar. Inga nätanrop, inget till localStorage (P0 "ingen spårning").
+- **Första skörden (71/71 gröna, alltså osynligt för konsolfel):** 15 spel med
+  `rost-utan-klipp`, `sapbubblor` 9× `saknat-ljudklipp`, 10 spel med `tryck-utan-ljud`,
+  3 med `dod-traffyta`, `fallskarmen` 175 nya tweens/500 ms.
+- **`vandkort` — tyst tryck fixat.** `_flip()` bortade tidigt på `_busy`/`_flipped`/`_done`
+  **före** ripple och flip-ljudet: under jämförelsepausen och på redan vända/färdiga kort
+  gav ett tryck ingenting alls (P0-brott). Nu svarar kortet med `wiggle` + mjuk ton, och
+  ett glatt pling på ett färdigt par.
+- **`snobollen` — banvariation + rotorsaken till den vita backen.** Varje bana lottar väder
+  (sol/snöyra/kvällsljus/gryning) och layoutprofil (jämn/myllrande/öppen/snörik), aldrig
+  samma två i rad. **Och:** backens djupgradient har aldrig synts — inte för att den
+  saknades, utan för att **snöfälten var upp till 476 000 px breda** (naken `Graphics`
+  ritad kring origo + stor `.position`, samma fälla som minnesnotisen
+  `pixi-graphics-position-bar-bug`) och lade en vit matta över hela skärmen; dessutom
+  ritades de fem djupbanden i EN `Graphics`, vilket gav hela backen det första bandets färg.
+  Båda fixade. Snöfältets `sparkle` bytt mot en snö-virvel som sugs in i bollen.
+
+**Commits:** dfa5189 diagnostiklogg · 6587680 vandkort-fix · 13a8cbd snobollen banvariation ·
+ecb6f97 docs v1.16.0
+
+**Öppet:**
+- Polerings-hög 2 fortsätter: **4/6 glasstornet**, sedan gravmaskinen och knuffa-tornet
+  (alla "mjuka upp auto-hjälpen + nivåvariation" — kontrollera först mot koden, snöbollens
+  auto-hjälp visade sig redan vara gjord och docens §1/§3 var inaktuell).
+- Loggens fynd är **inte** åtgärdade: `tryck-utan-ljud` i 10 spel och `dod-traffyta` i
+  `harma-melodin`, `vad-forsvann`, `vilket-djur-later` är obekräftade ledtrådar som behöver
+  läsas mot koden (vandkort-fyndet visade sig vara äkta).
+- `sapbubblor` spelar `audio.sample()` utan klipp 9 gånger → helt tyst; kör `/rost`.
+- `spelkritiker`-steget hoppades över i den här omgången (subagent ej körd) — kör det gärna
+  på `snobollen` innan hög 2 fortsätter.
+
+## 2026-08-06 · v1.14.0 · 🎰 Flipperspelet fick en bana (polerings-hög 2, 2/6)
+
+**Byggt:**
+- **Återupptagen körning.** 17 okommitterade filer visade sig vara en **`FONT`/`Text`-
+  importrensning** i 15 spel (uppföljning på lärdomen att `FONT` är ett *objekt*, så en
+  kvarglömd import lockar till `fontFamily: FONT` som kraschar `Text` först vid rendering)
+  plus två riktiga layoutfixar: **knuffa-tornet** (kranens mast slutade i luften på y≈492)
+  och **saftbaren** (ytterflaskorna låg bakom hem-/ljudknappen, flaskhalsarna kapades av
+  skärmkanten). Allt verifierat och committat.
+- **`flipperspel` — 🔧 → ✅.** Bordet var ett platt fält av identiska stjärndynor; nu är det
+  en bana: **snurra** ovanför dränet, **två studsfenor** i det döda bandet, **tunnel** (två
+  hål i sidoväggarna), **tre ritade dynetyper** (stjärna/klocka/blomma med egen silhuett,
+  studs och klangfärg) och ett **eget showläge** som finish — kulan lyfts ur banan upp till
+  Bobo som fångar den och kastar konfettin. `bigCelebration` är borta.
+- **Buggar hittade på vägen:** `_toggleTilt` satte `.text` på `_tiltIcon`, som blev en
+  `Graphics` 2026-08-04 — en no-op, så Lugnt-läget visade en blixt. Och `sfx('flip')` /
+  `sfx('pling')` fanns aldrig i ljudmanifestet; nu används de riktiga klippen `thwip`,
+  `boing` och `whoosh` som redan låg oanvända.
+
+**Lärdomar (fysik med banelement):**
+- Tunnelmynningar på **samma höjd** gör tunneln till en loop — den utspottade kulan flyger
+  tvärs över rakt in i den andra. 17 tunnelresor och **noll** paddelkickar på 40 s.
+- En **svag** studsfena är värre än ingen: 9,5 i kick lyfte kulan ~50 px och den föll rakt
+  ner på samma fena igen. Fenan måste nå upp i dyn-fältet (17).
+- Placeringsregeln allt vilar på: inget par av ytor får bilda en **nedåt smalnande kil**.
+  Varje passage ska vara bredare än 100 px hela vägen eller helt tätad (< 56 px = kulans
+  bredd). Mellanlägen klämmer fast kulan.
+- **Sond-gotcha:** `import('/src/games/<id>/index.js')` i webbläsaren ger en EGEN
+  modulinstans i Vite dev. Den levande hämtas via
+  `(await import('/src/games/registry.js')).getGame(id)`.
+
+**Commits:** `80fa204` fix(knuffa-tornet) · `23ee542` fix(saftbaren) · `c68113c` chore:
+FONT/Text-rensning i 15 spel · `bafa0a0` feat(flipperspel) · `1c4be18` docs(flipperspel) ·
+`97913e5` chore: v1.14.0
+
+**Öppet:** Polerings-hög 2 fortsätter — kvar: **snobollen, glasstornet, gravmaskinen,
+knuffa-tornet** (alla har "mjuka upp auto-hjälpen" + nivåvariation i sin doc §4). Sedan
+hög 3 (finish, ~3 spel). `.claude/settings.json` är ändrad (plugin-konfig) men medvetet
+inte committad. 29 röstrepliker väntar på `/rost`.
+
+---
+
+## 2026-08-06 · v1.13.0 · 💧 Vätskemotor + Saftbaren (spel 71)
+
+**Byggt:**
+- **`src/lib/vatska.js`** — ny vätskemotor. Partikelvätska (double density relaxation) i
+  px/steg med fast 1/60-steg, spatial hash, typade arrayer, roterbara låd-kollidrar och
+  metaboll-rendering (mjuka klickar → sudd → tröskelfilter). Uppmätt i riktig Chrome:
+  0,25 ms/bildruta vid 200 partiklar · 0,54 vid 400 · 1,12 vid 800 · 5,3 vid 3000, full
+  60 fps hela vägen. Ingen befintlig motor kunde detta (matter/p2 är stelkroppar, three har
+  bara ytshaders, liquidfun är övergivet).
+- **`saftbaren`** (spel 71, Fysik-fliken) — fyra glas, kran på skena, färgspak, hink och Bobo
+  som beställer. Häll mellan glasen → färgerna späds i vätskan: gul + blå blir grön. Bobo
+  dricker upp den beställda färgen (partikel för partikel, stigande ton) och rapar en färgad
+  bubbla. Droppstorleks-toggel för lek.
+- Motorn utökades under bygget med **färg per partikel** (`world.pal` + `FluidView.palette`),
+  **ingrediens-kanaler** (`setChannels` — riktig utspädning, mängden bevaras) och
+  **roterade kärlväggar** (`addBox(..., angle)`).
+
+**Tre buggar som kostade tid (nu dokumenterade i skill fysik-spel):**
+1. `Filter.from` fyller inte i någon vertex-shader — skicka `defaultFilterVert`.
+2. En skenande partikel som blir `NaN` spränger filtrets renderingstextur → 0,5 fps.
+   Fix: hastighetstak, tak på viskositetens kvadratterm, `Number.isFinite`-vakt, låst
+   `boundsArea`.
+3. Ett kärl som flyttas måste **bära med sig sin vätska** (annars står saften kvar i luften),
+   och varje partikel behöver EN ägare — annars stjäl ett glas som flyger förbi innehållet ur
+   ett som står stilla.
+
+**Öppet:**
+- Röstklipp: 11 nya repliker väntar → kör `/rost` när narratorn är uppe (Web Speech täcker upp).
+- `docs/IDEER.md` har två oplanerade idéer: ansiktssektionen (foton som spelfigur) och
+  nätskott från bilfönstret.
+- Oavslutad `/polera figurer`-körning ligger kvar i `.claude/state/korning.json`.
+
+## 2026-08-06 · v1.12.0 · ⚙️ Mottagar-högen — 8 spel fick någon som bryr sig
+
+**Byggt:** start på kvalitetsspåret "20 spel från 🔧 till ✅". De 20 spelen visade sig falla i
+tre arbetshögar i stället för att vara 20 separata jobb; **hög 1 (mottagare) är nu klar** och
+lyfte 6 spel hela vägen till ✅ kvalitet.
+
+- **Nytt delat `src/lib/figurer.js`.** `makeMascot()` ger bara ett HUVUD, så fem spel hade
+  hunnit rita var sin Bobo-kropp med nästan samma geometri. Biblioteket har nu `makeBobo`
+  (proportioner tagna ur vippbradans kropp, den renaste av dem), `makeElvira` och
+  `makeSquirrel`. De fyra äldre spelen migrerades medvetet INTE — deras kroppar är handtrimmade
+  mot sin scen och en omskrivning riskerar regression utan vinst för spelaren.
+- **Åtta spel fick en mottagare eller en egen reaktion:** Bobo som puttar gungan och mål som
+  *hoppar* när Lova närmar sig (`gungan`) · Bobo som vinkar in föraren och fångar, och som
+  följer mattan när den flyttar sig per nivå (`fallskarmen`) · parkgrind + Lova som hejar
+  (`valpens-bajs`) · picknick där varje fångad morot flyger till korgen som fylls synligt
+  (`studsmatta`) · arbetar-Bobo med bygghjälm (`knuffa-tornet`) · kryp som kryper mot en
+  spricka i stället för att rycka slumpmässigt, plus hjälten som hoppar i nätet
+  (`spindelnatet`) · Elvira som RIDER enhörningen och ringar som brister i sin egen färg
+  (`enhorningen-flyger`) · "Uff!" vid väggstuds och en hjälte som hänger upp-och-ner i sin
+  egen tråd vid vinst (`spindelhjalten`).
+- **Skärmdumpen fångade tre placeringsfel** som ett grönt test aldrig ser: figuren hamnade
+  bakom "starkare knuff"-knappen (`gungan`), helt bakom "Tyngd"-knappen (`knuffa-tornet`) och
+  ovanpå kraftmätaren (`studsmatta`). Efter de två första blev det rutin att slå upp
+  UI-knapparnas koordinater INNAN figuren placeras.
+- **Två doc-punkter var redan gjorda** och ströks i stället för att byggas om: `fallskarmen`s
+  "[Quick] föraren får en kropp" (`makeKid` ritade redan hela figuren) och `flipperspel`s
+  "[Deep] maskot bor i maskinen". Verkligheten vinner över dokumentet.
+- **P0-fynd på köpet:** `gungan`s mål (🐦🍎🎈🦋🌟🍏) var emoji-Text trots att de är spelobjekt
+  → `drawIcon`; 🍏 saknades i ikonbiblioteket.
+
+**Commits:** `b2d8b64` figurer.js · `0e9f3ab` gungan · `f6dc893` fallskarmen · `e5be0a8`
+valpens-bajs · `8644e4b` studsmatta · `7257aa2` knuffa-tornet · `0d3b52e` spindelnatet ·
+`9963161` enhorningen-flyger · `d5b273d` spindelhjalten
+**Kontroll:** `npm run check` 0 fel · 0 varningar · `npm run test:all --jobs 2` **70/70 gröna**
+· bygge rent.
+**Öppet:** kvalitetsspåret fortsätter med **hög 2 — variation & agens** (bowling specialkäglor,
+flipperspel banelement, snobollen gömda fynd, glasstornet smak-mål, knuffa-tornet
+specialklossar, tvatta-djuret smutszoner, ~2,5 tim) och **hög 3 — egen finish**
+(tvatta-djuret, enhorningen-elvira, ~1 tim). `gravmaskinen` och `pruttbad` har inga
+[Deep]-punkter kvar alls och behöver troligen bara omgraderas. 15 repliker väntar på `/rost`.
+
+---
+
+## 2026-08-06 · v1.11.0 · 🔤 Lära-fliken polerad — **poleringsrundan 70/70 KLAR**
+
+**Byggt:** hela 🔤 Lära-kön (9 spel) körd i ett svep med checkpoint mellan varje. Därmed är
+**hela poleringsrundan avslutad**: alla 70 spel är genomgångna (🎉 15 · ⚙️ 27 · 🧩 19 · 🔤 9).
+
+- **P0 ASSETS i sex av nio spel.** `vilket-djur-later` (12 djur), `kla-efter-vadret` (13 plagg
+  + vädertecknet), `ballonglyft` (Elvira, presenten, 8 överraskningar), `siffertaget`
+  (vagnslasten), `blixt-och-dunder` (lamporna + mätaren) och `djurorkester` (6 djur) ritade
+  emoji som spelobjekt. Greppet från Pussel-rundan höll: **behåll emoji-strängen som NYCKEL**,
+  byt bara renderingen.
+- **`artikoner.js` växte med 25 nycklar.** Fem bondgårdsdjur (får · häst · anka · höna · tupp),
+  kyckling, en helt ny `wear`-mall med 17 plagg i 12 former, och två vädertecken (regnmoln,
+  snöflinga). **🐮 kon ritades om** från grunden — den gamla var en vit cirkel med runda öron
+  och läste som isbjörn; nu horn, breda öron, fläck och mule. Den syns i fem spel.
+- **Nytt verktyg `scripts/_ikoner.mjs`** — ritar valda nycklar i ett rutnät och skärmdumpar.
+  Det var det som avslöjade att kon, hästmanen, hönskammen, ankan, regnhatten, regnjackan,
+  sandalen och halsduken var svaga. Sandalen fick tre försök innan den slutade läsa som en
+  bänk; lösningen blev att rita den **ovanifrån** medan övriga skor är sidovy.
+- **Fyra äkta spelbuggar** som gröna test aldrig sett, alla hittade i skärmdumpen:
+  - `kla-efter-vadret`: ett plagg spawnade alltid på x=640 — ovanpå Elvira OCH inuti
+    fot-zonens Ø260 träffyta. En liten knuff kunde räknas som en placering barnet aldrig gjort.
+  - `ballonglyft`: en ballong spawnade bakom presenten och gick inte att hitta — rundan kunde
+    då bara lösas av auto-hjälpen. Dessutom klipptes ballongsnörena av nederkanten.
+  - `rakna-applen`: två frukter hängde i ren himmel, 192 px från närmaste lövboll (radie 156).
+  - `blixt-och-dunder`: Bobos fötter hamnade på y=731 — utanför 720-skärmen.
+- **Bobo var ett svävande huvud** i `blixt-och-dunder` (`makeMascot()` ger bara ett huvud —
+  samma fynd som i fem Pussel-spel). Ny `makeBoboBody()`.
+- **Två mottagare tillagda** (gate-punkt 4): en ritad **ekorre** i `rakna-applen` vars kinder
+  rodnar gradvis mot antalet i korgen, och en ritad **Elvira med kropp** i `ballonglyft`.
+- **Röstbuggarna borta — repo-kontrollen är 0 fel och 0 varningar för första gången.**
+  `peka-pa-kroppen` byggde alla sina frågor med `.replace()` på mallsträngar och `fargregn`
+  med strängkonkatenering; klipp-manifestet slår upp på exakt text, så spelens KÄRNREPLIKER
+  föll tillbaka på Web Speech. **Alla 100 fanns redan i `voice-phrases.json`** — det var
+  källkoden som gjorde dem onåbara. Nu fulla literaler i uppslagstabeller. 11 → 0 varningar.
+- **`fargregn` fick sin [Medium]-punkt:** pölarna bär nu färgen som landade i dem, och två
+  OLIKA grundfärger i samma pöl blandas synligt (gul+blå→grön, röd+blå→lila, röd+gul→orange)
+  med gnistor, stigande ton och talad förklaring. Sällsynt eftersom målfärgen dominerar regnet
+  — ett wow-ögonblick, inte en mekanik barnet måste hantera.
+
+**Commits:** `35bf5ab` vilket-djur-later · `208e6fe` kla-efter-vadret · `ef49053` ballonglyft ·
+`e6d75a8` siffertaget · `fee4f68` blixt-och-dunder · `17cd80e` djurorkester · `a39c26a`
+rakna-applen · `a6b0d75` peka-pa-kroppen · `81b1b7f` fargregn
+**Kontroll:** `npm run check` **0 fel · 0 varningar** · `npm run test:all --jobs 2` **70/70
+gröna** · bygge rent.
+**Öppet:** 15 repliker väntar på `/rost` (12 sedan tidigare + 3 nya färgblandnings-repliker).
+Fyra `sfx`-prompter väntar fortfarande på att MOSS är uppe. `ballonglyft`s
+`_attachLoose(ctx, b, opts)` tar emot `{ auto: true }` men läser aldrig `opts` — auto-hjälpens
+fäste går inte att skilja från barnets eget tryck; noterat i spelets doc §4, inte ändrat.
+
+---
+
+## 2026-08-06 · v1.10.0 · 🧩 Pussel-fliken polerad — 19 spel, ett delat ikonbibliotek
+
+**Byggt:** hela 🧩 Pussel-kön körd i ett svep, ett spel i taget med checkpoint mellan varje.
+Poleringsrundan är därmed **61/70** — bara 🔤 Lära (9) återstår.
+
+- **P0 ASSETS var skulden, och den var värre än mätt.** 18 av 19 spel hade emoji som
+  spelobjekt, oftast som *emoji-Text ovanpå en opak vit skiva* — dubbelt brott mot regeln.
+  Rensat i samtliga: 60 kortsymboler (`vandkort`), 44 figurer (`skuggmatchning`), 32 sopor
+  (`sortera-skrap`), 23 plagg (`kla-pa-nallen`), 16 element (`trollblandning`), 16 motiv
+  (`vad-forsvann`), 33 figurer (`stor-liten`), hela sakkatalogen i `magnet-fiske`, m.fl.
+  Greppet som funkade genomgående: **behåll emoji-strängen som NYCKEL** — spelen slår upp
+  namn, djurläten och kategori på den — och byt bara renderingen.
+- **Nytt delat bibliotek `src/lib/artikoner.js`.** Efter tre spel med överlappande figurer
+  bröts ritmotorn ut ur `vandkort`: `drawIcon(key, size)` med parametriska mallar (djur ·
+  frukt · fordon · form · havsdjur · verktyg) drivna av en tabell, ~110 nycklar. Fem spel
+  använder den. En genomsökning verifierar att varje nyckel spelen slår upp finns i tabellen
+  — saknade nycklar faller igenom till en grå cirkel som ser ut som ett medvetet designval
+  i skärmdumpen. Fjäril, regnbåge och fotboll hann göra just det.
+- **Fem svävande huvuden fick kroppar:** trollkarlen (`trollblandning`), Elvira
+  (`kugghjulen`), de fyra djuren (`folj-sparet`), Zacke/Alissa (`golvet-ar-lava`) och Bobo
+  (`kulbana`). `makeMascot()` ger BARA ett huvud. I `trollblandning` ritades kroppen redan
+  men syntes aldrig: faceR 80 ger en 160 px bred ansiktscirkel som täckte hela bålen.
+- **Tre spel fick en mottagare** (gate-punkt 4): draken vid skatten (`golvet-ar-lava`), Bobo
+  vid hinken (`kulbana`) och katten vid hinken (`magnet-fiske`).
+- **`golvet-ar-lava` fick sin [Deep]-punkt:** en prickad förhandsvisning av hoppbanan som
+  ritas om vid varje stenflytt. `_buildSeq()` och `_arcHeightFor()` delas av förhandsvisningen
+  OCH det verkliga hoppet, så de kan aldrig säga olika saker. Vit bana = figuren klarar det
+  själv, blek blå + molnmarkör = hjälpmolnet får bära.
+- **Sju layoutfel som bara syntes i skärmdumpen:** Gå!-knappen mitt i lavafloden; magnetspöets
+  pivot rakt under ljudknappen (spöet drogs tvärs igenom den); L-kugghjulet klippt av
+  skärmkanten; hinkens botten bakom Delar-hyllan; Bobos armar ritade före bålen så de doldes
+  helt; 3D-mottagaren halvt utanför vänsterkanten; och ett sista kliv som gick **bakåt** på
+  breda banor i `golvet-ar-lava` (`treasureNodeX` kunde hamna vänster om `rightLandingX`).
+- **Fem röstbuggar** där repliker aldrig kunde få klipp: `voiceIntro` som pekade på en konstant
+  i stället för att stå skriven på plats (`sortera-skrap`, `stor-liten`) och konkatenerade
+  strängar (`folj-sparet`, `enkelt-pussel`, `mata-monstret`). check.mjs matchar **bara
+  literaler**. Repo-varningarna gick från 16 → 11.
+
+**Sidospår på begäran:** `p2-es` tillagd som tredje fysikmotor — verifierad funktionellt
+(låda faller och landar i ett röktest) och bundlar till 66 KB, dynamiskt importerad så bygget
+är oförändrat. Skill **fysik-spel** har fått en motorvalstabell först i dokumentet: egen
+ticker-integrator · matter · p2 · three, plus regeln en motor per spel. Spelindexet städat —
+`kvalitet` och `polerad` är nu **två** kolumner i stället för en överlastad emoji, och 42
+spel-docs synkade mot indexet. Ny idébank `docs/IDEER.md` med förstapersons-nätskottsidén.
+
+**Commits:** 19 spel-commits · `a9fd079` idébank · `dbd506a` index · `936c8c3` p2-es
+**Kontroll:** `npm run check` 0 fel · 11 varningar · `npm run test:all --jobs 2` **70/70
+gröna** · `test:fx` grön · bygge rent.
+**Obs för nästa körning:** med `--jobs 4` faller `glittergrottan` på slut på WebGL-kontexter —
+det är harnessen, inte spelet. 3D-spelet behöver ~13 s innan det renderar, så en tom skärmdump
+betyder inte att något är fel.
+**Öppet:** 🔤 Lära-fliken (9 spel) är sista kön i poleringsrundan. 12 repliker väntar på
+`/rost`. Fyra nya `sfx`-prompter (`duns` m.fl.) väntar på att MOSS är uppe.
+
+---
+
+## 2026-08-05 · v1.9.0 · 🔊 Röstkön tömd — 343 nya klipp
+
+**Byggt:** `/rost` körd skarpt. Hela kön av svenska repliker har nu riktiga F5-TTS-klipp.
+
+- **Var pipelinen faktiskt finns.** Utgångsfrågan var om Holodeck-projektet har en F5-pipeline
+  vi kan låna på psai3. Det har det **inte**: Holodecks TTS är **Chatterbox** (devnen-servern,
+  Turbo-engine) på **PC 2 "andreas-hem"** `192.168.1.125:8004`, och V3 är **engelska only** sedan
+  2026-06-26. `HoloDeck_V2/TTS_RESEARCH_2026-06-26.md` utvärderade F5-TTS och valde bort det.
+  psai3 förekommer bara som filutdelning i de dokumenten. **Den svenska F5-pipelinen låg redan
+  där `npm run voice` pekade**: storygen-narratorns venv här på psai1 (torch 2.6.0+cu124, RTX
+  4090, `EkhoCollective/f5-tts-swedish` 3,2 GB i HF-cachen — inget nätanrop behövs).
+- **72 repliker som spelen säger** men som saknades i `voice-phrases.json` lades till först, så
+  de kom med i samma körning. Resultat: **351 gjorda, 1051 överhoppade, 0 misslyckade.**
+- **Skräp rensat.** `_addphrases.mjs` lägger till precis vad `check` rapporterar — även bitar av
+  mall-strängar (`" dropparna!"`, `"Hurra! "`) och rena **platshållare** (`"Hitta {d}!"` från
+  `peka-pa-kroppen`). Åtta platshållare hann få klipp där rösten läser upp `{d}` högt innan de
+  upptäcktes. Klipp, manifest-poster och repliker borttagna; fällan dokumenterad i
+  `docs/POLERINGSRUNDA.md` intill verktyget.
+- **Kvalitetskontroll:** alla 351 nya klipp mätta med `ffprobe` — 0,98–8,47 s, median 2,60 s,
+  inga avhuggna eller skenande, 0 manifest-poster utan fil. Täckning nu **1394 repliker /
+  1395 klipp, 0 utan klipp**.
+
+**Buggfix i verktygskedjan:** `npm run voice` och `npm run sfx` var **trasiga på Windows**. npm
+kör sina scripts genom cmd.exe, och cmd klarar inte en kommandorad som *börjar* med en citerad
+sökväg och sedan har fler citerade argument — den svarade "Felaktig syntax för filnamn,
+katalognamn eller volymetikett" och körde aldrig något. Varken snedstreck eller bakstreck
+hjälpte (skill-dokumentationens råd "kör från PowerShell" räckte alltså inte). Ersatta med
+`scripts/run-tts.mjs`, som spawnar python med en riktig **argv-array** — ingen shell-citering
+alls. Fungerar nu från både PowerShell och git-bash, kör `python -u` så framstegsraderna
+strömmar live i stället för att buffras till slutet, och ger ett begripligt fel om venven saknas.
+
+**Commits:** `b6f1d8a` feat(voice) · `11f4de9` chore v1.9.0
+**Kontroll:** `npm run check` 0 fel · 16 varningar · bygge rent (precache 1450 poster, 25 MB,
+1395 röstklipp i `dist/`).
+
+**Öppet:**
+- De 16 varningarna är **läcka #4-skuld i opolerade spel**: `fargregn`, `enkelt-pussel`,
+  `folj-sparet`, `mata-monstret` och `peka-pa-kroppen` bygger repliker ur mall-strängar, och
+  `sortera-skrap` + `stor-liten` saknar `voiceIntro`. Fixas i respektive spels poleringsomgång
+  (Kö 2 🧩 Pussel och Kö 3 🔤 Lära, 28 spel kvar) — inte genom att lägga fragment i röstlistan.
+- MOSS-SoundEffect (:8003) är fortfarande nere → 21 sfx-klipp, `npm run sfx` väntar. Modellen
+  ligger cachad lokalt, så det är bara tjänsten som behöver startas.
+- Referensrösten är fortfarande `narrator_default.wav` med ett **engelskt** transkript. Det har
+  gett 1395 dugliga svenska klipp, men en svensk referens är den enda kvarvarande kvalitetsspaken
+  — och den kräver att **alla** klipp görs om, inte bara nya.
+
+## 2026-08-05 · v1.8.0 · 🎉 **Roligt-fliken KLAR** (14/14)
+
+**Byggt:** poleringsrundans Kö 1 färdig — de nio återstående spelen i 🎉 Roligt, ett i taget med
+skärmdumpsgranskning, `_idleprobe` och egen commit. Rundans genomgående fynd:
+
+- **P0 `ASSETS` läckte i sex av nio spel, och alltid på samma sätt:** ett spelobjekt var en emoji
+  i en ruta, cirkel eller bricka. `lagerelden` (🪵-ved), `enhorning-glitterbajs` (🍓🧁🍪 i en vit
+  panel), `loopdjuren` (fyra djur i cirklar + fem block i fyrkanter), `regnbagsmalaren` (🦄 som
+  pensel + 🌸🌷🌼), `fyrverkeri` (✨/⭐ som målstjärnor) och `tryck-och-forvandla` (**alla 25
+  förvandlingssteg**). Allt är nu ritat med egen silhuett. Inga `Text`-noder kvar i något av de
+  nio spelen.
+- **Elfte läckan — "loggen ljuger".** `enhorning-glitterbajs` doc §5 påstod sedan 2026-07-01 att
+  maten ger olika glitter. Men `makePelletView()` **tog inget argument** och ignorerade
+  `_glitterKind`, så alla tre maträtterna gav identiska gula prickar. Ett grönt test och en
+  nöjd logg-rad räcker inte: *verifiera att den påstådda kopplingen faktiskt går hela vägen
+  fram till pixlarna.*
+- **Tolfte läckan — framsteg vid INGÅNG.** `tryck-och-forvandla` anropade `progress.setLevel()`
+  i `init`, före första trycket, så `_idleprobe` gav `idleFramsteg: 1` utan en enda beröring.
+  Regel: progress skrivs när barnet klarat något, aldrig när spelet startar.
+- **Läcka #6 (`arc()` efter `fill()`) igen, två gånger.** I `enhorning-glitterbajs` drog den ett
+  långt streck från containerns origo tvärs över hela enhörningen (syns tydligt i skärmdumpen);
+  i `tarta-i-ansiktet` fanns samma fel latent i clownens mun men doldes av näscirkeln som ritas
+  efter. Leta efter `.arc(` som första vägkommando efter `.clear()` eller `.fill()`.
+- **Läcka #4 (konkatenerade repliker) i tre spel** — `tryck-och-forvandla`
+  (`` `${st.a} ${st.n}!` `` för alla tio resultat), `kittla-figuren` och `lagerelden`. Alla
+  omskrivna som hela literaler så `/rost` kan generera klipp.
+- **Element bakom skalets hörnknappar, två fall:** `enhorning-glitterbajs` mätarstjärna på y 116
+  och `fyrverkeri` vindflagga på (96, 96) — båda delvis under knapparna som når y ~112.
+- **Scener som svävade:** `lagerelden` hade hela lägerplatsen 64 px ovanför marklinjen
+  (`createScene` ger 96 px mark), och Elvira i `enhorning-glitterbajs` stod 80 px över marken.
+
+**Utöver P0** fick varje spel ett riktigt lyft: lägerplats med tält och eldflugor och fyra sorters
+mat att rosta; äkta glitterskillnad per mat; stämda instrumentblock med ritade djur; överraskningar
+som flyger ur varje färdig regnbågsbåge; måne, stadssiluett och en publik som ropar "Oooh!" i
+fyrverkeriet; levande, driftande bubblor med Bobo som samlar fångsten i en burk; kittel-ledtråd i
+fritt läge och skrattårar; och en riktig cirkusscen med ridåer, publik och fyra tårtsorter.
+
+**Commits:** `5909607` lagerelden · `ce7d4cc` enhorning-glitterbajs · `4d5fb57` loopdjuren ·
+`2d7bc14` regnbagsmalaren · `ecdd289` fyrverkeri · `1494b6c` tryck-och-forvandla ·
+`b0df504` klambubblor · `ea0d70e` kittla-figuren · `67830b9` tarta-i-ansiktet
+
+**Kontroll:** `npm run check` 0 fel · `npm run test:all` **70/70 gröna** · `_idleprobe` på alla
+nio: `idleFramsteg: 0`.
+
+**Öppet:**
+- Poleringsrundan fortsätter med **🧩 Pussel (19 spel)** och **🔤 Lära (9 spel)** = 28 kvar.
+  Tabellerna i `docs/POLERINGSRUNDA.md` är avbockade för hela Kö 1.
+- **199 repliker väntar på röstklipp** (upp från 136) — kör `/rost` när F5-TTS-narratorn är uppe.
+  76 av `npm run check`-varningarna är den kön, samtliga i spel som ännu inte polerats.
+
+## 2026-08-05 · v1.7.0 (pågående) · 🎉 Roligt-fliken, spel 4 av 14
+
+**Byggt:** `sapbubblor` polerad — fjärde spelet i poleringsrundans Kö 1. Rundans stora fynd den
+här gången är inte ett assets-brott utan ett **designfel som gröna tester aldrig ser: spelet
+spelade sig självt**. Kritiker-agenten lät spelet stå orört i 60 sekunder och mätte en hel nivå
+klar efter 10 s, utan ett enda tryck. Orsaken var två samverkande saker som är osynliga både i
+koden och i skärmdumpen: var tredje bubbla föddes i ringens lodräta korridor, och "suget" mot
+ringen hade en radie som var bredare än den ser ut. No-fail hade glidit över i att barnets input
+är dekoration. Nytt verktyg `scripts/_idleprobe.mjs` mäter det: nollställer progress, rör inget
+i N sekunder, spelar sedan riktat. Efter fixen: **20 s utan input = 0 framsteg**, 30 s riktat
+spel = full ring, och no-fail-ventilen kliver in först runt 40–50 s.
+
+Själva omgången: blåset är **riktat** (tryck i himlen → närmaste fläkt vrider sig dit och föder
+en vindpuff som färdas längs siktlinjen och knuffar bubblor i båda axlarna, kraft delad med
+massan), **Bobo håller ringen** och gapar/sväljer/hoppar, en **poppad bubbla släpper en
+barnbubbla** så leksaken och målet hänger ihop, och alla emoji-spelobjekt är ritade — inklusive
+åtta överraskningsfigurer i `overraskningar.js`. Dessutom sjätte läckan igen (glans-bågar utan
+`moveTo` drog streck tvärs över varje bubbla), sjunde läckan (bubblor osynliga mot ljus himmel),
+avklippta fläktstativ, träffyta 80–96 px på barnbubblor, och en arm som lossnade när Bobo hoppade.
+
+**Commits:** 3d88ede feat(sapbubblor): riktat blås, Bobo håller ringen, 8 ritade överraskningar
+
+**Öppet:** Kö 1 fortsätter med `pruttbad` (skuld 10) → `lagerelden` → … 10 spel kvar i Roligt,
+sedan Pussel (19) och Lära (9) = **38 av 70 kvar**. Versionsbump, `npm run build`/`serve` och
+`npm run backup` sker när hela Roligt-fliken är klar (se `docs/POLERINGSRUNDA.md`). Två nya
+röstrepliker väntar på klipp — kör `/rost` när F5-TTS-narratorn är uppe.
+
+---
+
+## 2026-08-04 · v1.7.0
+
+**Byggt:** **Hela ⚙️ Fysik-fliken poleras spel för spel** — alla 27 spel gicks igenom med
+`/polera`-kedjan (läs doc §3/§4 → skärmdump som spelare → bygg → `check` → `test` → commit
+→ doc §5). En commit per spel.
+
+- **P0 ASSETS var den genomgående skulden.** 20 av 27 spel hade emoji som HELA spelobjekt,
+  ofta i en ruta eller cirkel — precis det regeln förbjuder. Nu ritas bl.a. 16 flyt/sjunk-
+  föremål (`plask-i-vattnet`), 6 frukter (`fanga-frukten`), 5 byten (`spindelnatet`), tre
+  bollar med eget ansikte (`rulla-bollen-hem`), bowlingkäglor (🎳-emojin visade en boll OCH
+  käglor i varje "kägla"), grävmaskin + dumper + Zacke i hytten (`gravmaskinen`), kanin,
+  groda, kattungar, ekorre, djuransikten per art, penna, mål, vikter, ikoner och mätardetaljer.
+- **Fyra spel fick en mottagare** (gate-punkt 4): Bobo på ängen (`poppa-ballonger`), målvakten
+  i målet (`rulla-bollen-hem`), Bobo vid korgen (`studsbollar`) och fickor med ansikte som
+  gapar hungrigt (`studsa-ner`). Fem spel fick Bobo en **kropp** — han var ett svävande huvud.
+- **Tre spel fick ett nytt syfte:** kattungen som ska räddas ner för tornet (`bygg-tornet`),
+  den hungriga ekorren som önskar sig en fruktsort (`fanga-frukten`), och — störst —
+  **`spara-linjen` där prickarna nu bildar en BILD**: åtta motiv (berg, hus, moln, fisk,
+  hjärta, katt, stjärna, blomma) som fylls med färg, får ögon och ett leende när linjen sluts.
+- **Progression som består:** gömda kompisar i ballongerna, vänbok över klappade arter,
+  skyline av byggda torn, myntkruka, hål-rad, upptäckts-logg — allt sparat i `custom`.
+- **Sex layout-/synlighetsbuggar** hittade i skärmdumpsgranskningen som gröna tester aldrig
+  ser: mätaren under ljudknappen (`studsa-ner`), mätaren bakom avsatsen + oläsbara etiketter
+  (`knuffa-tornet`), knapp klippt av nederkanten (`rulla-bollen-hem`, `fallskarmen`), tom
+  vikt-ikon tills första trycket (`fallskarmen`), enhörningen vänd bakåt (`enhorningen-flyger`),
+  upp-och-nedvänd kanin (`studsmatta`), och `floatText` som skrev ut ordet "gem" över scenen
+  (`enhorningen-elvira`).
+- **Kodbuggar:** ~15 `gsap.delayedCall` → `ctx.later()`; `_calls` som växte obegränsat under
+  en lång session (`klappa-mullvaden`); oändliga tweens mot Pixi-objekt som kan förstöras
+  (proxy-mönstret); tre konkatenerade röstrepliker som `check.mjs` aldrig kunde hitta och
+  `/rost` därför aldrig kunde klippa.
+- **Scener:** 12 spel fick en riktig plats i stället för tapet — staket, träd, vimplar,
+  fotbollsplan med linjer, byggarbetsplats, glasskiosk, lekplats, snödrivor, ängsdekor.
+
+**Commits:** `76d591e` poppa-ballonger · `291a5fc` klappa-mullvaden · `a3552b4` plask-i-vattnet ·
+`1e08672` bygg-tornet · `18741d5` rulla-bollen-hem · `eec5eba` spara-linjen · `b62fb42` studsbollar ·
+`60ee318` studsa-ner · `c860c6f` fanga-frukten · `a50464e` vippbradan · `310cf20` domino ·
+`a7d44c2` studsmatta · `aac5fe5` knuffa-tornet · `b13e5de` spindelhjalten · `1409056` enhorningen-elvira ·
+`72ba7b2` valpens-bajs · `bca8995` tvatta-djuret · `3356281` gungan · `86b557c` spindelnatet ·
+`3af8567` fallskarmen · `4c145f6` enhorningen-flyger · `56cdfc7` spindel-zacke-svingar ·
+`8e179cb` bowling · `3337304` flipperspel · `34b8cbe` snobollen · `b239f4f` glasstornet ·
+`9e8dc5a` gravmaskinen
+**Kontroll:** `npm run check` 0 fel · `npm run test:all` **70/70 gröna** · `npm run test:fx` grön.
+**Öppet:** 136 repliker väntar på klipp (`/rost`) — 83 nya från den här omgången. Nio spel
+markerade ✅ i indexet (hel omgång: mottagare + assets + variation); de övriga 18 fick
+assets-/scen-/buggrundor och står kvar som 🔧 med kvarvarande [Deep]-punkter i sin doc §4
+(bl.a. riktiga SFX-klipp, mjukare auto-hjälp i några spel, och samlingar som består).
+
+**➡️ NÄSTA SESSION:** samma omgång ska köras för de tre återstående flikarna —
+🎉 Roligt (14) → 🧩 Pussel (19) → 🔤 Lära (9) = **42 spel kvar av 70**.
+Metod, de fem läckorna, verktyg och en **ordnad kö sorterad efter uppmätt asset-skuld**
+ligger i **`docs/POLERINGSRUNDA.md`**. En checkpoint i `.claude/state/korning.json` gör att
+SessionStart-hooken lyfter det automatiskt — kör **`/aterta`** för att fortsätta.
+Kö 2 (Pussel) är märkt ✅ i indexet, men den bedömningen gjordes 2026-07-02, **innan P0-regeln
+`ASSETS` fanns** (2026-07-25) — skulden är uppmätt och verklig, så kör dem ändå.
+
+---
+
+## 2026-07-25 · v1.4.0
+
+**Byggt:** Ägarens speltest-runda: en ny P0-regel, **två systemiska buggar i delad kod**, och
+sju spel åtgärdade av fem parallella agenter.
+
+- **Ny P0-regel `ASSETS`** — spelobjekt ritas fristående med egen silhuett och eget liv;
+  aldrig en emoji i en ruta eller bricka. Kort och paneler är för text och UI. Inskriven i
+  `CLAUDE.md`, `docs/DESIGN.md §8.1`, kvalitetsgrinden (punkt 8), skill `spelkontrakt` och
+  båda bygg-/kritiker-agenterna. Heuristik: 22 av 70 spel har kvarvarande skuld (ej åtgärdad).
+- **Systemisk bugg 1 — objekt växte vid upprepade tryck.** `pop()` läste sitt eget pågående
+  läge som bas → 1.18, 1.39, 1.64 … utan tak. Samma felklass i `wiggle` och `shake`.
+  `pop()` används i **64 av 70 spel, 291 ställen**. Första fixen räckte inte (4.11× kvar på
+  12 tryck) — `gsap.killTweensOf()` dödar timelinens barn-tweens men inte timelinen, vars
+  `onComplete` nollställde flaggan mitt i nästa puls. Nytt regressionstest `npm run test:fx`.
+- **Systemisk bugg 2 — fördröjda anrop läckte mellan spelomgångar.** Modulerna är singletons,
+  så en `gsap.delayedCall` överlever `destroy`; vid nästa start är `_alive` åter `true` och
+  vakten släpper igenom den gamla callbacken. **69 av 70 spel** använder `delayedCall`.
+  Nytt `ctx.later(sekunder, fn)` i `GameHost` knyter fördröjda anrop till spelomgången.
+- **Sju spel:** `zackes-biltvatt` (tvåfas-loop svamp→skum→slang, skrubbmotstånd, verlet-slang
+  från hydrant, fristående objekt) · `domino` (snäppet returnerade **alltid `null`** pga `NaN`
+  i avståndet — ingen bricka har någonsin kunnat fastna; + regnbågsgradient styr placeringen) ·
+  `siffertaget` (tåget backade iväg; sättet ompositionerat) · `flipperspel` (`Body.setAngle`
+  roterade kring masscentrum → 30–90 px paddeldrift; kulan nådde dessutom aldrig ner till
+  paddlarna; +42 % bordsbredd) · `snobollen` (banan var **matematiskt omöjlig** att klara —
+  uppmätt x=656 mot mål 1085; hindren välter nu) · `glasstornet` (körsbäret och pendeln hade
+  ingen begriplig roll — nu mål respektive vind; layout rättad) · `glittergrottan`
+  (teknikdemo → ordningsspel med sex regler och facit-rad).
+- **`check.mjs`** hittade inte repliker som ligger i konstant-banker → 199 saknade repliker
+  upptäckta mot tidigare 50 (189 efter att speltitlar undantagits).
+
+**Commits:** `80a4a6d` lib-fixar · `4e03f80` ASSETS-regel · `839abd0` check · `54431b9`
+biltvätt · `c92f751` domino · `6c31558` siffertåget · `e58ec67` flipper · `09bcead` snöbollen ·
+`8effc24` glasstornet · `623ed87` glittergrottan · `a6ac26a` röst
+**Kontroll:** `npm run check` 0 fel · `npm run test:all` **70/70 gröna** · `npm run test:fx`
+grön · bygge rent.
+**Öppet:** 189 repliker väntar på klipp (`/rost`). ASSETS-skulden i 22 spel. Retroanpassning
+av `ctx.later()` i de 69 spel som fortfarande använder `delayedCall` direkt. Snöbollens banor
+är nu snabba (~2 s för en van spelare), och `glittergrottan` hör mekaniskt hemma i
+Pussel-fliken snarare än Roligt.
+
+---
+
+## 2026-07-25 · v1.3.0
+
+**Byggt:** **Zackes Biltvätt** (`zackes-biltvatt`, 70:e spelet) — pipelinens första skarpa
+körning — plus en **lättad P0-regel om motgång**.
+
+- **Regeländring (ägarbeslut):** motgång var tidigare i praktiken förbjuden
+  (`FEEDBACK = … ENDAST positivt`). Nu finns en egen P0-rad **`MOTGÅNG`**: hinder och bakslag
+  är tillåtna och önskvärda, ska gå att anpassa sig runt, som mest sakta ner, och måste ha ett
+  **tak** + lagom takt. Fortfarande förbjudet: misslyckande som avslutar/nollställer,
+  "game over", sjunkande poäng, bestraffande timers. Uppdaterad på 11 ställen (CLAUDE.md,
+  skills, agenter, README, ARCHITECTURE, PIPELINE, docs/games/README). `spelkritiker` flaggar
+  numera även **för lite** motstånd.
+- **Spelet:** två verktyg med olika styrka (svamp skrubbar tjockt, slang sköljer brett och
+  skrämmer bort fåglar innan de bajsar) → ett äkta val. Tak: max 3 bajsfläckar samtidigt,
+  därefter missar fåglarna. 6 fordon, 4 fågeltyper + sällsynt regnbågsfågel. Finish: glans-svep,
+  tvåtons-tuta, ägaren jublar och åker med ut genom glansbågen; pentatonisk ton per ren fläck.
+- **Pipelinen fungerade.** `spelkritiker` hittade två äkta blockerare som jag missat: slangens
+  syfte var oupptäckbart (tipset kom först *efter* en lyckad träff), och `progress.complete()`
+  klippte den spelspecifika slutrepliken (`voice.say` anropar alltid `cancel()`). Skärmdumps-
+  granskningen fångade tre visuella buggar som ett grönt test aldrig sett: streck över Zackes
+  ansikte (`.arc()` i delad Graphics), svävande ägare, fläckar utanför karossen.
+- **Bugg i leveranssteget hittad och fixad:** `scripts/start.ps1` + `stop.ps1` var UTF-8 **utan
+  BOM** med å/ä/ö → Windows PowerShell 5.1 (som `npm run serve` startar) läste dem som ANSI och
+  gav parse-fel. BOM tillagd; `npm run serve` fungerar igen. `scripts/backup.ps1` skrevs
+  ASCII-rent av samma skäl.
+
+**Commits:** `b903562` feat(zackes-biltvatt) · `d610505` feat(pipeline)
+**Kontroll:** `npm run check` 0 fel · `npm run test:all` **70/70 gröna** · bygge rent · serverad
+på :4173 (Tailscale 8445).
+**Öppet:** 8 nya repliker väntar på röstklipp (`/rost` när narratorn är uppe). Fågelljuden lånar
+fel djur (`djur_hona/uggla/anka/tupp`) tills MOSS kan generera riktiga mås/gås-läten.
+
+---
+
+## 2026-07-25 · v1.2.0
+
+**Byggt:** Projektet fick en riktig pipeline. Kunskapen som tidigare låg som prosa i en
+261-raders `CLAUDE.md` (och i minnesfiler) är nu **körbara verktyg och laddas-vid-behov-skills**.
+
+- **`CLAUDE.md` 261 → 59 rader** — bara P0-reglerna, kommandoytan och en routingtabell.
+  Allt djup flyttat till fem nya skills: `spelkontrakt`, `spel-pipeline`, `fysik-spel`,
+  `ljud-och-rost`, `skal-och-data` (plus de befintliga `threejs-*`).
+- **8 svenska slash-kommandon** — `/spel` `/polera` `/felsok` `/fixa` `/testa` `/rost`
+  `/avsluta` `/aterta`.
+- **3 subagenter** — `spelbyggare` (bygger en slice), `spelkritiker` (spelar som 3-åring,
+  kvalitetsgrind), `felsokare` (buggjakt med adversariell verifiering).
+- **`npm run check`** (`scripts/check.mjs`) — validerar kontrakt, registret åt båda hållen,
+  P0-brott, docs och röst-täckning. Strikt läge per spel. Hittade 52 verkliga varningar:
+  50 repliker som aldrig kan få ett röstklipp + 2 spel utan `voiceIntro`.
+- **`npm run test` / `test:all`** (`scripts/test-games.mjs`) — parallell headless-körning över
+  ett/flera/alla spel, med automatiska musdrag för dragspel. **Baslinje: 69/69 gröna.**
+- **Krasch-återhämtning** — `.claude/state/korning.json` (checkpoint före varje steg) +
+  `scripts/session-start.mjs` som lyfter avbrutna körningar vid sessionsstart + `/aterta`
+  som verifierar mot disken innan den fortsätter.
+- **`npm run backup`** — robocopy-spegel till `E:\backup\pwagames` (inkl. `.git`, exkl.
+  `node_modules`/`dist`). Hoppar tyst över om disken saknas.
+- **Docs:** `docs/PIPELINE.md` (människoläsbar pipeline), den här loggen,
+  `docs/games/_MALL.md` (spec-mall), omskriven `README.md`, `ARCHITECTURE.md` trimmad till
+  levande beslut med forskningen arkiverad i `docs/arkiv/`.
+
+**Öppet:**
+- 50 röstrepliker saknas i `scripts/voice-phrases.json` → kör `/rost` när narratorn är uppe.
+- 2 spel saknar `voiceIntro` (`npm run check` pekar ut dem).
+- Pipelinen är byggd men ännu inte körd skarpt — första riktiga testet är nästa `/spel`.
+
+## 2026-08-16 kväll — ägarrapport på tre spel (v1.227–1.229)
+
+Tre spel, sju rapporterade fel, alla mätta med egna sonder innan något byggdes.
+
+**`flugan-pa-nasan` (v1.227.0)** — syltburken gick inte att greppa i underkanten: burkens fot
+låg 34 px under bordskanten och dess träffyta räckte ner i lådans verktygsrad, som ligger ett
+lager ovanför (`_syltprobe3` kartlade Pixis egen träffsökning: `verktyg1` tog 6 av 15 punkter).
+Släppplatserna var dessutom osynliga, och ett tryck på burken gjorde ingenting synligt.
+Fläkten hade **tre fel i varandra**: konen mättes från fotens y medan den ritas ur huvudet
+128 px längre upp; pusten gavs i `vx/vy` och raderades av fartspärren i samma bildruta
+(567 → 22 px/s); och riktningen pekade bort från fönstret. Ny `Flugbana.vind()` utanför
+spärren, fläkten blåser mot fönstret med ett INSUG bakåt (fälttäckning 22/200 → 199/200).
+`DragController` släppte aldrig tap-tap-markeringen efter ett drag — rättat för alla spel.
+
+**`vakna-pappa` (v1.228.0)** — barnet kan nu välja **1–3 saker** och skicka dem tillsammans.
+Valet ägdes av `DragController.selected` (rymmer EN post) och flyttades till spelet. Finalen
+skjuts upp tills sista saken landat, annars rev `_final`s `_avbrytResa()` sak två och tre mitt
+i flykten. Ficklampan lyste **180° fel** — `sikta()` vrider den mot målet före `tryck()`, och
+strålen utgår ur linsen (uppmätt fel: 2°, vilovinkel −37°).
+
+**`titt-ut-pappa` (v1.229.0)** — pappa kom upp 91 px **ovanför dörrkarmen** och hängde fritt i
+väggen; en dörr gömmer i en öppning, inte bakom en kant. Nya `MOBLER.kika`/`avsloja` låter
+möbeln äga var han tittar ut. Taklampans kupa kunde inte röra sig därför att det var DEN som
+täckte fotorutans raka underkant — en stillastående glaskrage tog över, och kupan blev en
+lucka som slår upp nedåt. Tavlan, klockan och en ny trasmatta är nu riktiga gömställen (pappa
+KRYMPER bakom väggsakerna, `MOBLER.ansSkala`).
+
+**Två tysta fällor, båda med grönt test och noll konsolfel:**
+- **`bukt()` skriver `buktNod.scale` varje bildruta**, och dörrbladet ÄR buktnoden — dörrens
+  nya glugg slogs tillbaka i samma bildruta den sattes. Öppningen behövde en egen nod.
+  (`oppna()` slapp undan bara därför att `_busy` pausar bukten, en ren tillfällighet.)
+- **En metod som bara finns i `spec` når aldrig spelet.** `makeGomstalle` är gömställets hela
+  yta utåt; `plats.g.glugg?.()` svaldes tyst av `?.` tills metoden exporterades.
+
+---
+
+## 2026-08-30 — `unika-knytt` planerad (ingen kod)
+
+Ägaren la in en Gemini-konversation som `docs/games/Unika_knytt.md` och bad om en genomarbetad
+plan att bygga på nästa session. Utfallet:
+
+- **`docs/games/unika-knytt.md`** — full plan i husformat (§0 spec … §8 ägarbeslut), plus
+  §6 teknisk ritning, §7 grindar/mätning.
+- Källan flyttad till **`docs/games/_kalla-unika-knytt.md`** och behandlad som råmaterial.
+  Den var det enda av 85 docnamn med versal + understreck.
+- **19 röstrepliker inlagda i `scripts/voice-phrases.json`** — kör `npm run voice` innan bygget,
+  det är den långsamma offline-delen.
+- `npm run check` grön (0 fel · 0 varningar).
+
+**Spelet i en mening:** barnet fyller en glaskupa med en liten värld genom sex ritade
+maskindelar (varje del GÖR det den ändrar), drar i spaken, knådar degklumpen med fingret medan
+den härdas till ett ägg, knackar fram knyttet — och ur ägget kommer **hela världen** ut.
+Knyttet flyttar in i Knyttboden, en levande hylla av bon.
+
+**Tre beslut väntar på ägaren** (§8): flikstrukturen för brons/silver/guld · om
+Stjärnstoftsburken ska få höja skimmerchansen · vilken motgång (imma+trasa eller busvätten
+Skrället). Inget av dem blockerar starten.
+
+**Det farligaste i bygget** står i §6: `Mjukkropp` driver **+2257 px på 300 steg** för en
+asymmetrisk form utan `flyttaTill()` efter varje steg — och ett ägg ÄR asymmetriskt. Fast
+tidssteg (`steg(1)` alltid) + ankare är obligatoriskt, och reservvägen (deg som `Graphics` med
+seedat värde-brus) ska prövas med `_mjukprobe` INNAN bygget, inte efter.
+
+**Layout-invariant att inte råka bryta:** de sex verktygen ligger på harnessens egna nio
+standardtryck och spaken ligger utanför dem, så standardtestets skärmdump vid 4,4–4,6 s alltid
+är den ljusa verkstan. Flyttas spaken — räkna om §1b först.
+
+**Tillägg samma dag — granskningen kördes och planen rättades.** Åtta granskare läste förslagen
+genom två linser (barnet som spelar · P0 + byggrindarna). Ingen fick över 6,5/10 i första
+rundan. Tio fynd ändrade planen; de står i **§3c** så ingen bygger tillbaka dem. Det dyraste:
+**`Mjukkropp.skala()` raderar den lerpade äggprofilen varje bildruta** (den räknar om
+`_kant`/`_eker` ur de orörda byggmåtten), så ägget hade förblivit en rund klump utan ett enda
+konsolfel — väx display-nodens `scale` i stället. Dessutom: vräkningen ur boden ströks (bröt
+spelets eget löfte och P0 `GRIND`), verkstan fick vilohjälp i tre steg, loopen stängs nu i
+verkstan, kupan töms av kläckningen, och **spelet byggs i TVÅ leveranser** — skalan mättes till
+3 500–4 500 rader mot `bygg-en-kompis` 1 834, vilket inte ryms i ett pass. Leverans 1 (verkstan
++ födelsen) är ett helt spel för ett barn och kan landa ✅ utan sällsynthet och foil.
+**24 knyttnamn** lades till i `voice-phrases.json` — en FAST namntabell kan få riktiga klipp,
+till skillnad från fritt genererad text, så barnet får höra vad knyttet heter.
+
+**Ägarens tre beslut (§8) — alla tagna samma dag.**
+⓵ **Knyttboden blir en rullande popup som bara visar de knytt man FÅTT.** Ägarens svar löste
+frågan i stället för att välja mellan alternativen: finns inga tomma platser finns ingen
+frånvaro att visa, så P0:s FOMO-förbud uppfylls av STRUKTUREN. Guldplanet existerar först när
+du har ett guldknytt. 8-taket, pagineringen och hela vräkningsfrågan försvann på köpet.
+⓶ **Stjärnstoftsburken höjer med högst +5 pp** (per gnista +1,0 brons / +0,5 silver / +0,17
+guld; tre gnistor = taket). 17 % → 22 % skimmer, men guld rör sig bara 2,00 → 2,50 % och
+förblir alltså genuint sällsynt.
+⓷ **Ingen motgång i leverans 1.** Imma-på-glaset förkastad. **Skrället** (busvätten som snor ett
+föremål och sugs med in i degen om spaken dras) är färdigspecad i §4b men **grindad på en
+mätning**: motgången kräver att barnet DRÖJER i verkstan, och den tiden är omätt. Leverans 1
+loggar mount → spaktryck och mellan spaktryck. >20 s → bygg den · 12–20 s → halverad takt ·
+<12 s → ingen alls.
+
+**Och en rättelse ägaren framkallade med en fråga.** "Är det fortfarande lika proceduralt som
+jag tänkt?" — nej, det var det inte. Planen hade kokat ner den ursprungliga KONTINUERLIGA
+parameterkatalogen till 7 diskreta deltabeller (16 200 uppsättningar). Räknat: ett barn som gör
+200 knytt ur sitt favoritrecept hade då **70,7 % risk att se två identiska**. Nytt **§6c**:
+deltabellen väljer vilken FORM en del har, fröet sätter dess PROPORTIONER — 22 kontinuerliga
+drag klampade innanför sötma-envelopen. Barnets kontroller förblir diskreta (P0 förbjuder
+reglage), men de frö-härledda dragen behövde aldrig vara det. Fröet blir då den bindande
+gränsen: **19 200 recept × 2³² = 8,25 × 10¹³ individer**, och dubblettrisken faller till
+0,00046 %. Sparposten är oförändrad — ett heltal bär hela individen.
+
+**⓸ Ljudtratten uppskjuten** (ägaren, samma dag). Verkstan har **fem** verktyg i leverans 1 —
+Ljudtratten var den kontroll som gav minst synlig skillnad på varelsen, vilket bröt mot
+maskinens egen premiss ("varje del GÖR det den ändrar"). **Motivet stryks inte**, det härleds
+ur fröet i stället, vilket dessutom är bättre: rösten blir en del av individens identitet i
+stället för en inställning. Fältet `r` ligger kvar i sparposten och skrivs av fröet, så att en
+senare version kan lägga till kontrollen med **noll migrering**. Recepten går 19 200 → 3 840
+och individerna 8,25 → **1,65 × 10¹³**; dubblettrisken är oförändrad (0,00046 %) eftersom fröet
+fortfarande är den bindande gränsen. Två följder står i §4c: harnesstrycket (800,600) träffar nu
+bakgrundsfångaren, och den lediga bänkplatsen måste fyllas med rekvisita eller riskera
+`heltackande-falt`.

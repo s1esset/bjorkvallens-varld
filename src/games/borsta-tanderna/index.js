@@ -50,7 +50,7 @@ import { burst, kvittera, liv, pop, puff, ripple, sparkle, wiggle } from '../../
 import { byggBadrum } from './badrum.js'
 import { BORSTE_HUVUD, SMUTS, TUBER, makeBorste, makeGlas, makeMugg, makeSkumklick, makeSmutsflack, makeTandglans, makeTub } from './verktyg.js'
 import {
-  ANS, ANS_H, ANSIKTE_YTA, BOBO, BORSTE_HEM, GLAS, HO, K, KONTAKT_R,
+  ANS, ANS_H, ANSIKTE_YTA, BOBO, BORSTE_HEM, GLAS, HO, K, KONTAKT_R, KRAN,
   MUGG, RAD_RUTA, TANDRAD, TUB_PLATS,
 } from './layout.js'
 
@@ -135,6 +135,9 @@ export default {
     this._flackar = []
     this._skumKlickar = []
     this._tubKnappar = []
+    this._kranYta = null
+    this._kranTimer = null
+    this._kranTryck = 0
     this._gapNu = 0
     this._minTill = 0
     this._zonTill = 0
@@ -189,6 +192,7 @@ export default {
     await this._byggAnsikte(ctx)
     this._byggBobo()
     this._byggHylla(ctx)
+    this._byggKran(ctx)
     this._byggBorste(ctx)
     this._byggMunmal(ctx)
     this._rum.liv?.()
@@ -333,6 +337,58 @@ export default {
     this._glasTryck = () => this._tryckGlas(ctx)
     this._glasYta.on('pointertap', this._glasTryck)
     this._klickL.addChild(this._glasYta)
+  },
+
+  /**
+   * KRANEN går att trycka på. Ett tryck sätter på vattnet en stund (stråle som rinner, ring
+   * i handfatet, en liten stämd plurr som stiger för varje tryck) och stänger det av sig
+   * själv — fritt att leka med utan att det rör borstningen: ingen fas ändras, inget
+   * räknas, och finalen (som kör kranen själv) tar över utan att vi kommer i vägen.
+   * Träffytan 140×136 ligger i klicklagret, kranens konst står kvar i badrummet.
+   */
+  _byggKran(ctx) {
+    const cx = KRAN.x + 17
+    const cy = KRAN.y - 28
+    const yta = new Graphics().rect(-70, -68, 140, 136).fill({ color: 0xffffff, alpha: 0 })
+    yta.position.set(cx, cy)
+    yta.eventMode = 'static'
+    yta.cursor = 'pointer'
+    yta.hitArea = new Rectangle(-70, -68, 140, 136)
+    this._kranFn = () => this._tryckKran(ctx)
+    yta.on('pointertap', this._kranFn)
+    this._klickL.addChild(yta)
+    this._kranYta = yta
+  },
+
+  _tryckKran(ctx) {
+    this._vack(ctx)
+    const rum = this._rum
+    if (!rum?.kran) return
+    rum.kran.tryck()
+    // Stigande pentatonisk plurr: en melodi om man trycker flera gånger, aldrig samma ton.
+    const skala = [392, 440, 523, 587, 659, 784]
+    const ton = skala[this._kranTryck % skala.length]
+    this._kranTryck++
+    ctx.services.audio.tone({ freq: ton, slideTo: ton * 1.35, dur: 0.14, type: 'sine', vol: 0.3 })
+    if (this._busy) return // finalen kör kranen själv — bara klunken och squashen
+    const nyss = !rum.kran.arPa()
+    if (nyss) {
+      ctx.services.audio.sfx('whoosh')
+      this._bobo?.react?.('nyfiken')
+    }
+    rum.kran.pa(true)
+    // Plask i handfatet vid varje tryck.
+    if (this._fxL && !this._fxL.destroyed) {
+      ripple(this._fxL, 296, 608, { color: 0xbde8f7, maxR: 38, duration: 0.45, width: 3, alpha: 0.7 })
+      puff(this._fxL, 268, 560, { count: 3, color: 0xcfeefc })
+    }
+    // Stänger av sig själv efter ett tag; ett nytt tryck skjuter fram stängningen.
+    this._kranTimer?.kill?.()
+    this._kranTimer = ctx.later(2.4, () => {
+      this._kranTimer = null
+      if (!this._alive || this._busy) return
+      this._rum?.kran?.pa?.(false)
+    })
   },
 
   _byggBorste(ctx) {
@@ -1405,6 +1461,8 @@ export default {
       return
     }
     this._busy = true
+    this._kranTimer?.kill?.()
+    this._kranTimer = null
     this._sattGlas(false)
     this._skolj(ctx)
   },
@@ -1730,6 +1788,10 @@ export default {
     }
     this._tubKnappar = []
     this._glasYta?.off('pointertap', this._glasTryck)
+    this._kranYta?.off('pointertap', this._kranFn)
+    this._kranTimer?.kill?.()
+    this._kranTimer = null
+    this._kranYta = null
     if (this._glasRing && !this._glasRing.destroyed) {
       gsap.killTweensOf(this._glasRing)
       gsap.killTweensOf(this._glasRing.scale)

@@ -178,7 +178,7 @@ const MOTIV = [motivAnka, motivBubblor, motivFisk]
  *
  * @param {object} ctx  spelets GameContext (bara `ctx.view` läses — för full bleed).
  * @returns {{bak:Container, fram:Container, hyllPlan:Container, ho:Container,
- *           kran:{pa:(v:boolean)=>void, destroy:()=>void},
+ *           kran:{pa:(v:boolean)=>void, tryck:()=>void, arPa:()=>boolean, destroy:()=>void},
  *           liv:()=>void, destroy:()=>void}}
  *
  * `hyllPlan` och `ho` är tomma containrar i DESIGNKOORDINATER (position 0,0) — den som
@@ -538,7 +538,7 @@ export function byggBadrum(ctx) {
   function ritaStrom() {
     if (!levande || strom.destroyed) return
     strom.clear()
-    const bredd = 13
+    const bredd = 18
     strom.moveTo(px - bredd / 2, py)
       .quadraticCurveTo(px - bredd / 2 - 3, (py + pyBot) / 2, px - bredd / 2 - 1, pyBot)
       .lineTo(px + bredd / 2 + 1, pyBot)
@@ -628,6 +628,22 @@ export function byggBadrum(ctx) {
       }
     },
 
+    /**
+     * Ett tryck på kranen: den tryckas ihop och studsar upp igen (squash från fotplattan).
+     * Rör inte vattnet — det styr `pa()`. Tweenen ligger i `tweens` och dör i destroy().
+     */
+    tryck() {
+      if (!levande || kranNod.destroyed) return
+      gsap.killTweensOf(kranNod.scale)
+      kranNod.scale.set(1, 1)
+      to(kranNod.scale, { x: 1.1, y: 0.88, duration: 0.09, ease: 'power2.out', yoyo: true, repeat: 1 })
+    },
+
+    /** Är vattnet på just nu? */
+    arPa() {
+      return stromPa
+    },
+
     /** Stoppar kranens egna tweens. Bilden rivs av badrummets `destroy()`. */
     destroy() {
       stromTw?.kill()
@@ -637,6 +653,7 @@ export function byggBadrum(ctx) {
       gsap.killTweensOf(strom)
       gsap.killTweensOf(plask)
       gsap.killTweensOf(spak)
+      gsap.killTweensOf(kranNod.scale)
     },
   }
 

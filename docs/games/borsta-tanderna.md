@@ -270,6 +270,7 @@ når 96 px tvärs över, **K** återvändsgränden när sista fläcken blir ren 
 
 ## 6. Öppna trådar (INTE gjorda)
 
+- ✅ ~~**Kranen går inte att trycka på.**~~ Byggd 2026-10-02 — se §5.
 - **Handduken går fortfarande inte att trycka på.** Den läser inte längre som något man ska
   trycka på, vilket var själva felet — men en handduk som vaggar när man petar på den vore
   billig glädje. Hör hemma i `index.js`, inte i badrummets ritning.
@@ -283,6 +284,8 @@ når 96 px tvärs över, **K** återvändsgränden när sista fläcken blir ren 
   `vakna-pappa/verktyg.js`). Hör hemma i `lib/feedback.js` — delade filer rördes inte under bygget.
 
 ## 5. Status / loggar
+
+- 2026-10-02 · **Kranen går att trycka på (FYSIKPLAN §5.4, F4/B2).** `_byggKran` lägger en osynlig träffyta 140×136 px (kranens bas + pip, x 152–292, y 452–588, klicklagret) — ett tryck: kranen gör en squash (`kran.tryck()` i badrum.js), spaken vippar och strålen rinner (`kran.pa(true)`, befintlig), ring + puff i handfatet, en stigande stämd plurr per tryck (sex toner, sedan om) och `whoosh` första trycket; vattnet stängs av sig självt efter 2,4 s (`ctx.later`, nytt tryck skjuter fram det). Rör ingen fas: ingen räkning, ingen sida påverkas. Finalen kör kranen själv — blir `_busy` avbryts timern i `_tryckGlas` och ett tryck ger då bara klunk + squash. Städas i `destroy` (lyssnare, timer; tweens i badrummets `tweens`). Omätt i webbläsare — kranen står på x 205 och harnessens rutnät når den, men ingen sond har tryckt den.
 
 - 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): Ingen kodändring. `complete()`
   anropas redan via spelets egen `_narTyst` efter wow-raden, och nästa rundas replik köas

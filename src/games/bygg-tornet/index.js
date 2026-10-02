@@ -18,6 +18,7 @@ import { bounceIn, pop, puff, sparkle, breathe, shake } from '../../lib/feedback
 import { COLORS, PLAYFUL, DESIGN_W, DESIGN_H } from '../../lib/theme.js'
 import { groundFill } from '../../lib/form.js'
 import { valjEgna, byggEgenFigur, presentera } from '../../lib/egnafigurer.js'
+import { slumpIBand } from '../../lib/variation.js'
 
 // --- Geometri (designkoordinater 1280×720) ---
 const BASE_X = 640 // tornets mittlinje (nästa klossens default-läge)
@@ -69,8 +70,43 @@ const SPECS = [
 // Stigande ton per våning — tornet får en HÖRBAR höjd (C-dur-pentatonik).
 const STOREY_TONE = [523.25, 587.33, 659.25, 783.99, 880, 1046.5, 1174.66]
 
+// Målets x (flaggan + kattungens avsats). Slumpas runt 912 i varje nytt torn: kattungen och flaggan hör
+// ihop och flyttar tillsammans. Bandet håller sig mellan tornets högsta sidoläge och tornkranens
+// hängande last, så avsatsen alltid syns och går att hoppa över från (hoppet är en tween, ingen fysik).
+const GOAL_X = 892
+const GOAL_BAND = 50 // 842–942: kranlasten (x ≈ mx − 140) får aldrig hänga över kattungen
+
+// Tornkranen i bakgrunden: mast, hytt, bom med motvikt, vajrar, och en vajande last.
+const KRAN = { x: 1180, topp: 250 }
+
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
 const slotY = (i) => GROUND_TOP_Y - BH / 2 - i * BH
+
+// Byggplatsens småsaker på marken: två koner, en pall med tegel. Ren dekor, inga tweens.
+function ritaPlatsDekor() {
+  const g = new Graphics()
+  g.eventMode = 'none'
+  const y = GROUND_TOP_Y + 4
+  for (const x of [372, 1086]) {
+    g.ellipse(x, y + 4, 24, 6).fill({ color: 0x000000, alpha: 0.18 })
+    g.roundRect(x - 20, y - 8, 40, 10, 3).fill(0xe6761a)
+    g.poly([x - 15, y - 8, x + 15, y - 8, x + 6, y - 50, x - 6, y - 50]).fill(0xff8a3d)
+    g.poly([x - 11, y - 22, x + 11, y - 22, x + 8, y - 34, x - 8, y - 34]).fill(0xffffff)
+    g.roundRect(x - 7, y - 54, 14, 7, 3).fill(0xff8a3d)
+  }
+  // pall med tegelstaplar
+  const px = 940
+  g.ellipse(px + 40, y + 5, 62, 7).fill({ color: 0x000000, alpha: 0.16 })
+  for (const dx of [0, 34, 68]) g.rect(px + dx - 4, y - 14, 12, 16).fill(0x9a6a3a)
+  g.roundRect(px - 24, y - 20, 128, 9, 2).fill(0xc79a68)
+  for (let rad = 0; rad < 3; rad++) {
+    for (let k = 0; k < 4 - (rad === 2 ? 1 : 0); k++) {
+      const bx = px - 14 + k * 28 + (rad % 2 ? 14 : 0) + (rad === 2 ? 14 : 0)
+      g.roundRect(bx, y - 20 - (rad + 1) * 14, 26, 12, 2).fill(rad % 2 ? 0xc9553c : 0xd9654a)
+    }
+  }
+  return g
+}
 
 export default {
   id: 'bygg-tornet',
@@ -93,6 +129,8 @@ export default {
     this._dropX = BASE_X // var nästa kloss faller (sätts av barnets tryck)
     this._carrierX = BASE_X // var kran-kroken ritas
     this._egenFig = null // barnets knytt/kompis på avsatsen (varannan torn), annars kattungen
+    this._goalX = GOAL_X // målets x i nuvarande torn (flagga + kattunge), slumpas per torn
+    this._kranLast = null
 
     this._phase = 'reset' // reset | carry | fall | wait | finish
     this._placed = [] // fastlåsta klossar { view, body }
@@ -124,8 +162,22 @@ export default {
   // ---- Statisk scen (byggs en gång, återanvänds mellan torn) --------------
 
   _buildScene(ctx) {
-    // Glad himmel (dekorativ, exit-säker via scene.js).
-    this._root.addChild(createScene('sky', { width: ctx.width, height: ctx.height }))
+    // Glad himmel med en trädlinje och kullar bakom bygget (L1). Horisonten ligger på y 520 i
+    // stället för 624 så kullarna syns ovanför byggplatsens mark (som börjar på 604). Strån
+    // längst fram (`forgrund`) lyfts ut ur scenen och läggs OVANPÅ marken längre ned, annars
+    // döljs de av den. `kamera` med bredd = vyn är en no-op; den ger bara lagren åtskilda.
+    const scen = createScene('sky', {
+      width: ctx.width,
+      height: ctx.height,
+      groundH: ctx.height - 520,
+      silhuett: 'skog',
+      forgrund: true,
+      kamera: { bredd: ctx.width },
+      fro: 1 + Math.floor(Math.random() * 9),
+    })
+    this._root.addChild(scen)
+    const lager = scen._kamLager || []
+    const framGras = lager.length >= 2 ? lager[lager.length - 2] : null // före vinjetten
 
     // Osynlig tryckyta över hela skärmen: tryck var som helst → klossen faller DÄR
     // (eller en mjuk lekfull puff). Allt annat ligger ovanpå men är icke-interaktivt.
@@ -152,6 +204,9 @@ export default {
       frictionStatic: 2,
       restitution: 0,
     })
+
+    // Tornkranen i bakgrunden (byggarbetsplatsen) — bakom skylinen och marken.
+    this._buildKran()
 
     // Stadens siluett: ETT torn per färdigbyggt torn, sparat mellan omgångar. Skylinen
     // växer alltså över tid — man river inte längre bara sitt bygge, man bygger en stad.
@@ -185,6 +240,9 @@ export default {
     floor.roundRect(1132, GROUND_TOP_Y + 14, 36, 16, 8).stroke({ width: 7, color: 0x8a939b })
     floor.eventMode = 'none'
     this._root.addChild(floor)
+    // Gräs i förgrunden, sedan byggplatsens småsaker (koner, tegelpall) på marken.
+    if (framGras && !framGras.destroyed) this._root.addChild(framGras)
+    this._root.addChild(ritaPlatsDekor())
 
     // Mål-flagga (RITAD — visar hur högt det ska byggas) på en liten avsats.
     this._flag = new Container()
@@ -263,7 +321,9 @@ export default {
 
     // Flaggan + kattungens avsats vid mål-höjden.
     const goalY = slotY(this._goal - 1) - 8
-    this._flag.position.set(912, goalY)
+    // Flaggan och kattungen flyttar ihop (inte samma x två torn i rad).
+    this._goalX = slumpIBand(GOAL_X, GOAL_BAND, { steg: 10, forra: this._goalX })
+    this._flag.position.set(this._goalX, goalY)
     this._flag.scale.set(1)
     this._flagTween?.kill()
     this._flagTween = gsap.to(this._flag, { y: goalY - 10, duration: 1.1, yoyo: true, repeat: -1, ease: 'sine.inOut' })
@@ -273,7 +333,7 @@ export default {
       this._kitten.visible = true
       this._kitten.scale.set(1)
       this._kitten.rotation = 0
-      this._kitten.position.set(912, goalY + 12)
+      this._kitten.position.set(this._goalX, goalY + 12)
       this._kittenTw = breathe(this._kitten, { scale: 1.05, duration: 1.3 })
       this._sattEgenFigur(ctx)
     }
@@ -295,7 +355,7 @@ export default {
     if (!egen) return
     const fig = byggEgenFigur(ctx, egen, { hojd: 104, maxBredd: 76 })
     // Fötterna på avsatsens översida (avsatsens ovansida ligger på lokala y ≈ 14, flaggan guppar ±10 ovanför den), lite åt
-    // vänster så flaggstången vid x = 912 inte döljs helt.
+    // vänster så flaggstången vid målets x inte döljs helt.
     fig.view.position.set(-26, 15)
     this._kitten.addChild(fig.view)
     this._egenFig = fig
@@ -638,6 +698,9 @@ export default {
       this._egenFig.look(tx - k.x, ty - k.y)
     }
 
+    // Tornkranens last vajar långsamt (sinus, rivs med roten).
+    if (this._kranLast && !this._kranLast.destroyed) this._kranLast.rotation = Math.sin(this._t * 1.1) * 0.05
+
     // Stega fysiken (fast tidssteg) och synka vyerna.
     this._phys.update(ticker.deltaMS)
 
@@ -749,6 +812,71 @@ export default {
     c.eventMode = 'none'
     c.interactiveChildren = false
     return c
+  },
+
+  // Tornkranen: gul gitterkran i bakgrunden. Lasten vajar i `_update` (sinus, ingen tween).
+  _buildKran() {
+    const { x: mx, topp: yT } = KRAN
+    const GUL = 0xf4b52e
+    const MORK = 0xb9780f
+    const GRA = 0x69737c
+    const g = new Graphics()
+    g.eventMode = 'none'
+    const slut = 612
+    // mastens fot (täcks av marken) och de två stående räckena
+    g.roundRect(mx - 38, slut - 20, 76, 20, 5).fill(GRA)
+    g.rect(mx - 20, yT, 5, slut - yT - 6).fill(GUL)
+    g.rect(mx + 15, yT, 5, slut - yT - 6).fill(GUL)
+    // gitter: tvärstag och diagonaler var 36:e px
+    for (let y = slut - 6; y - 36 >= yT; y -= 36) {
+      const up = y - 36
+      g.moveTo(mx - 18, y).lineTo(mx + 18, up).stroke({ width: 3.5, color: MORK })
+      g.moveTo(mx + 18, y).lineTo(mx - 18, up).stroke({ width: 2, color: MORK, alpha: 0.5 })
+      g.moveTo(mx - 18, up).lineTo(mx + 18, up).stroke({ width: 3.5, color: GUL })
+    }
+    // spets med vajrar till bom och motvikt
+    g.poly([mx - 20, yT, mx + 20, yT, mx, yT - 62]).fill(GUL)
+    g.circle(mx, yT - 64, 5).fill(0xe84b4b)
+    g.moveTo(mx, yT - 62).lineTo(mx - 170, yT + 3).stroke({ width: 2.5, color: GRA })
+    g.moveTo(mx, yT - 62).lineTo(mx + 70, yT + 3).stroke({ width: 2.5, color: GRA })
+    // bom: övre och undre bandet + sicksack, avsmalnande mot spetsen
+    const bomBot = (x) => yT + 5 + ((x - (mx - 220)) / 240) * 19
+    g.moveTo(mx + 20, yT).lineTo(mx - 220, yT).stroke({ width: 4.5, color: GUL })
+    g.moveTo(mx + 20, bomBot(mx + 20)).lineTo(mx - 220, bomBot(mx - 220)).stroke({ width: 4.5, color: GUL })
+    for (let x = mx - 220; x < mx + 14; x += 30) {
+      const nx = x + 30
+      g.moveTo(x, bomBot(x)).lineTo(nx, yT).stroke({ width: 2.5, color: MORK })
+      if (nx < mx + 20) g.moveTo(nx, yT).lineTo(nx, bomBot(nx)).stroke({ width: 2.5, color: MORK, alpha: 0.7 })
+    }
+    // motbom + motvikt
+    g.moveTo(mx - 20, yT).lineTo(mx + 86, yT).stroke({ width: 4.5, color: GUL })
+    g.moveTo(mx - 20, yT + 24).lineTo(mx + 86, yT + 8).stroke({ width: 4.5, color: GUL })
+    g.roundRect(mx + 46, yT + 8, 40, 44, 5).fill(GRA)
+    for (const k of [0, 1, 2]) g.rect(mx + 50, yT + 14 + k * 12, 32, 4).fill({ color: 0xffffff, alpha: 0.22 })
+    // förarhytt vid mastens topp
+    g.roundRect(mx - 62, yT + 6, 42, 32, 6).fill(0xffffff).stroke({ width: 3, color: GUL })
+    g.roundRect(mx - 56, yT + 12, 22, 16, 3).fill(0x8fd0ee)
+    // lastvagn på bommen
+    const tx = mx - 140
+    g.roundRect(tx - 14, bomBot(tx) - 2, 28, 12, 3).fill(GRA)
+    this._root.addChild(g)
+
+    // hängande last: vajer, krok och en liten låda; roterar kring vagnen
+    const last = new Container()
+    last.eventMode = 'none'
+    last.interactiveChildren = false
+    const lg = new Graphics()
+    lg.moveTo(0, 0).lineTo(0, 92).stroke({ width: 2.5, color: GRA })
+    lg.circle(0, 96, 5).stroke({ width: 3, color: GRA })
+    lg.moveTo(0, 100).lineTo(-24, 118).stroke({ width: 2, color: GRA })
+    lg.moveTo(0, 100).lineTo(24, 118).stroke({ width: 2, color: GRA })
+    lg.roundRect(-28, 116, 56, 34, 4).fill(0xd9534f)
+    lg.rect(-28, 128, 56, 5).fill({ color: 0xffffff, alpha: 0.3 })
+    lg.rect(-28, 138, 56, 3).fill({ color: 0x000000, alpha: 0.15 })
+    last.addChild(lg)
+    last.position.set(tx, bomBot(tx) + 8)
+    this._root.addChild(last)
+    this._kranLast = last
   },
 
   // Stadens siluett i fjärran: ett torn per färdigbyggt torn (sparat i custom.torn).

@@ -84,8 +84,17 @@ garanterar att flaggan alltid nås. Räkneorden gör stapeln till en mjuk siffer
 
 ### Ljud
 - **[Quick] Kran-ambient** (mjukt gnissel/motor) medan klossen bärs + varierat berömsting.
+- [Enkel] Den gamla kranrälsen överst (`RAIL_Y`) läses som en lös takbalk bredvid den nya tornkranen — byt eller ta bort den. Förgrundsgräset hämtas via `scen._kamLager[length-2]`, ett skört antagande om scene.js inre (kritiken 2026-10-02).
 
 ## 5. Status / loggar
+
+- 2026-10-02 ✅ **Byggarbetsplats + variation (FYSIKPLAN §5.4, L1, U2)**: scenen har nu horisont på y 520
+  med trädlinje och kullar bakom bygget, och strån i förgrunden (`forgrund`-lagret lyfts ut ur scenen och
+  läggs ovanpå marken, annars döljs det av den opaka marken). I mitten/bakgrunden: en gul tornkran med
+  gittermast, hytt, bom, motvikt och en vajande last (`_buildKran`), plus koner och en tegelpall på
+  marken. **U2:** flaggan och kattungens avsats står inte längre alltid på x 912 — `slumpIBand(892, 50,
+  { steg: 10, forra })` per torn (842–942 — smalnat av orkestreraren så kranlasten, flyttad till mx − 140, aldrig hänger över kattungen), flaggan och kattungen flyttar ihop (`_goalX`). Klossarnas
+  svaj (F1) och kranklossens pendel (P2) är INTE med.
 
 - 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): När kattungen landade, 1,8–2,7 s
   efter `complete()`, kom ett andra `celebrate` + `bigCelebration`. Det låg utanför värdets

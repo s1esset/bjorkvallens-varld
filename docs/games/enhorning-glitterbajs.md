@@ -81,7 +81,7 @@ glittret blir ett osynligt nummer* — agensen och samlandet är tunnare än det
 - ✅ ~~**[Quick] Riktig prutt + saftigare bajs.**~~ Redan byggd (`_fart` :542 fart-sampel/synt-prutt,
   rök-puff, enhörnings-skutt) — uppdagat 2026-09-23.
 - ✅ ~~**[Quick] Synlig kista som fylls.**~~ Redan byggd (`_drawChestFill` :664) — uppdagat 2026-09-23.
-  Överflödet vid full mätare är inte byggt.
+  ✅ Överflödet vid full mätare byggt 2026-10-02 (`_svamma`).
 
 ### Progression
 - **[Quick] Lås upp glitter-färger/teman över nivåer** som ett mjukt samlarspår (sparas i
@@ -142,3 +142,5 @@ glittret blir ett osynligt nummer* — agensen och samlandet är tunnare än det
   - **Studsdynorna** är randiga godisbitar med studsknoppar och `pop`:ar när glittret träffar.
   - **Grind:** `npm run check --game enhorning-glitterbajs` 0 fel · `npm run test` grönt ·
     `_idleprobe 30s` → `idleFramsteg: 0`.
+
+- **2026-10-02 · Kistan svämmar över vid full mätare (FYSIKPLAN §5.4).** När sista glittret fångats (`_onComplete`) pöser en kupol av glitterkorn upp ur öppningen (`back.out`) och 14 korn rinner över kanten åt båda hållen och studsar ner längs kistans sidor (`bounce.out`), innan de tonar ut — ~1,4 s, sedan vanlig runda. Rent visuellt, inga kroppar; allt i en container i kistan (barn — kistan som drag-mål animeras inte) under EN tidslinje som dödas i `_clearOverflow` (nästa runda + `destroy`). Tre stigande stämda toner (880/1046,5/1174,66). Mätning: `g._overflow?.children.length` (15 under svämningen, annars null).

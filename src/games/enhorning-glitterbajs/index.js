@@ -326,6 +326,7 @@ export default {
     this._idle = 0
     this._selectedFood = null
 
+    this._clearOverflow()
     this._clearPellets()
     this._setPlatforms(cfg.platforms)
 
@@ -870,6 +871,7 @@ export default {
     sparkle(ctx.fxLayer, cx, CHEST_Y - 40, { count: 10 })
     if (this._chest && !this._chest.destroyed) pop(this._chest, { scale: 1.2 })
     if (this._elvira && !this._elvira.destroyed) pop(this._elvira, { scale: 1.2 })
+    this._svamma(ctx)
 
     this._meterFrac = 1
     this._paintMeter()
@@ -890,6 +892,72 @@ export default {
       })
     })
     this._timers.push(tw)
+  },
+
+  // Full mätare = kistan svämmar över: en glitterhög pöser upp ur öppningen och glitter rinner
+  // över kanten, studsar ner längs sidorna och blir liggande en stund innan nästa runda. Rent
+  // visuellt (inga kroppar) — allt ligger i en egen container i KISTAN och styrs av EN tidslinje
+  // som dödas i _clearOverflow (nästa runda) och destroy.
+  _svamma(ctx) {
+    this._clearOverflow()
+    const chest = this._chest
+    if (!chest || chest.destroyed) return
+    const cols = [COLORS.yellow, COLORS.pink, COLORS.blue, COLORS.green, COLORS.orange]
+    const over = new Container()
+    over.eventMode = 'none'
+    // Högen: en kupol av glitterkorn, vuxen uppåt från öppningens kant (origo = basen).
+    const mound = new Graphics()
+    const rader = [9, 7, 5, 3]
+    for (let k = 0; k < rader.length; k++) {
+      const n = rader[k]
+      for (let i = 0; i < n; i++) {
+        const gx = (i - (n - 1) / 2) * 15 + (k % 2 ? 2 : -2)
+        mound.circle(gx, -k * 11 - 4, 7).fill(cols[(i + k * 2) % cols.length])
+        mound.circle(gx - 2, -k * 11 - 6.5, 2).fill({ color: COLORS.white, alpha: 0.7 })
+      }
+    }
+    mound.position.set(0, -56)
+    mound.scale.set(0.5, 0.05)
+    mound.eventMode = 'none'
+    over.addChild(mound)
+    // Överflödet: korn som rinner över kanten åt båda hållen och studsar ner längs kistans sidor.
+    const dots = []
+    for (let i = 0; i < 14; i++) {
+      const sida = i % 2 ? 1 : -1
+      const d = new Graphics().circle(0, 0, 5 + Math.random() * 2.5).fill(cols[i % cols.length])
+      d.circle(-1.6, -1.8, 1.7).fill({ color: COLORS.white, alpha: 0.75 })
+      d.alpha = 0
+      d.eventMode = 'none'
+      over.addChild(d)
+      dots.push({ d, sida })
+    }
+    chest.addChild(over)
+    this._overflow = over
+
+    const tl = gsap.timeline()
+    this._overflowTl = tl
+    tl.to(mound.scale, { x: 1, y: 1, duration: 0.5, ease: 'back.out(2.2)' }, 0)
+    dots.forEach(({ d, sida }, i) => {
+      const t0 = 0.28 + i * 0.05
+      const x0 = sida * (58 + Math.random() * 24)
+      const x1 = sida * (96 + Math.random() * 46)
+      tl.set(d, { alpha: 1, x: x0, y: -64 }, t0)
+      tl.to(d, { x: x1, duration: 0.6, ease: 'power1.out' }, t0)
+      tl.to(d, { y: 54 - Math.random() * 6, duration: 0.6, ease: 'bounce.out' }, t0)
+    })
+    tl.to(over, { alpha: 0, duration: 0.25, ease: 'sine.in' }, 1.12)
+
+    // Ljudet: tre stigande stämda toner (pentatonik) medan högen pöser upp.
+    ;[880, 1046.5, 1174.66].forEach((f, i) => ctx.services.audio.tone({ freq: f, dur: 0.14, type: 'triangle', vol: 0.08, delay: 0.1 * i }))
+    sparkle(ctx.fxLayer, chest.x, CHEST_Y - 70, { count: 8 })
+  },
+
+  _clearOverflow() {
+    this._overflowTl?.kill()
+    this._overflowTl = null
+    const o = this._overflow
+    this._overflow = null
+    if (o && !o.destroyed) o.destroy({ children: true })
   },
 
   // ---- Städning -----------------------------------------------------------
@@ -919,6 +987,7 @@ export default {
     this._meterTween?.kill()
     this._chestGlide?.kill()
     this._unicornBob?.kill()
+    this._clearOverflow()
 
     // Pekar-lyssnare.
     for (const f of this._foods) {

@@ -100,8 +100,11 @@ upptäckarglädje, och auto-hjälpen garanterar att varje runda går att slutfö
 ### Progression
 - **[Deep] Ritbok/galleri.** Spara varje färdig teckning som en miniatyr i en bok (bakom
   parental gate i Settings, eller en in-game hylla) — något att samla och vara stolt över.
-- **[Quick] Tema per motiv.** Bakgrunden byter mjukt med motivet (hav för fisken, natthimmel
-  för stjärnan) så varje runda känns som en ny sida.
+- ✅ ~~**[Quick] Tema per motiv.**~~ Klar 2026-10-02 (`matta.js`): pappret ligger på en lekmatta på
+  ett trabord, och mattans värld följer motivet — berg (bergslandskap), hus (staket, träd), moln
+  (himmel), fisk (hav med sandbotten och tång), hjärta (rosa med hjärtan), katt (matta med tassar
+  och garnnystan), blomma (äng), stjärna (natthimmel med måne); kurv-rundor får en mintmatta med
+  prickar. Nya mattan tonar in över den gamla (0,6 s).
 
 ### Karaktär & berättelse
 - **[Deep] En rit-kompis.** En liten figur (Bobo med en krita / Elvira) som "ritar med", följer
@@ -114,6 +117,13 @@ upptäckarglädje, och auto-hjälpen garanterar att varje runda går att slutfö
   som slumpar PRAISE och varierar vinstljudet. ⛔ Ambienten kräver ett nytt SFX-klipp (MOSS nere).
 
 ## 5. Status / loggar
+
+- 2026-10-02 ✅ **Variation + bild (FYSIKPLAN U2/L2):** efter den fasta planen (18 steg, orörd — den
+  är inlärningsbanan) dras motiven ur en påse (`pase(MOTIFS)`: alla åtta visas innan något
+  återkommer, aldrig samma två i rad) i stället för `randomFrom`, och de tätare kurvorna lottas
+  med `nastaVariant` så samma kurva aldrig kommer två gånger i rad. Pappret på krämplattan är
+  borta: trabord + lekmatta med motivets värld (se §4). Mattan är platta fyllningar (noll
+  gradienter/texturbakningar per runda) och bara kulisse — ingen träffyta.
 
 - 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): `_onComplete` spelade eget
   vinstljud och eget konfettiregn, och kurv-rundornas `_celebrateLine` sa ett eget PRAISE — allt

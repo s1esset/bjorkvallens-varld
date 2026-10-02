@@ -11,7 +11,8 @@
 // med tap-tap (tappa nästa prick) som med drag. Står barnet stilla en stund tänds nästa
 // prick automatiskt (auto-hjälp) så rundan ALLTID blir klar. Klart = hela linjen färglagd
 // → motivet vaknar (fylls, får ögon) + ny, svårare form (oändlig, stigande lek). Allt
-// ritas programmatiskt (Pixi Graphics) — inga filer, ingen emoji.
+// ritas programmatiskt (Pixi Graphics) — inga filer, ingen emoji. Pappret ligger på en lekmatta
+// på ett trabord (matta.js) vars värld följer motivet.
 //
 // SVÅRIGHET: varje klarad runda höjer nivån. FÖRSTA rundan är ett motiv (ett berg), så
 // det första barnet ser är en bild att rita. Tidiga nivåer = få prickar, mjuka vägar;
@@ -25,10 +26,10 @@
 import { Container, Graphics, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { bounceIn, breathe, pop, wiggle, sparkle, kvittera } from '../../lib/feedback.js'
-import { randomFrom } from '../../lib/swedish.js'
+import { pase, nastaVariant } from '../../lib/variation.js'
 import { COLORS, shade, tint } from '../../lib/theme.js'
 import { verticalFill } from '../../lib/form.js'
-import { BLEED_X, BLEED_Y } from '../../lib/view.js'
+import { byggSkrivbord, byggMatta } from './matta.js'
 
 // Layout i designkoordinater (1280×720). Pappret ligger på ett ritbord: under det
 // står kritlådan, så scenen är ett skrivbord med papper och kritor — inte ett
@@ -41,9 +42,6 @@ const PAPER = { x: 120, y: 86, w: 1040, h: 424, r: 40 }
 // arket får aldrig konkurrera med det.
 const C_PAPER_TOP = 0xfffefb
 const C_PAPER_BOT = 0xf3ebd9
-// Bordsytan, tonad kring skalets 0xfdf6e3 — samma varma familj, bara belyst uppifrån.
-const C_DESK_TOP = 0xfdf7e8
-const C_DESK_BOT = 0xf0e3c6
 const TRAY = { x: 230, y: 566, w: 820, h: 128, r: 24 } // kritlådan under pappret
 const CRAYON_Y = 600 // kritornas mittpunkt (de sticker upp ur lådan)
 const CRAYON_XS = [320, 480, 640, 800, 960] // 160 px isär → 36 px mellan träffytorna
@@ -332,16 +330,20 @@ export default {
     this._root = new Container()
     ctx.stage.addChild(this._root)
 
-    // SKRIVBORDET. Filhuvudet har alltid sagt att scenen är ett bord med papper och
-    // kritor, men spelet ritade ingen yta alls — det lutade sig mot skalets `COLORS.bg`,
-    // som är EN ton över hela skärmen (uppmätt 335 511 px = 36 %). Så fort pappret slutade
-    // vara platt blev bordet spelets största enfärgade fält. Full bleed, så en bred telefon
-    // aldrig ser skalets kant.
-    this._desk = new Graphics()
-      .rect(-BLEED_X, -BLEED_Y, ctx.width + 2 * BLEED_X, ctx.height + 2 * BLEED_Y)
-      .fill(verticalFill(C_DESK_TOP, C_DESK_BOT))
-    this._desk.eventMode = 'none'
+    // RITBORDET (matta.js, L2): ett trabord med plankor, och på det en lekmatta vars värld
+    // följer motivet (berg, hav, natthimmel …; mintmatta för kurv-rundor). Förut en krämplatta
+    // i EN ton (335 511 px). Full bleed, så en bred telefon aldrig ser skalets kant.
+    this._desk = byggSkrivbord(ctx.width, ctx.height)
     this._root.addChild(this._desk)
+    this._mattaLager = new Container()
+    this._mattaLager.eventMode = 'none'
+    this._mattaLager.interactiveChildren = false
+    this._root.addChild(this._mattaLager)
+    this._matta = null
+    this._mattaTw = null
+    // Motiven efter planen dras ur en påse (U2) — färsk per start, modulen är en singleton.
+    this._motivPase = pase(MOTIFS)
+    this._kurva = null
 
     // Arket ligger PÅ skrivbordet: en mjuk skugga under det. Egen Graphics, inte samma
     // som pappret — skuggan får inte växa den interaktiva träffytan.
@@ -506,6 +508,7 @@ export default {
     this._color = CRAYONS[this._crayonIx].color
     const { points, motif } = this._genShape()
     this._motif = motif || null
+    this._byttMatta(this._motif?.key ?? null)
     this._drawSilhouette()
 
     this._dots = []
@@ -561,23 +564,51 @@ export default {
     ]
     if (r < plan.length) return plan[r]()
 
-    // Bortom planen: oändlig lek. Övervägande motiv (det är dem barnet vill rita),
-    // ibland en tätare kurva som handträning.
+    // Bortom planen: oändlig lek. Övervägande motiv (det är dem barnet vill rita) — ur
+    // en påse, så alla åtta visas innan något återkommer. Ibland en tätare kurva som
+    // handträning, aldrig samma kurva två gånger i rad (U2).
     const extra = Math.min(3, 1 + Math.floor((r - plan.length) / 4))
-    if (Math.random() < 0.65) return this._motifShape(randomFrom(MOTIFS).key)
+    if (Math.random() < 0.65) return this._motifShape(this._motivPase.nasta().key)
     const advanced = [
-      () => ({ points: genWave(7 + extra, B, 2 + Math.random(), 120 + Math.random() * 20) }),
-      () => ({ points: genZigzag(7 + extra, B) }),
-      () => ({ points: genSpiral(8 + extra, B) }),
-      () => ({ points: subdivide(genSquare(B), extra) }),
-      () => ({ points: genStairs(7 + extra, B) }),
+      { id: 'vag', gen: () => ({ points: genWave(7 + extra, B, 2 + Math.random(), 120 + Math.random() * 20) }) },
+      { id: 'sicksack', gen: () => ({ points: genZigzag(7 + extra, B) }) },
+      { id: 'spiral', gen: () => ({ points: genSpiral(8 + extra, B) }) },
+      { id: 'fyrkant', gen: () => ({ points: subdivide(genSquare(B), extra) }) },
+      { id: 'trappa', gen: () => ({ points: genStairs(7 + extra, B) }) },
     ]
-    return randomFrom(advanced)()
+    const val = nastaVariant(advanced, this._kurva)
+    this._kurva = val.id
+    return val.gen()
   },
 
   _motifShape(key) {
     const m = MOTIFS.find((x) => x.key === key) || MOTIFS[0]
     return { points: motifPoints(m), motif: m }
+  },
+
+  // Byter lekmatta till motivets värld. Nya mattan tonar in OVANPÅ den gamla (som rivs
+  // när tonen är klar), så bordet aldrig blinkar fram mellan två rundor. Tweenen sparas och
+  // dödas både här (nästa runda) och i destroy().
+  _byttMatta(key) {
+    if (!this._alive || !this._mattaLager || this._mattaLager.destroyed) return
+    this._mattaTw?.kill()
+    this._mattaTw = null
+    const gammal = this._matta
+    for (const barn of this._mattaLager.children.slice()) if (barn !== gammal) barn.destroy({ children: true })
+    const ny = byggMatta(key)
+    this._mattaLager.addChild(ny)
+    this._matta = ny
+    if (!gammal || gammal.destroyed) return
+    ny.alpha = 0
+    this._mattaTw = gsap.to(ny, {
+      alpha: 1,
+      duration: 0.6,
+      ease: 'sine.inOut',
+      onComplete: () => {
+        this._mattaTw = null
+        if (!gammal.destroyed) gammal.destroy({ children: true })
+      },
+    })
   },
 
   // Blek konturskiss av motivet bakom prickarna — barnet SER vad det ska bli.
@@ -881,6 +912,8 @@ export default {
     this._pulseTween?.kill()
     this._breath?.kill()
     this._breath = null
+    this._mattaTw?.kill()
+    this._mattaTw = null
     if (this._paper && !this._paper.destroyed) {
       this._paper.off('pointerdown', this._onDown)
       this._paper.off('globalpointermove', this._onMove)

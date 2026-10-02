@@ -123,6 +123,17 @@ räknar ingenting, auto-hjälpen kortsluter agensen och byn vaknar aldrig till l
 
 ## 5. Status / loggar
 
+- 2026-10-02 ✅ **Molnet går att kasta** (F3 B2, FYSIKPLAN §5.4 / G2): släppfarten skrevs förut över
+  med slumpdrift (`_onCloudUp`). Nu mäts fingrets (molnets) spår som i `DragController` — 90 ms
+  fönster, 130 ms ålder, provet bortom två fönster förkastas (`_slappFart`; en lokal kopia tills
+  `lib/pekspar.js` finns). Över `KAST_MIN` 0,4 px/ms behålls farten (tak 1,1 px/ms ≈ 18 px/bildruta),
+  under den gäller dagens drift ±0,15. Ett kastat moln bromsas (0,96 per bildruta) ned till
+  drifttakten, studsar mot himmelsbandets kanter (0,85 i fart, dunsljud + puff bara över 3 px/bildruta)
+  och kan alltid fångas igen. Kastet är en BONUS — målet (ladda, para ihop) nås som förut utan kast.
+  Whoosh + stämd glid-ton + puff vid släpp. Fasta byar nivå 0–5 orörda. Mätvärde: `g._kastN` räknar kast;
+  ett kastat moln har `vx/vy` ≫ 0,15 direkt efter släpp. Risk: ett gnid-släpp i full fart kan
+  bli ett litet kast — gränsen 0,4 px/ms är vald för att en gnidning (vänd riktning inom 90 ms) sällan når den.
+
 - 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): regnbågen byggs nu med byn —
   sex svaga band (alfa 0,14) står i himlen bakom husen från start, och varje tänd lampa tänder
   `round(6·tända/lampor)` band med en liten gnista (2 lampor → 3+3, 5 → 1,2,4,5,6). Bågen

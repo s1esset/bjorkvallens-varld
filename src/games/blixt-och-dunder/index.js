@@ -14,7 +14,7 @@
 import { Container, Graphics, Text, Circle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { createScene } from '../../lib/scene.js'
-import { bounceIn, pop, sparkle, burst, floatText, shake, breathe } from '../../lib/feedback.js'
+import { bounceIn, pop, sparkle, burst, floatText, shake, breathe, puff } from '../../lib/feedback.js'
 import { COLORS, FONT } from '../../lib/theme.js'
 import { makeKaraktar } from '../../lib/karaktarer.js'
 import { randomFrom, shuffle } from '../../lib/swedish.js'
@@ -46,6 +46,15 @@ const SMOKE_RISE = 74 // px puffen stiger innan den tunnas ut
 // Regnbågen som tänds en andel per lampa (se _buildRainbow/_lightRainbow).
 const RAINBOW_COLS = [0xff6b6b, 0xff8a3d, 0xffd35c, 0x5bbf6a, 0x4aa3df, 0xa78bfa]
 const RAINBOW_DIM = 0.14 // otänt band: en aning i himlen, inte ett mål att trycka på
+
+// Kast: släppfarten behålls över gränsen (samma fönster och ålder som DragController:s kast —
+// 90 ms bakåt, spåret förfaller efter 130 ms stillhet). Under gränsen gäller dagens lugna drift.
+const KAST_FONSTER = 90 // ms bakåt som farten mäts över
+const KAST_ALDER = 130 // ms — äldre sista prov = fingret stod still, alltså inget kast
+const KAST_MIN = 0.7 // px/ms (≈ 12 px/bildruta) — lägre än så är det ett släpp, inte ett kast (0,4 tog ett vanligt dragtempo)
+const KAST_MAX = 1.1 // px/ms — taket så molnet aldrig rymmer (≈ 18 px/bildruta)
+const KAST_BROMS = 0.96 // fartkvot per 16,67 ms över drifttakten — molnet glider ut och lugnar sig
+const DRIFT_FART = 0.19 // px/bildruta — under detta rör bromsen inte (drifttakten är högst 0,15)
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
 
@@ -380,6 +389,7 @@ export default {
     cloud._downGX = e.global.x
     cloud._downGY = e.global.y
     cloud._moved = false
+    cloud._spar = [{ t: performance.now(), x: cloud.x, y: cloud.y }] // molnets spår, för kastet
     cloud.vx = 0
     cloud.vy = 0
     cloud._autoHelp = false
@@ -396,6 +406,10 @@ export default {
     const p = this._cloudLayer.toLocal(e.global)
     cloud.x = clamp(p.x + cloud._grabDX, BAND.x0, BAND.x1)
     cloud.y = clamp(p.y + cloud._grabDY, BAND.y0, BAND.y1)
+    if (cloud._spar) {
+      cloud._spar.push({ t: performance.now(), x: cloud.x, y: cloud.y })
+      if (cloud._spar.length > 6) cloud._spar.shift()
+    }
     const moved = Math.hypot(e.global.x - cloud._downGX, e.global.y - cloud._downGY)
     if (moved > 14) cloud._moved = true
     // Gnid-laddning medan fingret rör sig (throttlat, aldrig bestraffande).
@@ -408,12 +422,42 @@ export default {
     cloud.off('globalpointermove', cloud._moveHandler)
     if (this._activeCloud === cloud) {
       if (!cloud._moved) this._chargeTap(ctx, cloud) // ren tryckning → laddningssteg
-      // Ge tillbaka en lugn drift.
-      cloud.vx = (Math.random() * 2 - 1) * 0.15
-      cloud.vy = (Math.random() * 2 - 1) * 0.1
+      // Snärt över gränsen → molnet KASTAS iväg med fingrets fart. Annars: lugn drift som förut.
+      const k = cloud._moved ? this._slappFart(cloud) : null
+      if (k && k.fart >= KAST_MIN) {
+        const m = Math.min(1, KAST_MAX / k.fart)
+        cloud.vx = k.vx * m * 16.67 // px/ms → px/bildruta (driften räknar i dt = ms/16,67)
+        cloud.vy = k.vy * m * 16.67
+        this._kastN = (this._kastN || 0) + 1
+        ctx.services.audio.sfx('whoosh')
+        ctx.services.audio.tone({ freq: 300 + 300 * Math.min(1, k.fart / KAST_MAX), slideTo: 180, dur: 0.18, type: 'sine', vol: 0.08 })
+        puff(ctx.fxLayer, cloud.x, cloud.y + 10, { count: 5, color: 0xffffff })
+      } else {
+        cloud.vx = (Math.random() * 2 - 1) * 0.15
+        cloud.vy = (Math.random() * 2 - 1) * 0.1
+      }
+      cloud._spar = null
       this._activeCloud = null
     }
     this._idle = 0
+  },
+
+  // Fingrets fart vid släpp i px/ms, eller null om det inte var en snärt (se KAST_*). Samma
+  // två fällor som DragController: ett fönster som är för långt späder ut snärten, och ett
+  // sista prov som är gammalt betyder att fingret stod still.
+  _slappFart(cloud) {
+    const sp = cloud._spar
+    if (!sp || sp.length < 2) return null
+    const nu = sp[sp.length - 1]
+    if (performance.now() - nu.t > KAST_ALDER) return null
+    let i = sp.length - 2
+    while (i > 0 && nu.t - sp[i].t < KAST_FONSTER) i--
+    if (i < sp.length - 2 && nu.t - sp[i].t > 2 * KAST_FONSTER) i++
+    const dt = nu.t - sp[i].t
+    if (!(dt > 0)) return null
+    const vx = (nu.x - sp[i].x) / dt
+    const vy = (nu.y - sp[i].y) / dt
+    return { vx, vy, fart: Math.hypot(vx, vy) }
   },
 
   _rubCharge(ctx, cloud) {
@@ -521,12 +565,28 @@ export default {
         cloud.x += (cloud._autoTX - cloud.x) * 0.07 * dt
         cloud.y += (cloud._autoTY - cloud.y) * 0.07 * dt
       } else {
+        // Ett kastat moln glider ut: bromsen verkar bara över drifttakten, så det landar i den
+        // vanliga lugna driften (och kan alltid fångas med ett finger).
+        const fart = Math.hypot(cloud.vx, cloud.vy)
+        if (fart > DRIFT_FART) {
+          const br = Math.pow(KAST_BROMS, dt)
+          cloud.vx *= br
+          cloud.vy *= br
+        }
         cloud.x += cloud.vx * dt
         cloud.y += cloud.vy * dt
-        if (cloud.x <= BAND.x0) cloud.vx = Math.abs(cloud.vx)
-        else if (cloud.x >= BAND.x1) cloud.vx = -Math.abs(cloud.vx)
-        if (cloud.y <= BAND.y0) cloud.vy = Math.abs(cloud.vy)
-        else if (cloud.y >= BAND.y1) cloud.vy = -Math.abs(cloud.vy)
+        let studs = false
+        const e = fart > DRIFT_FART ? 0.85 : 1 // drifttakten tappar aldrig fart mot kanten
+        if (cloud.x <= BAND.x0 && cloud.vx < 0) { cloud.vx = -cloud.vx * e; studs = true }
+        else if (cloud.x >= BAND.x1 && cloud.vx > 0) { cloud.vx = -cloud.vx * e; studs = true }
+        if (cloud.y <= BAND.y0 && cloud.vy < 0) { cloud.vy = -cloud.vy * e; studs = true }
+        else if (cloud.y >= BAND.y1 && cloud.vy > 0) { cloud.vy = -cloud.vy * e; studs = true }
+        // Studs mot himmelsbandets kant: en mjuk duns, bara när molnet faktiskt kommit i fart.
+        if (studs && fart > 3 && this._t - (cloud._studsT || -9) > 0.25) {
+          cloud._studsT = this._t
+          ctx.services.audio.tone({ freq: 190, slideTo: 130, dur: 0.1, type: 'sine', vol: 0.07 })
+          puff(ctx.fxLayer, cloud.x, cloud.y, { count: 3, color: 0xffffff })
+        }
       }
       cloud.x = clamp(cloud.x, BAND.x0, BAND.x1)
       cloud.y = clamp(cloud.y, BAND.y0, BAND.y1)

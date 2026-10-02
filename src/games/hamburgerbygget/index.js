@@ -25,6 +25,7 @@ import { COLORS, FONT } from '../../lib/theme.js'
 import { BLEED_X, BLEED_Y } from '../../lib/view.js'
 import { verticalFill, groundFill } from '../../lib/form.js'
 import { ITEMS, makeItemView } from './ingredienser.js'
+import { vippa } from '../../lib/vippa.js'
 import { makeBullkropp, stegBulle, sattVikt, aterstall, ritaBulle, froFasten, rorelse } from './bulle.js'
 
 const BUILD = { x: 880, y: 596 } // _burger-origo: fatets yta (underbullens botten) — HÖGER
@@ -47,6 +48,7 @@ const STACK_VIKT_FULL = 300
 const THUMP_UNDER = 5 // px impuls i underbullen när ett lager landar
 const THUMP_OVER = 6 // px impuls i locket (det faller ner på det nya lagret)
 const BULLE_RORD = 0.01 // ritas om bara medan den faktiskt rör sig (vilan är exakt 0)
+const SVAJ_MAX = 0.07 // stapelns högsta svaj (skev, rad) — taket: den svajar, den välter aldrig
 
 // Svepbar hylla.
 const SHELF_Y = 672
@@ -151,7 +153,14 @@ export default {
     this._bottomBun.y = -BOTTOM_BUN_H / 2
     this._stackLayer = new Container()
     this._topBun = makeBunTop()
-    this._burger.addChild(this._bottomBun, this._stackLayer, this._topBun)
+    // Stapeln + locket bor i ett INRE barn, `_svaj`, som får en liten skevning (P2 vippa): fotpunkten
+    // (underbullens botten, y 0) står still och toppen svajar mest — en hög stapel vaggar, aldrig
+    // välter (max 0,07 rad ≈ 24 px på den högsta). `_svaj` bär ingen hitArea och är inget
+    // drag-mål (lagren bär sina egna); `_layoutStack` skriver bara lagrens y, aldrig `_svaj`.
+    this._svaj = new Container()
+    this._svaj.addChild(this._stackLayer, this._topBun)
+    this._burger.addChild(this._bottomBun, this._svaj)
+    this._vippa = vippa(this._svaj, { axel: 'skev', max: SVAJ_MAX, k: 130, damp: 0.16, ticker: ctx.ticker })
     this._repositionTopBun()
     this._root.addChild(this._burger)
 
@@ -821,7 +830,7 @@ export default {
     this._stack.splice(clamp(index, 0, this._stack.length), 0, view)
     this._restack()
     // Tunga lager smäller hårdare i brödet än ett salladsblad.
-    this._bulleStot(clamp(view._th / 46, 0.6, 1.5))
+    this._bulleStot(clamp(view._th / 46, 0.6, 1.5), view.x < 0 ? -1 : 1)
     bounceIn(view)
     sparkle(ctx.fxLayer, BUILD.x + view.x, BUILD.y + view.y, { count: 4 })
     ctx.services.audio.sfx('pop')
@@ -849,7 +858,7 @@ export default {
     this._stackLayer.addChild(view)
     this._stack.splice(clamp(index, 0, this._stack.length), 0, view)
     this._restack()
-    this._bulleStot(clamp((view._th || 40) / 46, 0.6, 1.5))
+    this._bulleStot(clamp((view._th || 40) / 46, 0.6, 1.5), view.x < 0 ? -1 : 1)
   },
 
   // Gör ett staplat lager greppbart (om-drag).
@@ -899,7 +908,10 @@ export default {
   // Ett lager landade: en IMPULS i båda bröden. `skjut` och inte `falt` — verlet läser
   // en positionsändring utan motsvarande `px`-ändring som FART, vilket är precis vad en
   // landning är. Underbullen tar smällen, locket faller ner på det nya lagret.
-  _bulleStot(styrka = 1) {
+  _bulleStot(styrka = 1, sida = 1) {
+    // Stapeln svajar åt det håll lagret landade (sida ±1); ett tungt lager = större svaj. Nya
+    // stötar mitt i en gungning adderas, men `max` klämmer — aldrig mer än SVAJ_MAX.
+    this._vippa?.stot(sida * clamp(styrka * 0.7, 0.45, 1))
     if (this._bottomBun?._soft) this._bottomBun._soft.skjut(0, THUMP_UNDER * styrka)
     if (this._topBun?._soft) this._topBun._soft.skjut(0, THUMP_OVER * styrka)
   },
@@ -1279,6 +1291,8 @@ export default {
     this._autoOff?.kill()
     this._resetTimer?.kill()
     this._serveTween?.kill()
+    this._vippa?.destroy()
+    this._vippa = null
     this._rig?.destroy()
     this._rig = null
     // Gästerna (egna figurer) tickar på ctx.ticker och måste rivas före rötterna.

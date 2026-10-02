@@ -121,7 +121,19 @@ Originaltexten för de avbockade punkterna står kvar nedan.
   fräs-toner som tätnar med `_bake` under grillningen (:952) och ett sizzel per pålägg
   (`sample('sizzle')` med syntes-reserv, :746) — uppdagat 2026-09-23.
 
+- [Quick] **Svajets pivå (P2, 2026-10-02 kritik):** `_svaj` skevar kring fatets y 0, inte underbullens ovansida — lägsta lagret glider 2–3 px i sidled mot underbullen första 0,12 s. `_svaj.pivot.y = _svaj.y = -<underbullens höjd>` om det syns.
+
 ## 5. Status / loggar
+
+- 2026-10-02 · **Stapeln svajar (FYSIKPLAN P2, `lib/vippa.js`).** Burgarens stapel (`_stackLayer`) och locket
+  bor nu i ett inre barn `_svaj` mellan `_burger` och lagren; `vippa(_svaj, { axel: 'skev', max: 0,045, k: 130,
+  damp: 0,16 })` ger en liten skevning med foten (fatet) still och toppen svajande — som mest ≈ 16 px på den
+  högsta stapeln, så den vaggar men välter aldrig (`max` är taket även vid stötsalva). `_bulleStot` (anropas
+  av `_insertLayer` och `_reinsertView`) ger stöten: åt det håll lagret landade, tyngre lager = större. Bullens
+  `Mjukkropp` rörs inte och `_layoutStack` skriver fortfarande bara lagrens y — olika nod, olika axel.
+  Lagrens `hitArea`/drag-logik är orörda (`_svaj` bär ingen). `destroy()` rivs i spelets destroy; en vippa per
+  spelomgång, inget per runda att riva.
+
 
 - 2026-10-01 · **Barnets egna figurer (LYFTPLAN §10, v1.287.0).** Premissen "grillmästaren äter" höll, men en
   hel kund-kö hade gjort om loopen — byggt det minsta: serveringsluckan har EN gäst åt gången.

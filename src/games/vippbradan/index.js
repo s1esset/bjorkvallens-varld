@@ -17,6 +17,7 @@ import { Button } from '../../lib/Button.js'
 import { puff, sparkle, floatText, pop, wiggle, bounceIn , kvittera} from '../../lib/feedback.js'
 import { COLORS, FONT } from '../../lib/theme.js'
 import { randomFrom } from '../../lib/swedish.js'
+import { slumpIBand } from '../../lib/variation.js'
 
 const { Constraint, Composite, Body } = Matter
 
@@ -152,17 +153,24 @@ export default {
   // ---- Scen ----------------------------------------------------------------
 
   _buildScene(ctx) {
-    this._root.addChild(createScene('meadow', { width: ctx.width, height: ctx.height, ground: false }))
+    // L1: en äng med trädlinje bakom och strån framför. Marken är bara 20 px hög (horisonten på
+    // FLOOR_Y = 700), så trädlinjen och kullarna ligger LÅGT bakom brädan och himlen får vara
+    // himmel — inget högt bakom skalets knappar uppe till vänster.
+    this._root.addChild(
+      createScene('meadow', { width: ctx.width, height: ctx.height, ground: true, groundH: ctx.height - (FLOOR_Y - 96), silhuett: 'skog', forgrund: true, fro: 3 }),
+    )
 
-    // Mark + triangel-stöd (dekorativt; brädan hålls av constrainten).
+    // Triangel-stöd (dekorativt; brädan hålls av constrainten). Marken är scenens egen.
     const deco = new Graphics()
-    deco.rect(0, FLOOR_Y, ctx.width, ctx.height - FLOOR_Y).fill(COLORS.green)
-    deco.rect(0, FLOOR_Y, ctx.width, 10).fill({ color: COLORS.greenDark, alpha: 0.5 })
+    deco.ellipse(CX + 6, FLOOR_Y + 6, 112, 10).fill({ color: 0x000000, alpha: 0.16 }) // markskugga
     deco.moveTo(CX - 80, FLOOR_Y)
     deco.lineTo(CX + 80, FLOOR_Y)
     deco.lineTo(CX, PIVOT_Y + 18)
     deco.closePath()
     deco.fill(COLORS.orange).stroke({ width: 4, color: COLORS.orangeDark })
+    // Skuggad högersida så stödet läser som en kropp med volym, inte en platt triangel.
+    deco.moveTo(CX, PIVOT_Y + 22).lineTo(CX + 76, FLOOR_Y - 2).lineTo(CX, FLOOR_Y - 2).closePath()
+    deco.fill({ color: COLORS.orangeDark, alpha: 0.35 })
     deco.eventMode = 'none'
     deco.interactiveChildren = false
     this._root.addChild(deco)
@@ -322,9 +330,12 @@ export default {
 
     // Korgen står nära skärmens HÖGRA kant och flyttas högre för varje nivå
     // (men alltid på skärmen och alltid nåbar).
-    const tx = clamp(1080 + level * 24, 1080, 1180)
-    const ty = clamp(450 - level * 16, 320, 450)
-    const r = clamp(100 - level * 4, 72, 100)
+    // U2: nivåns värde är bandets MITT — korgen hamnar olika varje gång, men bandet ligger
+    // inom det spann nivåerna redan täcker (x 1080–1180, y 320–450, r 72–100) plus en liten
+    // marginal. Nåbarheten är given: `_launchVel` löser bågen mot korgen vart den än står.
+    const tx = slumpIBand(clamp(1080 + level * 24, 1080, 1180), 36, { golv: 1060, tak: 1130 }) // tak 1130: Bobo (x+128, max 1226) täcker annars korgen
+    const ty = slumpIBand(clamp(450 - level * 16, 320, 450), 32, { golv: 320, tak: 460 })
+    const r = slumpIBand(clamp(100 - level * 4, 72, 100), 5, { golv: 70, tak: 102 })
     this._bytMottagare(ctx)
     this._setTarget(ctx, tx, ty, r)
 

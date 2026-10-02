@@ -29,6 +29,12 @@ const KAST_FONSTER = 90 // ms bakåt som farten mäts över
 const KAST_ALDER = 130 // ms — äldre sista prov = fingret STOD STILL, alltså inget kast
 const KAST_PROV = 6 // ringbuffertens längd
 
+// PEKAR-ID (FYSIKPLAN K2). `globalpointermove` levereras för VARJE pekare, så ett andra finger
+// (eller en handflata) drog annars föremålet till sig. Greppet minns fingrets `pointerId` och
+// ignorerar allt annat. Saknas id (en syntetisk händelse) släpps den igenom — dagens beteende.
+const GREPP_FASTNAT = 2000 // ms utan rörelse — då har släppet aldrig nått fram (se `_onDown`)
+const annatFinger = (rec, e) => rec._pid != null && e && e.pointerId != null && e.pointerId !== rec._pid
+
 export class DragController {
   // `skugga` är OPT-IN: ungefär hälften av spelen ritar redan en egen skugga under
   // sina föremål, och två skuggor som glider isär under ett snabbt drag syns direkt.
@@ -79,8 +85,21 @@ export class DragController {
   }
 
   _onDown(rec, e) {
-    if (this.active || rec.placed) return
+    if (rec.placed) return
+    if (this.active) {
+      // Skyddsnät: ett nytt tryck på SAMMA föremål medan greppet stått kvar > 2 s utan rörelse
+      // betyder att det gamla fingrets släpp aldrig kom fram. Avsluta det gamla greppet som ett
+      // vanligt släpp (aldrig ett straff) och ta det nya. Annars: ett finger i taget.
+      if (this.active !== rec || performance.now() - (rec._senastRort || 0) < GREPP_FASTNAT) return
+      this._onUp(rec)
+      if (rec.placed) return
+      // Släppets snäpp-/skal-/lutningstweens ska inte tävla med det nya greppet.
+      gsap.killTweensOf(rec.view)
+      gsap.killTweensOf(rec.view.scale)
+    }
     this.active = rec
+    rec._pid = e.pointerId ?? null
+    rec._senastRort = performance.now()
     rec.dragging = false
     const p = this.space.toLocal(e.global)
     rec.grabDX = rec.view.x - p.x
@@ -113,14 +132,15 @@ export class DragController {
     rec._tick = () => this._dragTick(rec)
     gsap.ticker.add(rec._tick)
     rec._move = (ev) => this._onMove(rec, ev)
-    rec._up = () => this._onUp(rec)
+    rec._up = (ev) => this._onUp(rec, ev)
     rec.view.on('globalpointermove', rec._move)
     rec.view.on('pointerup', rec._up)
     rec.view.on('pointerupoutside', rec._up)
   }
 
   _onMove(rec, e) {
-    if (this.active !== rec) return
+    if (this.active !== rec || annatFinger(rec, e)) return
+    rec._senastRort = performance.now()
     const p = this.space.toLocal(e.global)
     if (!rec.dragging && Math.hypot(p.x - rec.startX, p.y - rec.startY) > this._moveThreshold) {
       rec.dragging = true
@@ -189,8 +209,8 @@ export class DragController {
     }
   }
 
-  _onUp(rec) {
-    if (this.active !== rec) return
+  _onUp(rec, e) {
+    if (this.active !== rec || annatFinger(rec, e)) return
     this._detach(rec)
     this.active = null
     logDrag('slapp', { dragen: !!rec.dragging, x: Math.round(rec.tx), y: Math.round(rec.ty), data: kort(rec.data) })
@@ -245,6 +265,7 @@ export class DragController {
       rec.view.off('pointerupoutside', rec._up)
     }
     rec._move = rec._up = null
+    rec._pid = null
   }
 
   // Mjuk ellipsskugga strax UNDER föremålet i dess egen förälder (aldrig i space —

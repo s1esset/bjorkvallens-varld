@@ -25,6 +25,11 @@ import { logAim } from './gamelog.js'
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
 
+// PEKAR-ID (FYSIKPLAN K2): greppet minns fingrets `pointerId`; ett andra finger (eller en
+// handflata) som rör sig eller lyfts får varken sikta eller skjuta. Saknas id släpps händelsen
+// igenom (syntetiska händelser) — dagens beteende.
+const GREPP_FASTNAT = 2000 // ms utan rörelse — då har släppet aldrig nått fram (se `_pointerDown`)
+
 export class AimLauncher {
   constructor(opts = {}) {
     this.target = opts.target
@@ -53,6 +58,8 @@ export class AimLauncher {
     this._alive = true
     this._aiming = false
     this._down = null
+    this._pid = null
+    this._senastRort = 0
 
     this._trail = new Graphics()
     this._trail.eventMode = 'none'
@@ -89,7 +96,15 @@ export class AimLauncher {
 
   _pointerDown(e) {
     if (!this._alive || !this.enabled || !this.target || this.target.destroyed) return
+    if (this._aiming) {
+      // Ett finger i taget. Skyddsnät: har greppet stått kvar > 2 s utan rörelse kom det gamla
+      // fingrets släpp aldrig fram — avbryt det (inget skott) och låt det nya tryckandet börja om.
+      if (performance.now() - this._senastRort < GREPP_FASTNAT) return
+      this._cancel()
+    }
     this._aiming = true
+    this._pid = e.pointerId ?? null
+    this._senastRort = performance.now()
     this._down = this.root.toLocal(e.global)
     logAim('sikte-start', { x: Math.round(this._down.x), y: Math.round(this._down.y) })
     this.audio?.sfx('tap')
@@ -119,15 +134,20 @@ export class AimLauncher {
   }
 
   _pointerMove(e) {
-    if (!this._aiming) return
+    if (!this._aiming || this._annatFinger(e)) return
+    this._senastRort = performance.now()
     const p = this.root.toLocal(e.global)
     const v = this._velFrom(p)
     this._drawTrail(v.vx, v.vy)
     this.onAim?.(v)
   }
 
+  _annatFinger(e) {
+    return this._pid != null && e && e.pointerId != null && e.pointerId !== this._pid
+  }
+
   _pointerUp(e) {
-    if (!this._aiming) return
+    if (!this._aiming || this._annatFinger(e)) return
     this._aiming = false
     this._detach()
     this._hideTrail()
@@ -211,6 +231,7 @@ export class AimLauncher {
 
   _cancel() {
     this._aiming = false
+    this._pid = null
     this._detach()
     this._hideTrail()
   }

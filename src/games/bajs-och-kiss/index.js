@@ -6,8 +6,8 @@
 // Full mätare => stort spol-firande + nästa nivå. Två extra kontroller styr utfallet:
 //   (a) en bajs-STORLEK (liten/mellan/stor) som sätter massa+täthet via MATERIALS
 //       (stor = tung = kort tung båge; liten = lätt = flyger längre), och
-//   (b) en "pruttvind" 💨-knapp som blåser korven mot pottan (phys.setWind +
-//       launcher.setPreview så pricklinjen matchar). Vinden är ALLTID barnets val —
+//   (b) en "pruttvind" 💨-knapp som blåser korven mot pottan (en kon ur lib/vind.js från
+//       kompisens hand + launcher.setPreview så pricklinjen matchar). Vinden är ALLTID barnets val —
 //       den slås aldrig på automatiskt, men knappen bjuder in sig själv när det behövs.
 // INGET game-over: missar landar roligt (puff + fniss), och efter ett par missar
 // hjälper kompisen till med ett garanterat plopp. Mätaren går bara UPP. Allt ritas
@@ -16,6 +16,7 @@ import { Container, Graphics, Circle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { PhysicsWorld, MATERIALS, Body } from '../../lib/physics.js'
 import { AimLauncher } from '../../lib/launcher.js'
+import { Vindfalt } from '../../lib/vind.js'
 import { createScene, lerpColor } from '../../lib/scene.js'
 import { puff, sparkle, floatText, pop, shake } from '../../lib/feedback.js'
 import { Button } from '../../lib/Button.js'
@@ -26,6 +27,16 @@ import { slumpIBand, rundprofil } from '../../lib/variation.js'
 
 const FLOOR_Y = 600 // golvets ovansida (design-y)
 const PED_H = 156 // toalettens höjd från skålöppning ner till fot (lokala px)
+// Kastet — launcherns tal bor här så pruttvindens förhandsbana räknar på EXAKT samma båge.
+const KAST_MAX = 24
+const KAST_TAP = 0.85
+const FORHANDS_G = 0.42
+// PRUTTVINDEN (lib/vind.js): luftens fart i konens mitt (px/steg). Kalibrerad så att korven skjuts lika långt
+// som den gamla globala vinden (0,139 px/steg² på en vanlig korv): kon/global = 1,08× över tre pottlägen
+// (`node scripts/_vindprobe.mjs --bara E`). Fångfaktorn gör att liten/mellan/stor får SAMMA knuff som förr
+// (vinden var massa- och motståndsblind) — ta bort den så följer en lätt korv med mer än en tung.
+const PRUTT_LUFT = 16
+const FANG_FA = 0.01 // frictionAir på en vanlig korv — `fa · fang` = 0,01 för alla storlekar
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
 
 // Snäll auto-hjälp: garantera ett plopp först efter så här många missar. Höjt från 2 → 4
@@ -109,9 +120,7 @@ export default {
     // Pruttvind (blåser korven mot pottan = åt höger). Hjälpsam, aldrig bestraffande,
     // och ALLTID barnets eget val.
     this._windOn = false
-    this._windDir = 1
-    this._windMag = 0.0005 // matter-acceleration (≈ halv gravitation i sidled)
-    this._windPreview = 0.13 // pricklinjens vind (px/steg) ungefär matchad
+    this._windT = 0 // tid för den ritade luftströmmen
 
     this._root = new Container()
     ctx.stage.addChild(this._root)
@@ -125,6 +134,16 @@ export default {
       label: 'floor',
     })
     this._unbindCollision = this._phys.onCollision((e) => this._onCollision(ctx, e))
+    // Pruttvinden: en kon från den aktiva kompisens hand mot pottan (inte längre global `setWind`).
+    // Står avstängd tills barnet trycker på knappen; formen riktas om per kast i `_riktaVind`.
+    this._vind = new Vindfalt({
+      varld: this._phys,
+      form: { typ: 'kon', x: 204, y: 514, rackvidd: 1100, halvhojd: 190, vidgning: 0.3 },
+      luft: { x: PRUTT_LUFT, y: 0 },
+      avtag: { langs: 0.4, tvars: 0.5 },
+      filter: (b) => (b.label === 'turd' ? FANG_FA / b.frictionAir : false),
+      aktiv: false,
+    })
     // Anslag: korven plattas mot det den slår i (squash) och låter efter sin storlek/material
     // (liten = gummi, mellan = trä, stor = sten). Sensorn i skålen räknas inte — där är det ploppet.
     const barKorv = (a, b) => !a.isSensor && !b.isSensor && (a.label === 'turd' || b.label === 'turd')
@@ -191,6 +210,10 @@ export default {
     this._root.addChild(this._stoolLayer)
 
     // Lager för flygande korvar (ovanför barnen).
+    // Pruttvindens luftström (lib/vind.js `rita`) — bakom korvarna, ovanför pallen.
+    this._windStream = new Graphics()
+    this._windStream.eventMode = 'none'
+    this._root.addChild(this._windStream)
     this._playLayer = new Container()
     this._playLayer.eventMode = 'none'
     this._root.addChild(this._playLayer)
@@ -207,20 +230,22 @@ export default {
       root: this._root,
       audio: ctx.services.audio,
       slingshot: false,
-      maxPower: 24,
+      maxPower: KAST_MAX,
       minPower: 8,
       powerScale: 0.16,
       hitRadius: 96,
-      tapPower: 0.85,
+      tapPower: KAST_TAP,
       trailColor: 0xfff3b0,
       getOrigin: () => ({ x: this._held.x, y: this._held.y }),
-      previewGravity: 0.42,
+      previewGravity: FORHANDS_G,
       previewWind: 0,
       bounds: { floorY: this._floorY, leftX: 30, rightX: 1250 },
       defaultAim: () => ({ x: this._toilet.x, y: this._toilet.bowlY - 50 }),
       onGrab: () => {
         this._idle = 0
+        this._forhandsVind() // pricklinjen räknar vinden längs just det här kastet
       },
+      onAim: (v) => this._forhandsVind(v.vx, v.vy),
       onLaunch: (v) => this._fire(ctx, v),
     })
     this._launcher.setEnabled(false)
@@ -474,6 +499,8 @@ export default {
     this._restTime = 0
     this._idle = 0
     this._positionKids()
+    this._riktaVind() // konen följer den kompis som kastar
+    this._forhandsVind()
 
     // Ny bajstyp per kast — vanlig är vardagen, glitter/regnbåge är wow-ögonblicken.
     const prev = this._turdType
@@ -579,9 +606,60 @@ export default {
   },
 
   _applyWind() {
-    const mag = this._windOn ? this._windMag * this._windDir : 0
-    this._phys.setWind(mag, 0)
-    this._launcher?.setPreview({ wind: this._windOn ? this._windPreview * this._windDir : 0 })
+    if (this._vind) this._vind.aktiv = this._windOn
+    this._riktaVind()
+    this._forhandsVind()
+  },
+
+  // Konen utgår från den aktiva kompisens hand och når en bit bortom pottan.
+  _riktaVind() {
+    const hand = this._kidHands?.[this._activeKid]
+    if (!this._vind || !hand) return
+    this._vind.flytta(hand.x, hand.y)
+    this._vind.form.rackvidd = this._toilet.x - hand.x + 520
+  },
+
+  // Pricklinjen kan bara bära ETT vind-tal. Det är medelaccelerationen längs den VINDFRIA bana kastet
+  // ger (samma Euler som launchern, till golvet) — konens styrka avtar, så det är banan som avgör. Dagens
+  // globala vind var sann överallt; konens tal hamnar inom ~1 px i vindens bidrag (`_vindprobe --bara E`).
+  // Utan egen kastvektor (grepp, knapptryck) räknas tap-kastet mot pottan.
+  _forhandsVind(vx, vy) {
+    const l = this._launcher
+    if (!l || !this._vind) return
+    if (!this._windOn) {
+      l.setPreview({ wind: 0 })
+      return
+    }
+    const hand = this._kidHands[this._activeKid]
+    if (vx == null) {
+      const dx = this._toilet.x - hand.x
+      const dy = this._toilet.bowlY - 50 - hand.y
+      const len = Math.hypot(dx, dy) || 1
+      vx = (dx / len) * KAST_MAX * KAST_TAP
+      vy = (dy / len) * KAST_MAX * KAST_TAP
+    }
+    const pts = []
+    let px = hand.x
+    let py = hand.y
+    for (let i = 0; i < 64; i++) {
+      vy += FORHANDS_G
+      px += vx
+      py += vy
+      if (py > this._floorY) break
+      pts.push({ x: px, y: py })
+    }
+    l.setPreview({ wind: this._vind.medelAcc(pts, FANG_FA).ax })
+  },
+
+  // Luftströmmen SYNS medan vinden är på: bågar som far från handen mot pottan.
+  _windDraw(dms) {
+    const g = this._windStream
+    if (!g || g.destroyed) return
+    g.clear()
+    if (!this._windOn || !this._vind) return
+    this._windT += dms / 1000
+    const till = Math.max(300, this._toilet.x - this._vind.form.x)
+    this._vind.rita(g, { t: this._windT, antal: 5, fran: 90, till, bag: 26, hojd0: 0.12, hojd1: 0.2, farg: 0x2a9d8f, bredd: 9, alpha: 0.9, takt: 0.7 })
   },
 
   _updateWindButton() {
@@ -1181,6 +1259,7 @@ export default {
     if (!this._alive) return
     const dt = t.deltaMS / 1000
     this._phys.update(t.deltaMS)
+    this._windDraw(t.deltaMS)
     this._idle += dt
     // V21: tomgången räknas från TYSTNAD — påminnelsen får aldrig kapa en replik som talar.
     if (ctx.services.voice.talar) this._idle = 0
@@ -1267,6 +1346,8 @@ export default {
     if (this._cat?.tail) gsap.killTweensOf(this._cat.tail)
     if (this._held) gsap.killTweensOf(this._held)
 
+    this._vind?.destroy()
+    this._vind = null
     this._phys?.destroy()
     gsap.killTweensOf(this._root)
     this._root?._fxShakeTw?.kill() // plopp-skakets tween ligger på ett proxy-objekt

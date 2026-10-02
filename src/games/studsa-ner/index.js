@@ -18,7 +18,8 @@
 // (matter.js + Pixi v8), exit-säkert.
 import { Container, Graphics, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
-import { PhysicsWorld, Body, speedToAccel } from '../../lib/physics.js'
+import { PhysicsWorld, Body } from '../../lib/physics.js'
+import { Vindfalt } from '../../lib/vind.js'
 import { buildAutomat } from './automat.js'
 import { makeBoll } from '../../lib/foremal.js'
 import { sparkle, puff, floatText, breathe, pop } from '../../lib/feedback.js'
@@ -67,7 +68,7 @@ const FAN_BAND = 104 // luftströmmens halva höjd
 // är en lögn mot barnet, så avtagandet är nu svagt (ner till 40 % vid andra kanten).
 const FAN_REACH = 1150 // hur långt strömmen når i sidled (hela brädet)
 const FAN_AVTAG = 0.6 // hur stor DEL av kraften som avtar med avståndet
-const FAN_FART = 110 // px/steg: den sidledsfart strömmen strävar mot (se speedToAccel)
+const FAN_FART = 110 // px/steg: luftens fart i strömmens mitt (lib/vind.js räknar om den via speedToAccel)
 const HIT_THROTTLE = 70 // ms mellan pinn-ljud (anti-spam)
 const AIM_EDGE = 96 // hur nära kanten man får sikta (så tratten stannar på brädet)
 
@@ -147,8 +148,7 @@ export default {
     // ingen konstig/förstärkt tyngdkraft, myntet faller naturligt.
     this._phys = new PhysicsWorld({ gravityY: 1.0, walls: ['floor', 'left', 'right'] })
     this._unbind = this._phys.onCollision((e) => this._onCollision(ctx, e))
-    // Fläktens kraft läggs per FAST fysiksteg (T2) — avregistreras i destroy.
-    this._avFlakt = this._phys.beforeStep(() => this._fanForce())
+    // Fläktens vind (lib/vind.js, F4) byggs med fläkten i _buildFan — den stegar själv per FAST fysiksteg.
 
     this._buildStatic(ctx)
 
@@ -353,6 +353,19 @@ export default {
     fan.on('pointerupoutside', this._onFanUp)
     this._fan = fan
     this._root.addChild(fan)
+
+    // Luftströmmen som ett Vindfalt (F4): ett band från fläktens mitt, FAN_FART px/steg i mitten som
+    // tappar FAN_AVTAG av farten längs hela brädet och allt tvärs mot bandets kant. Kraften är
+    // BIT FÖR BIT densamma som den gamla `_fanForce` (`node scripts/_vindprobe.mjs --bara A`).
+    // Mynten som lagt sig i en ficka blåses inte. Pausas medan ett hjälp-släpp faller (`_fanBlaser`).
+    this._vind = new Vindfalt({
+      varld: this._phys,
+      form: { typ: 'band', x: FAN_X[this._fanSide], y: this._fanY, rackvidd: FAN_REACH, halvhojd: FAN_BAND },
+      luft: { x: FAN_FART, y: 0 },
+      avtag: { langs: FAN_AVTAG, tvars: 1 },
+      filter: (body) => this._balls.some((b) => b.body === body && !b.settled),
+      aktiv: () => this._alive && this._fanBlaser(),
+    })
     this._placeFan()
   },
 
@@ -362,6 +375,9 @@ export default {
     f.x = FAN_X[this._fanSide]
     f.y = this._fanY
     f.scale.x = this._fanSide === 0 ? 1 : -1 // huset vänder sig åt blåsriktningen
+    // Vinden följer fläkten: källan flyttas och luften vänder med huset.
+    this._vind?.flytta(FAN_X[this._fanSide], this._fanY)
+    if (this._vind) this._vind.luft.x = this._fanSide === 0 ? FAN_FART : -FAN_FART
   },
 
   _fanDown(ctx, e) {
@@ -395,29 +411,6 @@ export default {
     ctx.services.audio.sfx('soft')
   },
 
-  // Luftströmmens kraft på mynten. Avtar både med avståndet UT från fläkten och med
-  // höjdskillnaden, så strömmen har en tydlig form i stället för en osynlig rektangel.
-  // Farten anges i px/steg (`FAN_FART`) och räknas om av `speedToAccel` — samma
-  // kalibrering som magnetfältet, av exakt samma skäl (ett tal som ser ut som en fart
-  // blir ~280× för starkt om det skickas rakt in i matter som kraft).
-  _fanForce() {
-    if (!this._alive || !this._fanBlaser()) return
-    const fx = FAN_X[this._fanSide]
-    const dir = this._fanSide === 0 ? 1 : -1
-    for (const ball of this._balls) {
-      if (ball.settled) continue
-      const p = ball.body.position
-      const dy = Math.abs(p.y - this._fanY)
-      if (dy > FAN_BAND) continue
-      const langs = (p.x - fx) * dir
-      if (langs < 0 || langs > FAN_REACH) continue
-      const avtag = (1 - FAN_AVTAG * (langs / FAN_REACH)) * (1 - dy / FAN_BAND)
-      const a = speedToAccel(FAN_FART * avtag, ball.body.frictionAir)
-      Body.applyForce(ball.body, p, { x: ball.body.mass * a * dir, y: 0 })
-      ball._blast = true
-    }
-  },
-
   // Strömmen ritas som tre bågar som vandrar utåt och tonar bort — en fläkt utan synlig
   // luft är bara en propeller, och då finns det inget att förstå för ett barn.
   _fanDraw(dms) {
@@ -430,20 +423,11 @@ export default {
     if (this._fanBlades && !this._fanBlades.destroyed) this._fanBlades.rotation = this._fanSpin
     g.clear()
     if (!blaser) return
-    const fx = FAN_X[this._fanSide]
-    const dir = this._fanSide === 0 ? 1 : -1
     // VIT ström syns inte. Brädet är cremevitt, så de första bågarna (vitt på alpha
     // 0,34) försvann helt i skärmdumpen — och en fläkt vars luft inte syns är bara en
     // propeller. Fläktens EGEN blå mot det ljusa brädet läses direkt som luft i rörelse.
-    for (let i = 0; i < 4; i++) {
-      const fas = (this._fanT * 0.8 + i / 4) % 1
-      const x = fx + dir * (46 + fas * (720 - 46))
-      const h = FAN_BAND * (0.4 + fas * 0.62)
-      const alpha = 0.5 * (1 - fas) * (1 - fas * 0.7)
-      g.moveTo(x, this._fanY - h)
-        .quadraticCurveTo(x + dir * 30, this._fanY, x, this._fanY + h)
-        .stroke({ width: 7, color: 0x5aa9e6, alpha, cap: 'round' })
-    }
+    // Ritningen ligger i lib/vind.js (`rita`): fyra bågar som vandrar 46 → 720 px och tonar bort.
+    this._vind?.rita(g, { t: this._fanT, antal: 4, fran: 46, till: 720, bag: 30, farg: 0x5aa9e6, bredd: 7, alpha: 0.5 })
   },
 
   // Blåser fläkten just nu? Under ett HJÄLP-släpp pausar den (bladen stannar, strömmen
@@ -904,7 +888,7 @@ export default {
 
   _update(ctx, t) {
     if (!this._alive) return
-    // Fläktens kraft ligger i phys.beforeStep (_fanForce) — en gång per fysiksteg, inte per bildruta.
+    // Fläktens vind (this._vind, lib/vind.js) stegar själv i phys.beforeStep — en gång per fysiksteg, inte per bildruta.
     this._phys.update(t.deltaMS)
     // Trattens grafik följer väggarnas faktiska (kinematiska) läge, aldrig fingret rakt av.
     if (this._kFunL && this._funnel && !this._funnel.destroyed) this._funnel.x = this._kFunL.bas.x + FUNNEL_DX
@@ -1135,8 +1119,8 @@ export default {
     this._alive = false
     ctx?.ticker?.remove(this._tick)
     this._unbind?.()
-    this._avFlakt?.()
-    this._avFlakt = null
+    this._vind?.destroy()
+    this._vind = null
     this._demoTimer?.kill()
     this._levelTimer?.kill()
     this._announceTimer?.kill()

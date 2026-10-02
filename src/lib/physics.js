@@ -40,6 +40,10 @@ export function fallvakt(b, minne) {
   const id = b.id
   const label = b.label || 'kropp'
   if (b.isStatic) {
+    // En kropp som `phys.kinematisk()` äger nollar sin egen fart när den står still (R2) — och en
+    // `avvikelse` (en fjäderbräda som ringer ut) gör att farten är äkta även när läget just råkar
+    // sammanfalla mellan två prov (uppmätt: 10–37 falska flaggor per 300 studsmattelandningar).
+    if (b._kinematisk) return null
     const x = b.position.x
     const y = b.position.y
     const fart = Math.hypot(b.velocity.x, b.velocity.y)
@@ -448,6 +452,146 @@ export class PhysicsWorld {
     this._fartTak.set(body, max)
   }
 
+  // KINEMATISK KROPP (FYSIKPLAN R2): en STATISK kropp som följer fingret — en korg, en tratt, en
+  // matta, en paddel — flyttad som verktyg i stället för med en teleport per bildruta.
+  //
+  //   const k = phys.kinematisk(body, { maxFart: 12 })
+  //   ...i pekhanteraren:  k.till(x, y, vinkel?)   // MÅLET — kroppen går dit, högst maxFart px/steg
+  //   ...vid en nollställning: k.flytta(x, y, vinkel?)   // BÄR dit, utan kastkraft
+  //   ...destroy():        k.destroy()   (världen river den ändå)
+  //
+  // Varför: `Body.setPosition(b, p)` en gång per bildruta ger kroppen INGEN fart. matters lösare läser
+  // `body.velocity` även på statiska kroppar, så en kant som dras in i en boll skyfflar den utan
+  // rörelsemängd, och vid ≥ 32 px/bildruta hoppar den över bollen helt (`_fysikbank` S8: teleport
+  // 4–24 px/ruta → bollen får fart 0,0; 32 och 48 → IGENOM). Här flyttas kroppen i FYSIKSTEGET (via
+  // `beforeStep`) med `setPosition(…, true)`: förflyttningen ÄR farten, klämd till `maxFart`, så den
+  // knuffar på riktigt och kan aldrig tunnla (en dragen kant är högst maxFart px/steg).
+  //
+  // ⚠️ STÅR den still nollas farten (`setVelocity(0)` + `setAngularVelocity(0)`): matter räknar aldrig
+  // om farten på en statisk kropp, så en gammal förflyttning skulle annars ligga kvar för alltid och
+  // läsas som en separerande kontakt (bollen faller igenom, `statisk-fart` i fallvakten).
+  //
+  // `maxFart` är ÄVEN spelets P0 ("aldrig fly ur banan"): kroppen hinner efter fingret, och en korg
+  // som knuffar frukt gör det högst så hårt. `maxVinkel` (rad/steg) är samma sak för vridningen;
+  // `vinkel` utelämnad = vinkeln rörs aldrig.
+  //
+  // `avvikelse` (valfri) är en funktion `() => ({ x, y })` som läggs OVANPÅ basen varje steg och går
+  // OKLAMPAD genom farten — för en fjäderbräda (`Fjaderbrada.komp`) vars egen rörelse är utkastet:
+  // basen följer fingret med klämd fart, avvikelsen är fjäderns. `k.bas` = basen utan avvikelsen
+  // (det ritade/hållna läget), `k.vilar` = basen har nått målet.
+  kinematisk(body, { maxFart = 12, maxVinkel = 0.25, avvikelse = null } = {}) {
+    const varld = this
+    const dod = () => !varld._alive || !body
+    if (body) body._kinematisk = true // fallvakten litar på kinematisk() (nollar farten själv)
+    const bas = { x: body?.position.x ?? 0, y: body?.position.y ?? 0 }
+    const mal = { x: bas.x, y: bas.y }
+    let basV = body?.angle ?? 0
+    let malV = basV
+    let vinkelStyrd = false
+    let rorde = false // satte vi en fart förra steget? (då måste den nollas när vi står still)
+    let levande = true
+    const fin = (v) => Number.isFinite(v)
+    const lagg = (flytta) => {
+      const av = avvikelse ? avvikelse() : null
+      const px = bas.x + (av?.x || 0)
+      const py = bas.y + (av?.y || 0)
+      const dx = px - body.position.x
+      const dy = py - body.position.y
+      const da = vinkelStyrd ? basV - body.angle : 0
+      const ror = Math.abs(dx) > 0.001 || Math.abs(dy) > 0.001 || Math.abs(da) > 0.00001
+      if (flytta) {
+        // BÄR: positionen ändras men ingen fart skrivs, och en gammal fart nollas.
+        Body.setPosition(body, { x: px, y: py })
+        if (vinkelStyrd) Body.setAngle(body, basV)
+        Body.setVelocity(body, { x: 0, y: 0 })
+        Body.setAngularVelocity(body, 0)
+        rorde = false
+      } else if (ror) {
+        Body.setPosition(body, { x: px, y: py }, true)
+        if (vinkelStyrd) Body.setAngle(body, basV, true)
+        else if (rorde) Body.setAngularVelocity(body, 0)
+        rorde = true
+      } else if (rorde) {
+        Body.setVelocity(body, { x: 0, y: 0 })
+        Body.setAngularVelocity(body, 0)
+        rorde = false
+      }
+    }
+    const steg = () => {
+      if (!levande || dod()) return
+      const dx = mal.x - bas.x
+      const dy = mal.y - bas.y
+      const d = Math.hypot(dx, dy)
+      if (d > maxFart) {
+        bas.x += (dx / d) * maxFart
+        bas.y += (dy / d) * maxFart
+      } else {
+        bas.x = mal.x
+        bas.y = mal.y
+      }
+      if (vinkelStyrd) basV += Math.max(-maxVinkel, Math.min(maxVinkel, malV - basV))
+      lagg(false)
+    }
+    const unbind = this.beforeStep(steg)
+    const k = {
+      body,
+      // MÅLET: kroppen går dit i fysiksteg om högst `maxFart` px/steg.
+      till(x, y, vinkel) {
+        if (!levande || !fin(x) || !fin(y)) return k
+        mal.x = x
+        mal.y = y
+        if (vinkel !== undefined && fin(vinkel)) {
+          if (!vinkelStyrd) basV = body.angle
+          vinkelStyrd = true
+          malV = vinkel
+        }
+        return k
+      },
+      // BÄR dit direkt — utan fart och utan kastkraft (en nollställning, ett nytt släpp).
+      flytta(x, y, vinkel) {
+        if (!levande || dod() || !fin(x) || !fin(y)) return k
+        bas.x = mal.x = x
+        bas.y = mal.y = y
+        if (vinkel !== undefined && fin(vinkel)) {
+          vinkelStyrd = true
+          basV = malV = vinkel
+        }
+        lagg(true)
+        return k
+      },
+      // Sluta gå mot målet — stå kvar där basen är.
+      stopp() {
+        mal.x = bas.x
+        mal.y = bas.y
+        malV = basV
+        return k
+      },
+      get bas() {
+        return bas
+      },
+      get mal() {
+        return mal
+      },
+      get vilar() {
+        return Math.abs(mal.x - bas.x) < 0.001 && Math.abs(mal.y - bas.y) < 0.001 && (!vinkelStyrd || Math.abs(malV - basV) < 0.00001)
+      },
+      destroy() {
+        if (!levande) return
+        levande = false
+        unbind?.()
+        varld._kin?.delete(rec)
+        if (body) body._kinematisk = false
+        if (!dod()) {
+          Body.setVelocity(body, { x: 0, y: 0 })
+          Body.setAngularVelocity(body, 0)
+        }
+      },
+    }
+    const rec = { body, destroy: k.destroy }
+    ;(this._kin ||= new Set()).add(rec)
+    return k
+  }
+
   _add(body) {
     Composite.add(this.world, body)
     return body
@@ -470,6 +614,7 @@ export class PhysicsWorld {
     if (!body) return
     Composite.remove(this.world, body)
     this._fartTak?.delete(body)
+    if (this._kin) for (const r of [...this._kin]) if (r.body === body) r.destroy()
     const i = this._links.findIndex((l) => l.body === body)
     if (i >= 0) this._links.splice(i, 1)
   }
@@ -647,6 +792,7 @@ export class PhysicsWorld {
     }
     this._links = []
     this._fartTak = null
+    this._kin = null
     this.walls = []
   }
 }

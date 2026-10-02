@@ -370,6 +370,8 @@ function s7() {
 // En vägg 16×120 dras i sidled mot en boll (r 22). Två sätt att flytta en STATISK kropp:
 //   'teleport'  Body.setPosition(vagg, p) en gång per bildruta (dagens mönster) — farten förblir 0
 //   'fart'      Body.setPosition(vagg, p, true) i beforeStep, per fysiksteg, och nollad i vila
+//   'kin'       phys.kinematisk(vagg, { maxFart }) (R2): fingret = ett mål som flyttas `v` px/bildruta,
+//               kroppen hinner efter i fysiksteget med högst maxFart px/steg
 function kor8(v, lage, { rorelse = true } = {}) {
   const phys = new PhysicsWorld({ gravityY: 0, walls: [] })
   const bollX0 = 640
@@ -381,6 +383,9 @@ function kor8(v, lage, { rorelse = true } = {}) {
   let toppFart = 0
   let tunnlade = false
   let unbind = null
+  let kin = null
+  let mal = vagg.position.x
+  if (lage === 'kin') kin = phys.kinematisk(vagg, { maxFart: 12 })
   if (lage === 'fart') {
     unbind = phys.beforeStep(() => {
       if (kvar > 0) Body.setPosition(vagg, { x: vagg.position.x + fart, y: vagg.position.y }, true)
@@ -390,15 +395,57 @@ function kor8(v, lage, { rorelse = true } = {}) {
   const total = RUTOR + 40
   for (let i = 0; i < total; i++) {
     if (lage === 'teleport' && kvar > 0) Body.setPosition(vagg, { x: vagg.position.x + fart, y: vagg.position.y })
+    if (kin && kvar > 0) kin.till((mal += fart), 360) // "fingret" rör sig en bildruta
     phys.update(FIXED)
     if (kvar > 0) kvar--
     toppFart = Math.max(toppFart, Math.hypot(ball.velocity.x, ball.velocity.y))
     if (vagg.position.x >= ball.position.x) tunnlade = true // väggens mitt har passerat bollens mitt
   }
   const res = { toppFart, bollFlytt: ball.position.x - bollX0, tunnlade, finalFart: Math.hypot(ball.velocity.x, ball.velocity.y) }
+  const vaggFartKvar = Math.hypot(vagg.velocity.x, vagg.velocity.y)
   unbind?.()
+  kin?.destroy()
   phys.destroy()
-  return res
+  return { ...res, vaggFartKvar }
+}
+
+// SNABBDRAG genom fallande kroppar (R2-mätningen): en vägg 16×640 dras 40 px/bildruta åt vänster
+// genom 12 bollar som FALLER ur samma höjd. Antal som hamnar på FEL sida om kanten (IGENOM) och
+// högsta bollfart efter mötet. 'teleport' = dagens mönster, 'kin' = phys.kinematisk (maxFart 12).
+function snabbdrag(lage, { fart = 40, rorelse = true } = {}) {
+  const phys = new PhysicsWorld({ gravityY: 0.3, walls: [] })
+  const N = 12
+  const bollar = []
+  for (let i = 0; i < N; i++) bollar.push(phys.circle(420 + i * 54, 250 + (i % 3) * 20, 20, { restitution: 0.3, friction: 0.05, frictionAir: 0.002 }))
+  const vagg = phys.rectangle(1100, 400, 16, 640, { isStatic: true })
+  let kin = null
+  let mal = vagg.position.x
+  if (lage === 'kin') kin = phys.kinematisk(vagg, { maxFart: 12 })
+  const slut = 1100 - 800
+  let toppFart = 0
+  let toppFartEfterMote = 0
+  const moteSteg = new Map()
+  for (let i = 0; i < 260; i++) {
+    if (rorelse && vagg.position.x > slut + 1 && mal > slut) {
+      if (lage === 'teleport') Body.setPosition(vagg, { x: Math.max(slut, vagg.position.x - fart), y: 400 })
+      else { mal = Math.max(slut, mal - fart); kin.till(mal, 400) }
+    }
+    phys.update(FIXED)
+    for (let b = 0; b < N; b++) {
+      const kula = bollar[b]
+      const sp = Math.hypot(kula.velocity.x, kula.velocity.y)
+      const nara = Math.abs(kula.position.x - vagg.position.x) < 40
+      if (nara && !moteSteg.has(b)) moteSteg.set(b, i)
+      if (moteSteg.has(b) && i - moteSteg.get(b) < 6) toppFartEfterMote = Math.max(toppFartEfterMote, sp)
+      toppFart = Math.max(toppFart, sp)
+    }
+  }
+  // IGENOM = bollen ligger HÖGER om väggen (den började till vänster om väggen, som kom från höger).
+  const igenom = bollar.filter((k) => k.position.x > vagg.position.x + 8).length
+  const flytt = Math.abs(1100 - vagg.position.x)
+  kin?.destroy()
+  phys.destroy()
+  return { igenom, toppFartEfterMote, flytt }
 }
 
 function s8() {
@@ -411,6 +458,15 @@ function s8() {
   // Mätaren måste röra sig: ett läge MED rörelse ska ge bollen fart.
   const rorF = kor8(8, 'fart')
   kontroll(s, 'mätaren rör sig: fart-läget ger bollen fart vid 8 px/ruta', rorF.toppFart > 1, `topp ${f(rorF.toppFart, 2)}`)
+  // R2: samma kontroll för kinematisk() — en vägg som står still ger bollen noll, och en som dras ger fart.
+  const vilaK = kor8(24, 'kin', { rorelse: false })
+  kontroll(s, 'vägg i vila (kinematisk) → bollen orörd och väggens fart 0', vilaK.toppFart === 0 && vilaK.bollFlytt === 0 && !vilaK.tunnlade && vilaK.vaggFartKvar === 0, `topp ${f(vilaK.toppFart)} · flytt ${f(vilaK.bollFlytt)} · vaggFart ${f(vilaK.vaggFartKvar)}`)
+  const rorK = kor8(8, 'kin')
+  kontroll(s, 'mätaren rör sig: kinematisk ger bollen fart vid 8 px/ruta', rorK.toppFart > 1, `topp ${f(rorK.toppFart, 2)}`)
+  const sdVila = snabbdrag('kin', { rorelse: false })
+  kontroll(s, 'snabbdrag-arm, vägg i vila → ingen boll IGENOM och ingen mötesfart', sdVila.igenom === 0 && sdVila.flytt === 0, `igenom ${sdVila.igenom} · flytt ${f(sdVila.flytt, 1)}`)
+  const sdT = snabbdrag('teleport')
+  kontroll(s, 'snabbdrag-armen rör sig: teleport 40 px/ruta (HEAD) släpper igenom bollar', sdT.igenom > 0, `igenom ${sdT.igenom}/12`)
   if (!s.kontrollHolls) { ut('  ✗ kontrollen höll inte — inga mätrader för S8'); return }
 
   const FP = { 4: 5.1, 24: 30.9, 32: 41.2, 48: 61.8 } // §1.3.4 (fart per steg)
@@ -423,6 +479,17 @@ function s8() {
     const kTxt = `${f(k.toppFart, 2)} px/steg${k.tunnlade ? ' · IGENOM' : ''}`
     ut(`  ${pad(v + ' px/ruta', 12)} ${pad(tTxt, 30)} ${pad(kTxt, 36)} ${padL(f(k.toppFart / v, 2), 9)} ${padL(FP[v] ?? '', 7)}`)
   }
+  ut(`
+  ${pad('väggfart', 12)} ${pad('kinematisk (maxFart 12): topp-fart', 36)} ${padL('× väggen', 9)}`)
+  for (const v of [4, 8, 12, 24, 40, 48]) {
+    const k = kor8(v, 'kin')
+    s.rader.push({ vaggFart: v, kinematisk: k })
+    ut(`  ${pad(v + ' px/ruta', 12)} ${pad(f(k.toppFart, 2) + ' px/steg' + (k.tunnlade ? ' · IGENOM' : '') + ' · kvar ' + f(k.vaggFartKvar, 1), 36)} ${padL(f(k.toppFart / Math.min(v, 12), 2), 9)}`)
+  }
+  const sdK = snabbdrag('kin')
+  s.rader.push({ snabbdrag40: { teleport: sdT, kinematisk: sdK } })
+  ut(`
+  snabbdrag 40 px/bildruta genom 12 fallande bollar: teleport → ${sdT.igenom} IGENOM · mötesfart ${f(sdT.toppFartEfterMote, 2)} (flytt ${f(sdT.flytt, 0)} px) · kinematisk → ${sdK.igenom} IGENOM · mötesfart ${f(sdK.toppFartEfterMote, 2)} (flytt ${f(sdK.flytt, 0)} px)`)
   not(s, 'förväntat §1.3.4: teleport 4–24 px/ruta skyfflar bollen med fart 0,0, 32 och 48 px/ruta passerar väggen IGENOM · fart per steg 5,1–30,9 (1,29×), ingen tunnling, 41,2 / 61,8 vid 32 / 48')
   not(s, 'fart per steg kräver ett fart-tak i spelet (annars kastas frukten ur banan, P0) — bänken mäter obegränsat')
 }

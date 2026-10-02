@@ -98,6 +98,18 @@ Mallar: **`rulla-bollen-hem`** (top-down minigolf, underlagsväxling), **`spinde
   `phys.konvex(punkter, opts)` (hörn exakt på punkterna; konkav → konvext hölje, ingen varning) ·
   `phys.sammansatt(delar, opts)` · `phys.grupp()` — alla genom `_make`, alltså väckbara och med
   `studs`/`friktion`. Mät: `node scripts/_fysikbank.mjs --bara S1,S3,S10`.
+- **R2 kinematisk (physics.js, opt-in):** `const k = phys.kinematisk(body, { maxFart: 12, maxVinkel, avvikelse })` →
+  `k.till(x, y, vinkel?)` (målet — kroppen går dit i fysiksteget med `setPosition(…, true)`, förflyttningen ÄR
+  farten, klämd till `maxFart` px/steg; `setVelocity(0)` + `setAngularVelocity(0)` när den står still) ·
+  `k.flytta(x, y)` (bär utan kastkraft) · `k.stopp()` · `k.bas`/`k.mal`/`k.vilar` · `k.destroy()` (världen river
+  den ändå; `removeBody` också). `avvikelse: () => ({x, y})` läggs OKLAMPAD ovanpå basen — för en Fjaderbrada
+  (`avvikelse: () => { fj.steg(); return { x: 0, y: fj.komp } }`). Ersätter teleport-per-bildruta av statiska
+  kanter: mätt i `_fysikbank` S8 (40 px/ruta genom 12 fallande bollar: teleport 12 IGENOM, mötesfart 1,6 →
+  kinematisk 0 IGENOM, mötesfart 15,9). Kroppen märks `_kinematisk` så fallvakten (`statisk-fart`) litar på den.
+  Mönstret för en studsmatta/trampolin i ett spel: `src/games/studsmatta/matta.js` (mät: `_studsmattaprobe.mjs`).
+- **Fjäderbräda som studsyta (P1):** kaninen måste ÅKA MED brädan ner (`setVelocity(y: fj.kompFart)` efter `taEmot`) —
+  annars är kontakten borta när brädan vänder och kastet blir 4 i stället för 14 px/steg; `overslag` 0,6 (förval
+  0,3 klipper utkastet till 0,84 ×); sätt kaninens `restitution` 0; ett tryck får aldrig laddas OVANPÅ en landning.
 - `predictTrajectory(…)` + re-exporterade `Body` / `Composite` / `Vector`.
 
 ## Material som LÅTER (`MATERIAL` + `onImpact` / `impactAudio`)

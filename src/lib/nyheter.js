@@ -10,6 +10,20 @@
 
 export const NYHETER = [
   {
+    version: '1.403',
+    fran: '1.396',
+    datum: '2026-10-02',
+    titel: 'Grepp, kast och en ventil',
+    punkter: [
+      'I Leksakslådan hålls leksaken i mitten och känns tyngre eller lättare beroende på vad det är. Den som vill kan kasta leksaken i korgen, men det går lika bra att bära dit den som förut.',
+      'I Valpens Bajs går det att slänga bajset ur skyffeln rakt ner i tunnan, och i Mata Monstret går det att kasta maten i munnen. Det är en extra lek, och att dra dit fungerar precis som förut.',
+      'I Spindelnätet dras bytet in i tråden och svänger på vägen till nätet.',
+      'Tornet i Bygg Tornet gungar lite när en kloss landar, men det rasar aldrig.',
+      'I Vattenvägen kommer vattnet först när barnet vrider på ventilen vid kranen. Det går att snurra runt hjulet eller bara trycka på det, och redan första trycket sätter igång vattnet.',
+      'Tårtan i Tårta i Ansiktet kastas som förut. Släpper man den långsamt landar den mjukt i stället för att flyga iväg.',
+    ],
+  },
+  {
     version: '1.395',
     fran: '1.393',
     datum: '2026-10-02',

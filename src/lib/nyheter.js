@@ -10,6 +10,18 @@
 
 export const NYHETER = [
   {
+    version: '1.409',
+    fran: '1.406',
+    datum: '2026-10-02',
+    titel: 'Repris, vind och en ärligare sikteslinje',
+    punkter: [
+      'När kulan i Kulbanan rullar ner i hinken visas slutet av rullningen en gång till i slow motion, med ett orange spår efter kulan. Sedan kommer firandet. Den som inte vill vänta trycker bara, så börjar firandet direkt.',
+      'Pruttvinden i Bajs och Kiss blåser nu från kompisens hand mot pottan, och luften syns som turkosa bågar.',
+      'I Bowling studsar prickarna mot kantstödet precis som klotet gör, och de slutar där banan tar slut. I Rulla Bollen Hem studsar prickarna mot kanterna på samma sätt.',
+      'Fläkten i Studsa Ner, vågorna i Pruttbadet och dammens vågor hos Grodan fungerar som förut, men de bygger nu på samma grund som kommande spel ska använda.',
+    ],
+  },
+  {
     version: '1.405',
     fran: '1.404',
     datum: '2026-10-02',

@@ -19,6 +19,7 @@ import { bounceIn, pop, wiggle, puff, sparkle, floatText, liv } from '../../lib/
 import { createScene } from '../../lib/scene.js'
 import { COLORS } from '../../lib/theme.js'
 import { nastaVariant } from '../../lib/variation.js'
+import { vippa } from '../../lib/vippa.js'
 
 // Djur som har riktiga förinspelade läten (djur_<id> i sfx-manifestet).
 const ANIMALS = [
@@ -67,6 +68,14 @@ const SCENER = [
     { id: 'candy', tema: 'candy' },
   ],
 ]
+
+// Örats fästpunkt i huvudets rum (höger öra; vänster speglas): öronen fjädrar kring den.
+const EAR_FAST = {
+  ko: [40, -6], // sidoöron
+  hund: [44, -20], // hängöron svänger från toppen
+  katt: [34, -24], // spetsöra, foten
+  gris: [26, -22],
+}
 
 // Loop-banans x-utbredning (slot-mitt) och playhead-svep.
 const TRACK_X0 = 280
@@ -179,7 +188,7 @@ export default {
       }
 
       // Avatar.
-      const avatar = this._makeAnimal(animal, yc)
+      const avatar = this._makeAnimal(ctx, animal, yc)
       avatar.on('pointertap', () => this._toggleAnimal(ctx, row))
       group.addChild(avatar)
       row.view = avatar
@@ -206,20 +215,40 @@ export default {
     }
   },
 
-  _makeAnimal(animal, yc) {
+  _makeAnimal(ctx, animal, yc) {
     const c = new Container()
     c.x = 130
     c.y = yc
     // RITAT djurhuvud med egen silhuett (öron, horn, nos sticker ut) — förut satt en
     // emoji i en gräddvit cirkel, precis det P0 ASSETS förbjuder.
     c.addChild(new Graphics().ellipse(0, 52, 52, 12).fill({ color: COLORS.shadow, alpha: 0.12 }))
+    // `huvud` bär livet (gupp + vaggning) och innehåller öronen + ansiktet. Öronen ligger i
+    // var sin `ora`-container med pivån i fästpunkten och fjädrar (lib/vippa.js) — INRE barn,
+    // aldrig `c` som bär hitArea och som hopp/snurr/pop tweenar.
+    const huvud = new Container()
+    huvud.eventMode = 'none'
+    c.addChild(huvud)
     const g = new Graphics()
-    drawAnimalHead(g, animal.id)
+    const gl = new Graphics()
+    const gr = new Graphics()
+    drawAnimalHead(g, animal.id, gl, gr)
     g.eventMode = 'none'
-    c.addChild(g)
+    const [fx, fy] = EAR_FAST[animal.id] || EAR_FAST.gris
+    c._wxOron = [[gl, -fx], [gr, fx]].map(([eg, px]) => {
+      eg.position.set(-px, -fy) // geometrin är ritad i huvudets rum; pivån hamnar i fästpunkten
+      eg.eventMode = 'none'
+      const ora = new Container()
+      ora.eventMode = 'none'
+      ora.position.set(px, fy)
+      ora.addChild(eg)
+      huvud.addChild(ora)
+      return vippa(ora, { axel: 'rot', max: 0.42, k: 210, damp: 0.16, ticker: ctx.ticker })
+    })
+    huvud.addChild(g)
     // Huvudet guppar och vaggar i sin egen takt (skuggan ligger kvar på marken).
     // Egen fas per djur — annars nickar hela raden i lås och läses som EN yta.
-    liv(g, { bob: 5, sway: 0.02 })
+    liv(huvud, { bob: 5, sway: 0.02 })
+    c._wxHuvud = huvud
     c.eventMode = 'static'
     c.cursor = 'pointer'
     c.hitArea = new Circle(0, 0, 80)
@@ -450,6 +479,7 @@ export default {
     if (row.active) {
       ctx.services.audio.sfx('pop')
       pop(row.view)
+      this._oronStot(row, 0.9)
     } else {
       ctx.services.audio.sfx('flip')
     }
@@ -559,24 +589,30 @@ export default {
         gsap.killTweensOf(view, 'y')
         view.y = row.yc
         gsap.to(view, { y: row.yc - 26, duration: 0.12, yoyo: true, repeat: 1, ease: 'power2.out' })
+        this._oronStot(row, 0.7) // öronen hänger kvar i luften …
+        this._later(0.24, () => this._oronStot(row, -0.9)) // … och flaxar vid landningen
         audio.tone({ freq: note.freq, dur: 0.18, type: note.type, vol: 0.2 })
         break
       case 'snurr':
         gsap.to(view, { rotation: view.rotation + Math.PI * 2, duration: 0.4, ease: 'power1.inOut' })
+        this._oronStot(row, 1)
         audio.tone({ freq: note.freq, dur: 0.22, type: note.type, vol: 0.18, slideTo: note.freq * 1.5 }) // liten upp-svirr
         break
       case 'tut':
         pop(view, { scale: 1.3 })
+        this._oronStot(row, 0.8)
         audio.tone({ freq: note.freq, dur: 0.34, type: note.type, vol: 0.2 })
         break
       case 'klapp':
         pop(view)
-        this._later(0.13, () => pop(view)) // snabb dubbel-squash
+        this._oronStot(row, 0.6)
+        this._later(0.13, () => { pop(view); this._oronStot(row, -0.6) }) // snabb dubbel-squash
         audio.tone({ freq: note.freq, dur: 0.1, type: note.type, vol: 0.2 })
         this._later(0.13, () => audio.tone({ freq: note.freq, dur: 0.1, type: note.type, vol: 0.16 }))
         break
       case 'rost': {
         pop(view, { scale: 1.22 })
+        this._oronStot(row, 0.7)
         const now = performance.now()
         if (now - row._lastSampleAt > 120) {
           row._lastSampleAt = now
@@ -588,11 +624,22 @@ export default {
     }
   },
 
+  // Öronen fjädrar (lib/vippa.js): vänster/höger speglade, så båda slår UT eller IN tillsammans.
+  _oronStot(row, v) {
+    if (!this._alive) return
+    const o = row?.view?._wxOron
+    if (!o) return
+    o[0].stot(v)
+    o[1].stot(-v)
+  },
+
   // Exit-säker fördröjd anrop (kör bara om spelet lever).
   _later(sec, fn) {
     const c = gsap.delayedCall(sec, () => {
       if (this._alive) fn()
     })
+    // Färdiga anrop rensas när listan växer — öronstötarna lägger ett per hopp/klapp-beat.
+    if (this._delays.length > 32) this._delays = this._delays.filter((d) => d.parent)
     this._delays.push(c)
     return c
   },
@@ -610,6 +657,10 @@ export default {
 
     // Döda alla tweens på persistenta vyer innan de förstörs (ingen null-transform-krasch).
     for (const row of this._rows) {
+      // Öronfjädrarna är tickerlyssnare, inga tweens — släpp dem före rivningen.
+      for (const o of row.view?._wxOron || []) o.destroy()
+      if (row.view) row.view._wxOron = null
+      row.view?._wxHuvud?._fxLiv?.kill() // vilo-guppet är en evig tween på huvudet — döda den uttryckligen
       if (row.view && !row.view.destroyed) {
         gsap.killTweensOf(row.view)
         gsap.killTweensOf(row.view.scale)
@@ -647,13 +698,17 @@ export default {
 
 // Djurhuvuden med EGEN silhuett — öron, horn och nosar sticker ut ur konturen, så de
 // aldrig blir "en ikon i en cirkel". Origo = mitten av huvudet.
-function drawAnimalHead(g, id) {
+// Öronen ritas i EGNA Graphics (`gl` vänster, `gr` höger, i huvudets koordinater) så de kan
+// fjädra var för sig kring fästpunkten (EAR_FAST, lib/vippa.js). Resten av huvudet i `g`.
+function drawAnimalHead(g, id, gl, gr) {
   g.clear()
+  gl.clear()
+  gr.clear()
   if (id === 'ko') {
     g.ellipse(-48, -32, 15, 9).fill(0xefe0c2).stroke({ width: 3, color: 0xc9b48a }) // horn
     g.ellipse(48, -32, 15, 9).fill(0xefe0c2).stroke({ width: 3, color: 0xc9b48a })
-    g.ellipse(-57, -6, 20, 13).fill(0xf4f0ea).stroke({ width: 3, color: 0xc0b8ac }) // öron
-    g.ellipse(57, -6, 20, 13).fill(0xf4f0ea).stroke({ width: 3, color: 0xc0b8ac })
+    gl.ellipse(-57, -6, 20, 13).fill(0xf4f0ea).stroke({ width: 3, color: 0xc0b8ac }) // öron
+    gr.ellipse(57, -6, 20, 13).fill(0xf4f0ea).stroke({ width: 3, color: 0xc0b8ac })
     g.ellipse(0, 0, 50, 46).fill(0xfbf8f4).stroke({ width: 4, color: 0xb0a89c })
     g.ellipse(-29, -18, 16, 12).fill(0x4a4038) // fläckar
     g.ellipse(31, 9, 13, 10).fill(0x4a4038)
@@ -665,8 +720,8 @@ function drawAnimalHead(g, id) {
     g.circle(-16, -11, 2).fill(0xffffff)
     g.circle(20, -11, 2).fill(0xffffff)
   } else if (id === 'hund') {
-    g.ellipse(-46, 8, 17, 33).fill(0x8a5a3b).stroke({ width: 3, color: 0x5e3720 }) // hängöron
-    g.ellipse(46, 8, 17, 33).fill(0x8a5a3b).stroke({ width: 3, color: 0x5e3720 })
+    gl.ellipse(-46, 8, 17, 33).fill(0x8a5a3b).stroke({ width: 3, color: 0x5e3720 }) // hängöron
+    gr.ellipse(46, 8, 17, 33).fill(0x8a5a3b).stroke({ width: 3, color: 0x5e3720 })
     g.ellipse(0, -2, 48, 44).fill(0xd7a06a).stroke({ width: 4, color: 0xa8763c })
     g.ellipse(0, -32, 34, 16).fill(0xc08a52) // lugg
     g.ellipse(0, 22, 27, 19).fill(0xf0d3ae).stroke({ width: 3, color: 0xc59f74 }) // nosparti
@@ -677,10 +732,10 @@ function drawAnimalHead(g, id) {
     g.circle(-15, -10, 2).fill(0xffffff)
     g.circle(19, -10, 2).fill(0xffffff)
   } else if (id === 'katt') {
-    g.poly([-46, -54, -18, -28, -54, -16]).fill(0xf2a34a).stroke({ width: 3, color: 0xc07a24 }) // öron
-    g.poly([46, -54, 18, -28, 54, -16]).fill(0xf2a34a).stroke({ width: 3, color: 0xc07a24 })
-    g.poly([-42, -45, -25, -29, -46, -22]).fill(0xffc9d8)
-    g.poly([42, -45, 25, -29, 46, -22]).fill(0xffc9d8)
+    gl.poly([-46, -54, -18, -28, -54, -16]).fill(0xf2a34a).stroke({ width: 3, color: 0xc07a24 }) // öron
+    gr.poly([46, -54, 18, -28, 54, -16]).fill(0xf2a34a).stroke({ width: 3, color: 0xc07a24 })
+    gl.poly([-42, -45, -25, -29, -46, -22]).fill(0xffc9d8)
+    gr.poly([42, -45, 25, -29, 46, -22]).fill(0xffc9d8)
     g.ellipse(0, 2, 46, 42).fill(0xf2a34a).stroke({ width: 4, color: 0xc07a24 })
     g.roundRect(-11, -34, 5, 15, 2.5).fill(0xc07a24) // pannränder
     g.roundRect(2, -36, 5, 15, 2.5).fill(0xc07a24)
@@ -694,8 +749,8 @@ function drawAnimalHead(g, id) {
     g.circle(-15, -9, 2.2).fill(0xffffff)
     g.circle(19, -9, 2.2).fill(0xffffff)
   } else {
-    g.poly([-44, -40, -14, -30, -34, -6]).fill(0xffb3c8).stroke({ width: 3, color: 0xe0709b }) // öron
-    g.poly([44, -40, 14, -30, 34, -6]).fill(0xffb3c8).stroke({ width: 3, color: 0xe0709b })
+    gl.poly([-44, -40, -14, -30, -34, -6]).fill(0xffb3c8).stroke({ width: 3, color: 0xe0709b }) // öron
+    gr.poly([44, -40, 14, -30, 34, -6]).fill(0xffb3c8).stroke({ width: 3, color: 0xe0709b })
     g.ellipse(0, 0, 48, 42).fill(0xffc3d4).stroke({ width: 4, color: 0xe0709b })
     g.ellipse(0, 17, 25, 18).fill(0xff9ec4).stroke({ width: 3, color: 0xd45f8c }) // tryne
     g.ellipse(-8, 16, 4, 6).fill(0xc44a7a)

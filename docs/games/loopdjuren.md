@@ -79,7 +79,8 @@ djuren är utbytbara emoji snarare än ett band med var sin röst.
 - ✅ ~~**[Quick] Beat-puls på rutnätet.**~~ Redan byggd (kolumnens slots studsar på slaget,
   index.js:477, 2026-07-01) — uppdagat 2026-09-23.
 - **[Medium] Riktig dans.** Ge avatarerna ett par extra leder (öron/svans/fötter som studsar i
-  motfas) så rörelsen läser som dans, inte bara en skal-pop.
+  motfas) så rörelsen läser som dans, inte bara en skal-pop. *(Öronen fjädrar sedan 2026-10-02
+  — se §5. Svans och fötter kvar.)*
 
 ### Progression
 - ✅ ~~**[Quick] Spara och återuppta loopen.**~~ Klar 2026-09-23 (v1.251.0): Varje ändring
@@ -99,6 +100,15 @@ djuren är utbytbara emoji snarare än ett band med var sin röst.
   diskret så djurens egna ljud hörs.
 
 ## 5. Status / loggar
+
+- 2026-10-02 ✅ **Öronen fjädrar (D3 · FYSIKPLAN P2 · `lib/vippa.js`).** Öronen ritades i samma
+  Graphics som huvudet; nu ritas de i egna (`gl`/`gr`), var och en i en `ora`-container med pivån
+  i fästpunkten (`EAR_FAST`: ko sidoöron, hund hängöron från toppen, katt/gris spetsöra vid foten)
+  och en `vippa` (axel `rot`, max 0,42 rad). Nodträd: avatar `c` (hitArea, hopp/snurr/pop — orörd)
+  › `huvud` (vilo-`liv`) › [`ora`×2, ansikte]. Vilo-livet flyttade från ansikts-Graphics till
+  `huvud` så öronen guppar med. Stöt vid varje block: hopp (i luften + landning), snurr, tut,
+  klapp (dubbel), röst och när djuret slås på; vänster/höger speglade. `destroy()` släpper
+  fjädrarna och dödar `huvud._fxLiv` uttryckligen. Svans och fötter ur "Riktig dans" kvar.
 
 - 2026-10-02 ✅ **Scen per nivå + djuren ur ramen** (natt F3 · B3 · U2 · P0 ASSETS):
   - **Scen per nivå (U2):** förut alltid `candy`. Nu `SCENER`: nivå 1 dag (`meadow` | `sky`, trädlinje

@@ -11,6 +11,7 @@ import { createScene } from '../../lib/scene.js'
 import { bounceIn, ripple, burst, sparkle, floatText, shake, breathe } from '../../lib/feedback.js'
 import { makeKaraktar } from '../../lib/karaktarer.js'
 import { PLAYFUL } from '../../lib/theme.js'
+import { Hog } from '../../lib/hog.js'
 
 // Scen-tema per nivå (alla "bubbel-vänliga"; vatten/himmel passar bäst).
 const THEME_CYCLE = ['water', 'sky', 'sunset', 'candy', 'meadow', 'night']
@@ -29,8 +30,24 @@ const COLOR_WORDS = {
   [0x57c8c3]: 'turkosa',
 }
 
+// Burken (FYSIKPLAN P3): glaset ritas en gång, pärlorna är riktiga kroppar i en Hog som faller ner genom
+// halsen och lägger sig. Koordinater relativt burken (som står på 232, 660): glaset är roundRect(-34, -56,
+// 68, 84, 16) med 4 px kant, alltså innervägg ±32 och golv på 26. Taket 20 ≈ vad som ryms utan att högen
+// når halsen (mätt i `_hogprobe`); därefter tonar den äldsta pärlan bort. `g._caught` = alla fångade
+// färger i ordning, `g._hog.antal` = pärlorna som syns (≤ taket).
+const PARLA_R = 7
+const HOG_TAK = 20
+
 // Gömda överraskningar (≈1 av 8 bubblor) — söta, neutrala emoji.
 const SURPRISES = ['⭐', '🐠', '🦋', '🌸', '🐞', '🍓', '🌈', '🐢', '🐥', '🦄', '🍀', '🐝']
+
+// Håller pärlans glans uppåt-vänster hur den än rullar: förskjutningen vrids tillbaka mot kroppens vinkel.
+function hallGlans(v) {
+  const a = -v.rotation
+  const c = Math.cos(a)
+  const sn = Math.sin(a)
+  v._glans.position.set(-2.4 * c + 2.6 * sn, -2.4 * sn - 2.6 * c)
+}
 
 export default {
   id: 'klambubblor',
@@ -52,6 +69,9 @@ export default {
     this._lastPopAt = -9999
     this._stotN = 0 // antal stötar bubblor emellan (syns i g._stotN)
     this._stotTon = 0
+    this._hog = new Hog(this._hogOpt())
+    // Glasklick när en pärla slår i glaset eller en annan pärla (mjukt, högst en per 70 ms).
+    this._hog.fysik.impactAudio(ctx.services.audio, { standard: 'glas', vol: 0.05, minSpeed: 1.2, maxPerFrame: 1, minGapMs: 70 })
     this._build(ctx, false)
     this._tick = (ticker) => this._update(ctx, ticker)
     ctx.ticker.add(this._tick)
@@ -74,6 +94,7 @@ export default {
     if (this._targetView && !this._targetView.destroyed) gsap.killTweensOf(this._targetView.scale)
     this._targetView = null
     this._hintBubble = null
+    this._hog?.tom(true) // burken töms med det gamla fältet (pärlorna rivs innan roten gör det)
     this._bubbles?.forEach((b) => {
       b._bob?.kill()
       b._spin?.kill()
@@ -143,10 +164,18 @@ export default {
     this._bobo = this._kar.view
     this._bobo.position.set(this._boboBase.x, this._boboBase.y)
     this._root.addChild(this._bobo)
+    // Burken: glas (bak) → pärlor (Hog) → en glansrand framför. Alla barn av en container på burkens plats.
+    this._jar = new Container()
+    this._jar.position.set(232, 660)
+    this._jar.eventMode = 'none'
+    this._jar.interactiveChildren = false
     this._jarG = new Graphics()
-    this._jarG.position.set(232, 660)
-    this._jarG.eventMode = 'none'
-    this._root.addChild(this._jarG)
+    this._parlor = new Container()
+    this._jarGlans = new Graphics()
+      .roundRect(-26, -44, 6, 62, 3).fill({ color: 0xffffff, alpha: 0.28 })
+      .roundRect(-26, 24, 6, 4, 2).fill({ color: 0xffffff, alpha: 0.28 })
+    this._jar.addChild(this._jarG, this._parlor, this._jarGlans)
+    this._root.addChild(this._jar)
     this._caught = []
     this._drawJar()
 
@@ -452,6 +481,7 @@ export default {
     if (!this._alive) return
     const dt = Math.min(ticker.deltaMS, 50) / 1000
     this._t = (this._t || 0) + dt
+    this._hog?.update(ticker.deltaMS) // pärlorna i burken faller och lägger sig
 
     // Små bubblor stiger och lindar om — ger vatten-känsla i en annars stilla scen.
     for (const m of this._minis || []) {
@@ -602,8 +632,7 @@ export default {
   _catch(color) {
     if (!this._caught) return
     this._caught.push(color)
-    if (this._caught.length > 26) this._caught.shift()
-    this._drawJar()
+    this._slappParla(color)
     const now = performance.now()
     if (now - (this._lastChomp || 0) > 380) {
       this._lastChomp = now
@@ -613,25 +642,39 @@ export default {
     }
   },
 
+  // Burkens kanter, tak och tyngd (ren funktion av modulens tal — `_hogprobe` bygger samma Hog).
+  _hogOpt() {
+    return { kanter: { x0: -32, x1: 32, y1: 26, hornrund: 14 }, tak: HOG_TAK, sova: true, gravitation: 0.7, postR: PARLA_R } // postR läses bara av sonden
+  },
+
+  // Pärlan faller in genom halsen och lägger sig i högen. Burken ritas INTE om — varje pärla är en kropp
+  // med en vy, och högen vet själv när den äldsta ska tona bort (taket).
+  _slappParla(color) {
+    const lager = this._parlor
+    if (!lager || lager.destroyed || !this._hog) return
+    const p = new Container()
+    p.addChild(new Graphics().circle(0, 0, PARLA_R).fill({ color, alpha: 0.95 }))
+    p._glans = new Graphics().circle(0, 0, 2.4).fill({ color: 0xffffff, alpha: 0.7 })
+    p.addChild(p._glans)
+    hallGlans(p)
+    p.eventMode = 'none'
+    lager.addChild(p)
+    this._hog.lagg(
+      { cirkel: PARLA_R, vy: p, studs: 0.25, friktion: 0.3, luft: 0.008, uppdatera: hallGlans, label: 'parla' },
+      (Math.random() * 2 - 1) * 9,
+      -49,
+      { x: (Math.random() * 2 - 1) * 0.5, y: 2 }
+    )
+  },
+
+  // Glasburken med hals och lock — ritas EN gång per fält; pärlorna är kroppar (`_slappParla`).
   _drawJar() {
     const g = this._jarG
     if (!g || g.destroyed) return
     g.clear()
-    // Glasburk med hals och lock.
     g.roundRect(-34, -56, 68, 84, 16).fill({ color: 0xdff4ff, alpha: 0.45 })
       .roundRect(-34, -56, 68, 84, 16).stroke({ width: 4, color: 0xa8d6ea })
     g.roundRect(-22, -70, 44, 16, 7).fill(0xa8d6ea)
-    // Pärlorna staplas nerifrån.
-    const n = this._caught.length
-    for (let i = 0; i < n; i++) {
-      const row = Math.floor(i / 4)
-      const col = i % 4
-      const px = -22 + col * 15 + (row % 2 ? 7 : 0)
-      const py = 18 - row * 13
-      if (py < -46) break
-      g.circle(px, py, 7).fill({ color: this._caught[i], alpha: 0.95 })
-      g.circle(px - 2, py - 2, 2.4).fill({ color: 0xffffff, alpha: 0.7 })
-    }
   },
 
   _clearHint() {
@@ -668,6 +711,12 @@ export default {
     this._scenFade?.kill()
     this._scenFade = null
     this._scene = null
+    this._hog?.destroy()
+    this._hog = null
+    this._jar = null
+    this._jarG = null
+    this._parlor = null
+    this._jarGlans = null
     gsap.killTweensOf(this._root)
     gsap.killTweensOf(this._layer)
     ctx?.services?.voice?.cancel()

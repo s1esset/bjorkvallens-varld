@@ -91,6 +91,13 @@ loopen är "töm rutnät → töm större rutnät".
 
 ## 5. Status / loggar
 
+- 2026-10-02 ✅ **Burken visar bubblorna (FYSIKPLAN P3, `lib/hog.js`).** `_drawJar` ritar bara glaset (en gång
+  per fält); varje poppad bubbla blir en pärla i bubblans färg som faller in genom halsen och lägger sig
+  som en riktig kropp i en `Hog` (rundade hörn, studs 0,25, glasklick vid anslag — vol 0,05, högst en per
+  70 ms). Glansen på pärlan hålls uppåt-vänster hur den än rullar, en glansrand ligger framför. Taket är 20
+  (högen når då y −37, halsen börjar på −54 — mätt i `_hogprobe` G); den äldsta pärlan tonar bort på 0,45 s.
+  Burken töms med fältet, som förut. Mät: `g._caught` (alla fångade färger), `g._hog.antal` (= min(fångade, 20)).
+
 - 2026-10-02 ✅ **Bubblorna stöter mot varandra** (F3 B2, FYSIKPLAN §5.4): `_stot` — billig cirkelstöt
   efter mönstret i `poppa-ballonger` (ingen matter): överlapp > 6 % glider isär (högst 5 px per
   bubbla och bildruta, på `x` och `_baseY` eftersom y ritas ur basen + gupp), farten längs x byts

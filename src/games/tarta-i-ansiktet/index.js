@@ -16,6 +16,7 @@ import { verticalFill, cylinderFill, sphereFill, topLightFill } from '../../lib/
 import { makeKaraktar } from '../../lib/karaktarer.js'
 import { randomFrom } from '../../lib/swedish.js'
 import { nastaVariant } from '../../lib/variation.js'
+import { Pekspar } from '../../lib/pekspar.js'
 import { byggCirkus, PALETTER } from './cirkus.js'
 
 // Bakom tältet (som täcker allt): mörk plommon, så ingen kant av letterbox-crème skymtar
@@ -50,7 +51,8 @@ const STEER = 26 // styrkraft mot ansiktet (garanterar träff, även vid sned fl
 const DAMP = 3 // dämpning så tårtan inte kretsar runt ansiktet
 const FLICK_MIN = 300 // px/s — under detta räknas släppet inte som en flick
 const FLICK_MAX = 1700 // px/s — cappa farten så tårtan inte skjuter förbi
-const VEL_WINDOW = 90 // ms — fönster som flick-hastigheten mäts över
+// Släppfarten mäts av lib/pekspar.js (G2): 90 ms fönster, 130 ms ålder — ett finger som stått
+// stilla före släppet ger null, alltså ingen flick.
 
 // Svampens viloplats (nere till höger, stor träffyta).
 const SPONGE_HOME_X = 1130
@@ -84,7 +86,7 @@ export default {
     this._flying = false // sant medan tårtan flyger (integreras i tickern)
     this._cakeVel = { x: 0, y: 0 }
     this._flightElapsed = 0
-    this._vSamples = [] // peksamplingar {x,y,t} för att mäta flick-hastighet
+    this._spar = new Pekspar() // fingrets spår → släppfart (px/ms)
     this._rubCount = 0 // gnugg-bildrutor som faktiskt torkade något
     this._lastSqueak = 0 // tidsstrypning av gnisslet (ms)
     this._lastBubble = 0 // tidsstrypning av skumbubblorna (ms)
@@ -460,7 +462,8 @@ export default {
     this._grabDY = this._cake.y - p.y
     this._startX = p.x
     this._startY = p.y
-    this._vSamples = [{ x: p.x, y: p.y, t: performance.now() }]
+    this._spar.rensa()
+    this._spar.lagg(performance.now(), p.x, p.y)
     ctx.services.audio.sfx('tap')
     pop(this._cake)
     this._cake.on('globalpointermove', this._cakeMove)
@@ -475,11 +478,9 @@ export default {
     if (this._dragMoved) {
       this._cake.x = p.x + this._grabDX
       this._cake.y = p.y + this._grabDY
-      // Spara peksamplingar i ett kort tidsfönster -> ger flick-hastigheten vid släpp.
-      const now = performance.now()
-      this._vSamples.push({ x: p.x, y: p.y, t: now })
-      while (this._vSamples.length > 2 && now - this._vSamples[0].t > VEL_WINDOW) this._vSamples.shift()
     }
+    // Fingrets spår (inte tårtans) -> släppfarten vid flick.
+    this._spar.lagg(performance.now(), p.x, p.y)
   },
 
   _onCakeUp(ctx) {
@@ -515,17 +516,11 @@ export default {
     }
   },
 
-  // Mät flick-hastighet (px/s) från peksamplingarna i tidsfönstret.
+  // Flick-hastighet (px/s) ur Pekspar (px/ms × 1000). Stillastående före släppet = fart 0.
   _measureFlick() {
-    const s = this._vSamples
-    if (!s || s.length < 2) return { x: 0, y: 0, speed: 0 }
-    const a = s[0]
-    const b = s[s.length - 1]
-    const dt = (b.t - a.t) / 1000
-    if (dt <= 0) return { x: 0, y: 0, speed: 0 }
-    const vx = (b.x - a.x) / dt
-    const vy = (b.y - a.y) / dt
-    return { x: vx, y: vy, speed: Math.hypot(vx, vy) }
+    const k = this._spar.fart()
+    if (!k) return { x: 0, y: 0, speed: 0 }
+    return { x: k.vx * 1000, y: k.vy * 1000, speed: k.fart * 1000 }
   },
 
   // Mjuk auto-hjälp-hastighet: riktad mot ansiktet (lite ovanför -> fin båge).

@@ -98,9 +98,9 @@ inte en medspelare, och flicken har inget att sikta på.
   människor hoppar rad för rad vid varje träff (`jubla`), strålkastarna blixtrar, och vid rundans
   slut sveper strålarna isär och publiken hoppar (`finale`). **Kvar:** att jublet *växer* med
   kladdet (nu lika vid varje träff), och att publiken kastar konfetti.
-- **[Deep] Släppfarten → G2** (FYSIKPLAN §2 G2): `VEL_WINDOW`/`_measureFlick` (:50, :506) är
-  repots tredje egna släppfart bredvid DragController. **Inte med 2026-10-02** (ägarens avgränsning);
-  `STEER` (:46) avgör fortfarande landningen.
+- ✅ ~~**[Deep] Släppfarten → G2**~~ Klar 2026-10-02 (D9): `VEL_WINDOW`-kopian är bort, `lib/pekspar.js`
+  mäter. `STEER` (:46) avgör fortfarande landningen — **siktet** (att flick-riktningen avgör var
+  tårtan landar) är en egen post under "Kärnloop & agens" och står kvar.
 - **[Medium, gammal] Skrattande publik** (rest): Små ansikten i kanten som fnissar/jublar mer ju kladdigare
   Alissa blir och kastar konfetti vid rundans slut — ger slapsticken en medskrattande omgivning.
 
@@ -113,6 +113,17 @@ inte en medspelare, och flicken har inget att sikta på.
   *(Blockerad 2026-09-23: kräver nya SFX-klipp — MOSS nere.)*
 
 ## 5. Status / loggar
+
+- 2026-10-02 🎯 **D9/G2: släppfarten ur `lib/pekspar.js`** i stället för en egen kopia (`VEL_WINDOW`,
+  `_vSamples`, ~15 rader). Spelet lägger fingrets läge (inte tårtans) i en `Pekspar` vid nedtryck och
+  varje `globalpointermove`; `_measureFlick` läser `fart()` × 1000 (px/s) och tröskeln `FLICK_MIN`
+  300 / taket `FLICK_MAX` 1700 är orörda. **Samma kast** — Node-mätning, syntetiska pekspår, gamla
+  formeln ordagrant mot Pekspar: jämn snärt 1487 → 1487 px/s · långsamt 248 → 248 · långsamt drag +
+  snärt på slutet 1803 → 1803 · accelererande 1556 → 1556 · paus 220 ms + snärt 1697 → 1697 (både
+  16,7 och 8 ms provtakt). **En avsiktlig skillnad:** ett snabbt drag där fingret sedan STÅR STILLA
+  500 ms före släppet gav gamla koden 1697 px/s (provet sist i listan bar full fart — ingen
+  åldersvakt) = en flick; nu `null` → fart 0, och släppet hanteras som ett långsamt släpp (nära
+  ansiktet = mjuk auto-flick, annars vänlig snäpp tillbaka). Ingen no-fail-regel rörd.
 
 - 2026-10-02 🎪 **L2: en cirkus i stället för krämplattan** (`cirkus.js`, ny fil). Fonden (en
   ljus platta mellan ridåer) och plankgolvet är utbytta mot ett stortält som byggs om varje runda

@@ -95,6 +95,56 @@ const PLING = [523.25, 587.33, 659.25, 783.99, 880, 1046.5]
 const TREAT_R = 54 // nudd-radie — generös, det ska kännas som att man strök förbi
 const TREATS = ['fagel', 'ballong', 'stjarna']
 
+// En boende i ett tänt fönster. Origo = mitten av fönsterbrädan, figuren ritas uppåt (−y).
+// Bara djur och Bobo-liknande björnar: inga namnlösa människor (P0 KARAKTÄRER).
+function ritaBoende(art) {
+  const c = new Container()
+  c.eventMode = 'none'
+  const g = new Graphics()
+  g.eventMode = 'none'
+  if (art === 'bjorn') {
+    g.circle(-10, -23, 5.2).fill(0xfffaf0).circle(10, -23, 5.2).fill(0xfffaf0)
+    g.circle(-10, -23, 2.6).fill(0xffb3c8).circle(10, -23, 2.6).fill(0xffb3c8)
+    g.circle(0, -13, 12.5).fill(0xfffaf0).stroke({ width: 1.5, color: 0xe3d6c4 })
+    g.circle(-7, -9.5, 3).fill({ color: 0xff9ec4, alpha: 0.7 }).circle(7, -9.5, 3).fill({ color: 0xff9ec4, alpha: 0.7 })
+    g.circle(-4.2, -15, 1.7).fill(COLORS.ink).circle(4.2, -15, 1.7).fill(COLORS.ink)
+    g.ellipse(0, -11, 2.2, 1.7).fill(COLORS.ink)
+    g.ellipse(0, 1, 15, 8).fill(0xff9a3c)
+    c.addChild(g)
+    // Tassen som vinkar när Zacke kommer förbi: eget barn, så hoppet och vinkningen aldrig
+    // skriver över varandra.
+    const tass = new Graphics()
+    tass.eventMode = 'none'
+    tass.circle(0, 0, 4.2).fill(0xfffaf0).stroke({ width: 1.2, color: 0xe3d6c4 })
+    tass.position.set(15, -6)
+    c.addChild(tass)
+    c._tass = tass
+  } else if (art === 'katt') {
+    g.moveTo(-11, -17).lineTo(-9, -31).lineTo(-1.5, -23).closePath().fill(0xf5a45c)
+    g.moveTo(11, -17).lineTo(9, -31).lineTo(1.5, -23).closePath().fill(0xf5a45c)
+    g.moveTo(-8.5, -21).lineTo(-8, -27).lineTo(-4.5, -23).closePath().fill(0xffb3c8)
+    g.moveTo(8.5, -21).lineTo(8, -27).lineTo(4.5, -23).closePath().fill(0xffb3c8)
+    g.circle(0, -13, 12).fill(0xf5a45c)
+    g.moveTo(-3, -24).lineTo(-3, -19).stroke({ width: 1.8, color: 0xd9803a, cap: 'round' })
+    g.moveTo(3, -24).lineTo(3, -19).stroke({ width: 1.8, color: 0xd9803a, cap: 'round' })
+    g.ellipse(-4.5, -14, 1.7, 2.2).fill(COLORS.ink).ellipse(4.5, -14, 1.7, 2.2).fill(COLORS.ink)
+    g.moveTo(-1.8, -10.5).lineTo(1.8, -10.5).lineTo(0, -8.8).closePath().fill(0xe86a92)
+    g.moveTo(-12, -9).lineTo(-6, -10).stroke({ width: 1, color: COLORS.inkSoft })
+    g.moveTo(12, -9).lineTo(6, -10).stroke({ width: 1, color: COLORS.inkSoft })
+    g.ellipse(0, 2, 14, 8).fill(0xf5a45c)
+    c.addChild(g)
+  } else {
+    // kruka med blad och blomma
+    g.moveTo(0, -4).quadraticCurveTo(-2, -16, 0, -26).stroke({ width: 3, color: 0x4f9e56, cap: 'round' })
+    g.moveTo(0, -10).quadraticCurveTo(-11, -12, -13, -22).quadraticCurveTo(-4, -20, 0, -10).closePath().fill(0x5bbf6a)
+    g.moveTo(0, -14).quadraticCurveTo(10, -17, 13, -27).quadraticCurveTo(4, -25, 0, -14).closePath().fill(0x6fd07a)
+    g.circle(0, -29, 5).fill(0xff7a9a).circle(0, -29, 2).fill(COLORS.yellow)
+    g.moveTo(-9, -3).lineTo(9, -3).lineTo(7, 4).lineTo(-7, 4).closePath().fill(0xd2683a)
+    c.addChild(g)
+  }
+  return c
+}
+
 export default {
   id: 'spindel-zacke-svingar',
   titleSv: 'Spindel-Zacke Svingar',
@@ -154,6 +204,7 @@ export default {
     // Hustaken Zacke svingar över (dekorativa, men i hans plan).
     this._roofs = this._buildRoofs(WORLD_MAX, false)
     this._varld.addChild(this._roofs)
+    this._hejTw = [] // de boendes hopp-tweens — dödas i destroy
     this._tintaStaden()
 
     // Fästen (knoppar + nät) + mål-dekor (kattunge/Elvira).
@@ -732,6 +783,8 @@ export default {
     if (this._roofs && !this._roofs.destroyed) {
       this._roofs.kropp.tint = s.hus
       this._roofs.fonster.tint = s.lyse
+      this._roofs.folk.tint = s.hus
+      this._roofs.fram.tint = s.hus
     }
     if (this._farRoofs && !this._farRoofs.destroyed) {
       // Fjärranbandet ligger längre in i luften: samma stämning, men mörkare och utan
@@ -744,6 +797,14 @@ export default {
   _buildRoofs(bredd, fjarran) {
     // Kropp och fönster i VAR SIN Graphics: en enda tint över hela huset hade släckt
     // fönstren i samma andetag som den mörknade väggen. Se STAMNINGAR.
+    //
+    // FASADEN (L2): husen är inte längre lådor med en gul ruta. Varje hus har panel, hörn-
+    // lister, taktegel med skuggsida och takfot, en rund vindsglugg, dörr och fönster med
+    // karm, bräda och gardiner — och i de tända fönstren sitter boende: en Bobo-lik björn,
+    // en katt eller en kruka (bara djur och Bobo; avbildade människor får bara heta
+    // Zacke/Alissa/Elvira/Lova, så fönstren har inga namnlösa människor). Björnarna och
+    // katterna hejar till när Zacke svingar förbi (`_hejaFolk`). Allt sitter i det ritade
+    // världslagret; inget rör pendeln, höjden på husen eller träffytor.
     const c = new Container()
     c.eventMode = 'none'
     c.interactiveChildren = false
@@ -751,10 +812,22 @@ export default {
     g.eventMode = 'none'
     const f = new Graphics()
     f.eventMode = 'none'
-    c.addChild(g, f)
+    // `folk` (de boende) och `fram` (bräda, gardin, mullion, blomlåda) ligger OVANPÅ de tända
+    // rutorna men under inget annat; båda tintas med husets kvällston i `_tintaStaden`.
+    const folk = new Container()
+    folk.eventMode = 'none'
+    folk.interactiveChildren = false
+    const fram = new Graphics()
+    fram.eventMode = 'none'
+    c.addChild(g, f, folk, fram)
     c.kropp = g
     c.fonster = f
+    c.folk = folk
+    c.fram = fram
+    c.boende = []
     const tops = [COLORS.red, COLORS.teal, COLORS.purple, COLORS.teal, COLORS.red, COLORS.blue]
+    const gardin = [0xe86a92, 0xff9f43, 0x7ad88a, 0xa66bd6]
+    const BOENDE = ['bjorn', 'katt', 'kruka', 'katt', 'bjorn', 'tom', 'kruka', 'bjorn']
     const w = fjarran ? HUS_W * 0.72 : HUS_W
     const n = Math.ceil(bredd / w) + 1
     // Fjärranbandet ligger högre upp (längre bort = närmare horisonten) och tonas mot
@@ -769,6 +842,7 @@ export default {
       // inte blir en kam. `i % 5` mot `i % 2` gör att takåsen aldrig hamnar i takt med
       // fästena (som ligger var 300:e px).
       const wallTop = bas + (i % 2) * 15 - (i % 5 === 0 ? 34 : 0)
+      const takFarg = tops[i % tops.length]
       // Husväggarna låg tillsammans på 185 601 px — 20 % av skärmen — i EN ton
       // (`_plattprobe --medbakgrund`). De ritas med alpha (fjärranbandet tonas mot
       // himlen), så toningen måste bära genomskinligheten själv. Per-form-normalisering
@@ -779,10 +853,64 @@ export default {
         .lineTo(x + w / 2, wallTop - 55)
         .lineTo(x + w, wallTop + 10)
         .closePath()
-        .fill({ color: tops[i % tops.length], alpha: a })
+        .fill({ color: takFarg, alpha: a })
       if (fjarran) continue
+      const cx = x + w / 2
+
+      // --- tak: skuggsida, tegelrader, takfot, vindsglugg ---
+      g.moveTo(cx, wallTop - 55).lineTo(x + w, wallTop + 10).lineTo(cx, wallTop + 10).closePath()
+        .fill({ color: 0x000000, alpha: 0.15 })
+      for (const h of [16, 32, 48]) {
+        const hw = (w / 2) * (1 - h / 65)
+        g.moveTo(cx - hw, wallTop + 10 - h).lineTo(cx + hw, wallTop + 10 - h)
+          .stroke({ width: 2, color: 0x000000, alpha: 0.14 })
+        for (let k = -2; k <= 2; k++) {
+          const tx = cx + k * 26 + ((h / 16) % 2 ? 13 : 0)
+          if (Math.abs(tx - cx) < hw - 6) g.moveTo(tx, wallTop + 10 - h).lineTo(tx, wallTop + 10 - h + 16).stroke({ width: 1.5, color: 0x000000, alpha: 0.1 })
+        }
+      }
+      g.roundRect(x - 2, wallTop + 4, w + 4, 9, 4).fill(shade(takFarg, 0.24))
+      g.roundRect(x - 2, wallTop + 4, w + 4, 3, 2).fill({ color: 0xffffff, alpha: 0.28 })
+      g.circle(cx, wallTop - 14, 9.5).fill(COLORS.cream)
+      f.circle(cx, wallTop - 14, 6.5).fill({ color: COLORS.yellow, alpha: 0.85 })
+      fram.moveTo(cx - 6.5, wallTop - 14).lineTo(cx + 6.5, wallTop - 14).stroke({ width: 1.5, color: COLORS.brown })
+      fram.moveTo(cx, wallTop - 20.5).lineTo(cx, wallTop - 7.5).stroke({ width: 1.5, color: COLORS.brown })
+
+      // --- vägg: liggande panel, hörnlister ---
+      for (let y = wallTop + 26; y < 716; y += 15) {
+        g.moveTo(x + 14, y).lineTo(x + w - 14, y).stroke({ width: 1.5, color: 0x000000, alpha: 0.07 })
+      }
+      g.roundRect(x + 6, wallTop + 12, 9, 708 - wallTop, 3).fill({ color: 0xffffff, alpha: 0.2 })
+      g.roundRect(x + w - 15, wallTop + 12, 9, 708 - wallTop, 3).fill({ color: 0x000000, alpha: 0.14 })
+
       if (i % 2) g.roundRect(x + w * 0.68, wallTop - 30, 16, 36, 4).fill(COLORS.brown) // skorsten
-      f.roundRect(x + w * 0.5 - 16, wallTop + 50, 32, 40, 5).fill(COLORS.yellow) // fönster
+      if (i % 2) g.roundRect(x + w * 0.68 - 3, wallTop - 33, 22, 7, 3).fill(shade(COLORS.brown, 0.25))
+
+      // --- dörr: valvad, med knopp, i husets nedre vänstra hörn ---
+      const dx = x + w * 0.13
+      const dTop = wallTop + 110
+      g.roundRect(dx - 4, dTop - 4, 44, 720 - dTop + 4, 9).fill(COLORS.cream)
+      g.roundRect(dx, dTop, 36, 720 - dTop, 8).fill(tint(COLORS.brown, 0.1))
+      g.roundRect(dx + 5, dTop + 7, 26, 24, 6).fill({ color: 0x000000, alpha: 0.16 })
+      g.circle(dx + 29, dTop + 40, 3).fill(COLORS.yellow)
+
+      // --- fönster: karm (i g) · glas (i f) · boende (i folk) · bräda + gardin (i fram) ---
+      const wx = cx - 16
+      const wy = wallTop + 50
+      g.roundRect(wx - 5, wy - 5, 42, 50, 7).fill(COLORS.cream)
+      f.roundRect(wx, wy, 32, 40, 5).fill(COLORS.yellow) // fönster
+      fram.roundRect(wx - 7, wy + 38, 46, 8, 3).fill(COLORS.cream)
+      fram.roundRect(wx - 7, wy + 38, 46, 3, 2).fill({ color: 0xffffff, alpha: 0.5 })
+      const gf = gardin[(i * 5 + 1) % gardin.length]
+      fram.moveTo(wx, wy).lineTo(wx + 12, wy).quadraticCurveTo(wx + 3, wy + 12, wx, wy + 24).closePath().fill({ color: gf, alpha: 0.92 })
+      fram.moveTo(wx + 32, wy).lineTo(wx + 20, wy).quadraticCurveTo(wx + 29, wy + 12, wx + 32, wy + 24).closePath().fill({ color: gf, alpha: 0.92 })
+      const art = BOENDE[(i * 3 + 1) % BOENDE.length]
+      if (art !== 'tom') {
+        const fig = ritaBoende(art)
+        fig.position.set(cx, wy + 40)
+        folk.addChild(fig)
+        if (art !== 'kruka') c.boende.push({ fig, x: cx, y0: wy + 40, art, till: 0 })
+      }
 
       // FINARE MOT MÅLET. Kattungen sitter alltid längst till höger i banan, och världen
       // klipps strax bakom den — "längre åt höger" betyder alltså alltid "närmare målet",
@@ -794,12 +922,26 @@ export default {
       // fångstlinjen och kattungens fötter, så hon hade svävat framför en gavel och Zacke
       // flugit rakt genom ett tak innan molnet hann fånga honom.
       const narhet = x / Math.max(1, bredd)
-      if (narhet > 0.34) f.roundRect(x + w * 0.5 - 13, wallTop + 112, 26, 34, 5).fill({ color: COLORS.yellow, alpha: 0.8 })
-      else if (i % 3 === 0) f.roundRect(x + w * 0.5 - 13, wallTop + 112, 26, 34, 5).fill({ color: COLORS.yellow, alpha: 0.75 })
+      const nedre = narhet > 0.34 || i % 3 === 0
+      if (nedre) {
+        // Nedre fönstret med blomlåda på bräda.
+        const lx = cx - 13
+        const ly = wallTop + 112
+        g.roundRect(lx - 4, ly - 4, 34, 42, 6).fill(COLORS.cream)
+        f.roundRect(lx, ly, 26, 34, 5).fill({ color: COLORS.yellow, alpha: narhet > 0.34 ? 0.8 : 0.75 })
+        fram.roundRect(lx - 4, ly + 32, 34, 7, 3).fill(shade(COLORS.brown, 0.1))
+        for (let b = 0; b < 4; b++) {
+          fram.circle(lx + 2 + b * 7.3, ly + 28, 3.6).fill([COLORS.red, COLORS.yellow, COLORS.pink, COLORS.red][b])
+          fram.circle(lx + 2 + b * 7.3, ly + 32, 2.6).fill(0x4f9e56)
+        }
+      }
       if (narhet > 0.52) {
         // Två smala fönster till på var sida — tätare stad.
-        f.roundRect(x + w * 0.22, wallTop + 56, 18, 30, 4).fill({ color: COLORS.yellow, alpha: 0.7 })
-        f.roundRect(x + w * 0.78 - 18, wallTop + 56, 18, 30, 4).fill({ color: COLORS.yellow, alpha: 0.7 })
+        for (const sx of [x + w * 0.22, x + w * 0.78 - 18]) {
+          g.roundRect(sx - 3, wallTop + 53, 24, 36, 5).fill(COLORS.cream)
+          f.roundRect(sx, wallTop + 56, 18, 30, 4).fill({ color: COLORS.yellow, alpha: 0.7 })
+          fram.roundRect(sx - 3, wallTop + 84, 24, 5, 2).fill(COLORS.cream)
+        }
       }
       if (narhet > 0.62) {
         // Balkongräcke under mittfönstret.
@@ -813,6 +955,46 @@ export default {
       }
     }
     return c
+  },
+
+  // Hejar de boende som Zacke svingar förbi. Körs varje bildruta men gör nästan ingenting:
+  // en jämförelse per boende, och en kort hopp-tween (proxy) bara när han är nära. Varje
+  // boende hejar högst en gång per 2,2 s; tweenarna ligger i `_hejTw` och dödas i destroy.
+  _hejaFolk() {
+    const c = this._roofs
+    if (!c || c.destroyed || !c.boende?.length || !this._zacke || this._zacke.destroyed) return
+    const zx = this._zacke.x
+    const nu = performance.now()
+    for (const b of c.boende) {
+      if (Math.abs(b.x - zx) > 115 || nu < b.till || b.fig.destroyed) continue
+      b.till = nu + 2200
+      const fig = b.fig
+      const st = { p: 0 }
+      const tw = gsap.to(st, {
+        p: 1,
+        duration: 0.7,
+        ease: 'none',
+        onUpdate: () => {
+          if (fig.destroyed) {
+            tw.kill()
+            return
+          }
+          const hopp = Math.abs(Math.sin(st.p * Math.PI * 2))
+          fig.y = b.y0 - hopp * 8
+          fig.scale.y = 1 + hopp * 0.07
+          fig.scale.x = 1 - hopp * 0.04
+          if (fig._tass) fig._tass.y = -22 - Math.sin(st.p * Math.PI) * 14
+        },
+        onComplete: () => {
+          if (fig.destroyed) return
+          fig.y = b.y0
+          fig.scale.set(1)
+          if (fig._tass) fig._tass.y = -6
+        },
+      })
+      this._hejTw.push(tw)
+      if (this._hejTw.length > 24) this._hejTw = this._hejTw.filter((t) => t.parent)
+    }
   },
 
   // ------------------------------------------------------------------ nät-längd
@@ -1218,6 +1400,7 @@ export default {
     if (!this._alive || this._resolving) return
     const dt = Math.min(ticker.deltaMS / 16.67, 2) // klampa flikbyte
     this._vinka(ticker)
+    this._hejaFolk()
 
     if (this._state === 'swing') {
       this._L += (this._ropeLen - this._L) * 0.1 // mjuk längd-justering
@@ -1328,6 +1511,8 @@ export default {
     this._ghostTw?.kill()
     for (const t of this._winTweens || []) t.kill()
     this._winTweens = []
+    for (const t of this._hejTw || []) t.kill()
+    this._hejTw = []
     if (this._sky && !this._sky.destroyed) this._sky.off('pointertap', this._hRelease)
     if (this._lenBtn && !this._lenBtn.destroyed) {
       gsap.killTweensOf(this._lenBtn)

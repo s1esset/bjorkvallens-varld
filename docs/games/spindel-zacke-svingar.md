@@ -111,7 +111,9 @@ glida förbi på auto-hjälp utan att barnet känt att det styrde.
 - ✅ 2026-08-07 **[Deep] Mini-berättelse per nivå.** Kort intro ("kattungen sitter fast på taket!") + Elvira som
   springer fram och kramar Zacke vid räddningen — en spelspecifik vinst-scen i stället för generisk
   konfetti.
-- **[Quick] Bobo eller folk i fönstren** som hejar när Zacke svingar förbi (levande stad).
+- ✅ ~~**[Quick] Bobo eller folk i fönstren** som hejar när Zacke svingar förbi (levande stad).~~ Klar
+  2026-10-02: björnar (Bobo-lika) och katter i de tända fönstren hejar när Zacke passerar (se §5).
+  Inga namnlösa människor — P0 KARAKTÄRER tillåter bara djur, Bobo och de fyra namngivna.
 
 ### Ljud
 - 🔶 2026-08-07 **[Quick] Riktiga SFX från [[real-audio-sfx]]:** nät-thwip, vind-sus, jamande katt, mjuk
@@ -121,6 +123,13 @@ glida förbi på auto-hjälp utan att barnet känt att det styrde.
 
 ## 5. Status / loggar
 
+- 2026-10-02 ✅ **Fasad på husen (L2)** (natt F5 B2): lådhusen har nu liggande panel, hörnlister,
+  taktegel med skuggsida och takfot, rund vindsglugg, valvad dörr samt fönster med karm, bräda,
+  gardiner och blomlådor. I de tända fönstren bor en Bobo-lik björn, en katt eller en kruka;
+  björnar och katter hejar (hopp, björnen vinkar) när Zacke passerar inom ~115 px, högst en gång per
+  2,2 s och boende (`_hejaFolk`, proxy-tweens i `_hejTw`, dödas i destroy). Boende och bräda ligger
+  i egna lager som tintas med husets kvällston. Pendeln, husens höjd (`ROOF_Y`), fästena och
+  träffytorna är orörda. Omätt i webbläsare (koordinatorn testar).
 - 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): "En kattunge till behöver hjälp!"
   låg på en fast 4,2 s, 0,1 s efter berömmets längsta slut — köar nu via `ctx.narTyst` med
   nivå-token (kattungens vickning och jam kommer fortfarande genast). Spelet hade ingen egen

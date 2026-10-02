@@ -28,6 +28,7 @@ import { FluidWorld, FluidView, FLUIDS } from '../../lib/vatska.js'
 import { topLightFill } from '../../lib/form.js'
 import { drawIcon } from '../../lib/artikoner.js'
 import { randomFrom } from '../../lib/swedish.js'
+import { pase } from '../../lib/variation.js'
 
 // --- Duschvattnet (lib/vatska.js) -----------------------------------------
 const FLUID_MAX = 240        // partikeltak
@@ -132,6 +133,7 @@ export default {
     this._lastScrubSnd = 0
     this._lastRinseSnd = 0
     this._level = Math.max(0, ctx.progress.get().highestLevel | 0)
+    this._djurPase = pase(TYPES) // färsk påse per montering (U2)
 
     this._root = new Container()
     ctx.stage.addChild(this._root)
@@ -360,12 +362,15 @@ export default {
 
   // ---- Nivå + djur-/lerbygge ---------------------------------------------
 
+  // Djuret (utseende, läte, badsak, rosett) dras ur en PÅSE — varje djur en gång per varv, aldrig
+  // samma två rundor i rad. SVÅRIGHETEN (lerrutnätets steg, envisa klumpar) hänger däremot kvar
+  // på nivån: de tre första trappsteg som förut var knutna till pony → gris → hund. Efter nivå 5
+  // följer svårigheten det dragna djurets egna mått, som förut.
   _levelType() {
     const lvl = this._level
-    if (lvl <= 1) return TYPES[0]
-    if (lvl <= 3) return TYPES[1]
-    if (lvl <= 5) return TYPES[2]
-    return randomFrom(TYPES)
+    const djur = this._djurPase.nasta()
+    const trappa = lvl <= 1 ? TYPES[0] : lvl <= 3 ? TYPES[1] : lvl <= 5 ? TYPES[2] : djur
+    return { ...djur, step: trappa.step, doubles: !!trappa.doubles }
   },
 
   _buildAnimal(ctx) {

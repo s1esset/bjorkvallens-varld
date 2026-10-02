@@ -303,3 +303,14 @@ nås (idle-vink + auto-städ), och att fel-drag är mjukt (bubbla). Lerklumpar/s
   Mätt: `scripts/_natt-tvatta-djuret.mjs` sveper svamp/dusch över fläckarnas faktiska ruta med
   riktiga musdrag: **3 svep / 10,1 s i båda armarna** (HEAD 63–65 fläckar, nu 63–69), svampen
   smutsig 2 → oförändrad av dusch över djuret → 0 av strålen över svampen, 0 konsolfel.
+
+- 2026-10-02 🐴🐷🐶 **DJURET LOTTAS UR EN PÅSE, SVÅRIGHETEN STÅR KVAR** (F3 B1, FYSIKPLAN U2).
+  `_levelType` gav ponny (nivå 0–1) → gris (2–3) → valp (4–5) i fast ordning. Men djuret bar
+  OCKSÅ svårigheten: `step` (lerrutnätets täthet) och `doubles` (envisa klumpar) sitter på
+  typen. Att bara lotta typen hade därför lagt valpens dubbelklumpar på nivå 1. Nu är de
+  två isärkopplade: **utseende, läte, badsak och rosett** dras ur `pase(TYPES)` (varje djur en
+  gång per varv, aldrig samma två rundor i rad), medan **`step`/`doubles` följer nivåtrappan**
+  (≤1 ponnyns, ≤3 grisens, ≤5 valpens; efter 5 det dragna djurets egna, som förut). Silhuettens
+  `scale` är djurets (grisen är lite större). Påsen skapas i `init`. Kladdzoner och gömmor är
+  oförändrade. **Verifiera:** `g._type.kind` över flera rundor (aldrig samma två i rad) och
+  `g._type.step` (44 → 38 → 32 med nivån, oavsett djur).

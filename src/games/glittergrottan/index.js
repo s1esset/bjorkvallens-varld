@@ -18,6 +18,7 @@ import { gsap } from 'gsap'
 import { sparkle, burst } from '../../lib/feedback.js'
 import { shade, tint } from '../../lib/theme.js'
 import { shuffle } from '../../lib/swedish.js'
+import { pase } from '../../lib/variation.js'
 import { verticalFill } from '../../lib/form.js'
 import { BLEED_X, BLEED_Y } from '../../lib/view.js'
 
@@ -33,8 +34,8 @@ const SHAPES = ['spets', 'klot', 'kub']
 // en liten melodi som alltid låter fin (ingen ton kan krocka).
 const PENTA = [523.25, 587.33, 659.25, 783.99, 880.0, 1046.5, 1174.66]
 
-// Regelramp: en ny regel per nivå tills alla är introducerade, sedan slumpas de
-// (aldrig samma två gånger i rad) → omgång 2 är aldrig omgång 1.
+// Reglerna lottas ur en påse (lib/variation.js `pase`, aldrig samma två rundor i rad) → omgång 2
+// är aldrig omgång 1. Formregeln, den svåraste, hålls tillbaka till nivå 2 (se `_build`).
 const RULES = ['storlek_upp', 'pos_hoger', 'farg', 'storlek_ner', 'pos_upp', 'form']
 
 const RULE_LINES = {
@@ -120,6 +121,8 @@ export default {
     this._fogTimer = 0
     this._fogSeen = false
     this._lastRule = null
+    this._latta = pase(RULES.filter((r) => r !== 'form')) // påsar per montering (U2)
+    this._alla = null
     this._ruleLine = this.voiceIntro
     this._timers = []
     this._noTap = 0
@@ -303,10 +306,16 @@ export default {
     const L = ctx.progress.get().highestLevel || 0
     this._level = L
     const n = Math.min(3 + Math.floor(L / 2), 6)
-    let rule = L < RULES.length ? RULES[L] : null
-    if (!rule) {
-      const pool = RULES.filter((r) => r !== this._lastRule)
-      rule = pool[(Math.random() * pool.length) | 0]
+    // Regeln dras ur en påse (U2) i stället för i fast ordning. De två första rundorna (n=3)
+    // tar bara de enkla reglerna — formregeln (två grupper, valfri ordning inom gruppen) är den
+    // svåraste att förstå och väntar till nivå 2. Därefter en påse över ALLA regler: varje regel
+    // en gång per varv, aldrig samma två rundor i rad.
+    let rule
+    if (L < 2) {
+      rule = this._latta.nasta()
+    } else {
+      this._alla ??= pase(RULES, this._lastRule)
+      rule = this._alla.nasta()
     }
     this._lastRule = rule
     this._rule = rule

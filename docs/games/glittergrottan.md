@@ -238,3 +238,14 @@ namnger den). Samma skärm bär båda åldrarna.
   ⚠️ **Fälla sonden själv gick i:** en DELAD webbläsare över försöken gör spärren till en
   kaskad — försök 10–12 föll alla, vilket såg ut som 100 % frekvens. `npm run test` startar
   en färsk webbläsare per körning; sonden måste göra likadant för att mäta samma sak.
+
+- 2026-10-02 💎 **REGLERNA LOTTAS UR EN PÅSE** (F3 B1, FYSIKPLAN U2). De sex första rundorna gick i
+  fast ordning (`RULES[L]`: storlek upp → höger → färg → storlek ner → upp → form) och först
+  därefter slumpades de. Nu drar `_build` ur `pase` redan från runda 1: nivå 0–1 (n=3) ur de FEM
+  enkla reglerna (formregeln — två grupper med valfri ordning inom gruppen — är svårast att förstå
+  och väntar till nivå 2, så svårighetskurvan står kvar), från nivå 2 en påse över ALLA sex
+  (`pase(RULES, _lastRule)`) — varje regel en gång per varv, aldrig samma två rundor i rad. Båda
+  påsarna skapas i `init`. Plats-reglerna fungerar redan för n=3 (3 banor, jämnt steg).
+  Glittershadern och three-lagret är orörda (parkerade av ägaren). **Verifiera:** `g._rule` per
+  runda (aldrig lika två i rad; `form` aldrig före nivå 2). §4:s parkerade [Deep] (shadern) är
+  inte byggbart, så statusen står kvar ✅.

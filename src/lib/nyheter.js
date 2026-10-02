@@ -10,6 +10,15 @@
 
 export const NYHETER = [
   {
+    version: '1.395',
+    fran: '1.393',
+    datum: '2026-10-02',
+    titel: 'Grund för gungor och grepp',
+    punkter: [
+      'Bakom kulisserna: en gemensam grund för saker som gungar, snurrar och hålls i handen. Balanstornet, Vippbrädan och Knuffa Tornet använder den redan och känns precis som förut. Kommande versioner bygger vidare på den i fler spel.',
+    ],
+  },
+  {
     version: '1.392',
     fran: '1.387',
     datum: '2026-10-02',

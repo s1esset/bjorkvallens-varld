@@ -25,6 +25,7 @@ import { verticalFillAlpha, groundFill } from '../../lib/form.js'
 import { FluidWorld, FluidView, FLUIDS } from '../../lib/vatska.js'
 import { Mjukkropp } from '../../lib/mjukkropp.js'
 import { Takt } from '../../lib/takt.js'
+import { Ytvag } from '../../lib/ytvag.js'
 import { pase } from '../../lib/variation.js'
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
@@ -364,12 +365,23 @@ export default {
     this._surf = SURF_FULL
     this._surfBase = SURF_FULL
     this._disp = 0
-    this._wave = new Float32Array(WAVE_N) // AVVIKELSEN från viloläget — går till exakt noll
-    this._waveV = new Float32Array(WAVE_N)
-    this._waveRest = new Float32Array(WAVE_N) // ankans dell: fältets vilolage
-    this._waveRestPrev = new Float32Array(WAVE_N)
-    this._waveAcc = 0
-    this._waveOn = false
+    // Ytan är ett `Ytvag` (lib/ytvag.js): AVVIKELSEN `h` går till exakt noll, ankans dell är fältets
+    // viloläge, fast tidssteg via Takt. `_wave`/`_waveV` är SAMMA arrayer (sonderna läser dem).
+    this._ytvag = new Ytvag({
+      n: WAVE_N,
+      x0: IN_L,
+      x1: IN_R,
+      sprid: WAVE_SPREAD,
+      k: WAVE_K,
+      damp: WAVE_DAMP,
+      max: WAVE_MAX,
+      stotProfil: [1, 0.55],
+      stotKlamma: true,
+      vilaTrosk: WAVE_REST,
+    })
+    this._wave = this._ytvag.h
+    this._waveV = this._ytvag.v
+    this._waveRest = this._ytvag.rest
     this._duckLastX = DUCK_HOME.x
     this._duckLastDip = 0
     this._plugOut = false
@@ -445,11 +457,7 @@ export default {
     this._surf = SURF_FULL
     this._surfBase = SURF_FULL
     this._disp = 0
-    this._wave?.fill(0)
-    this._waveV?.fill(0)
-    this._waveRest?.fill(0)
-    this._waveRestPrev?.fill(0)
-    this._waveOn = false
+    this._ytvag?.nollstall()
     this._fill = 0
     this._plugOut = false
     this._setPlugView()
@@ -507,135 +515,43 @@ export default {
 
   // ---- Höjdfältet: ytan svarar på det som rör sig i den -------------------
 
-  // ⚠️ FAST TIDSSTEG. Fältet räknar dämpning och fjäder PER STEG. Med ett rörligt steg blir
-  // en tappad bildruta en dubbelt så styv fjäder och vågen exploderar, medan ett för litet
-  // steg ger en helt annan jämvikt — samma fälla som `Mjukkropp` (se CLAUDE.md). Ackumulatorn
-  // stegar därför alltid exakt 1, och taket på 4 steg hindrar en spiral efter en lång paus.
-  _updateWave(dt) {
-    this._waveAcc += dt
-    let n = 0
-    while (this._waveAcc >= 1 && n < 4) {
-      this._waveAcc -= 1
-      this._waveStep()
-      n++
-    }
-    // ⚠️ OMRITNINGEN STYRS AV RÖRELSE, INTE AV UTSLAG. Ankan trycker en vilo-dell i ytan som
-    // aldrig går tillbaka till noll så länge hon flyter där — hade omritningen hängt på
-    // utslaget hade vattnet ritats om 60 ggr/s för all framtid för en form som står still.
-    // En yta som inte RÖR sig behöver inte ritas om, hur böjd den än är.
-    let maxH = 0
-    let maxV = 0
-    for (let i = 0; i < WAVE_N; i++) {
-      maxH = Math.max(maxH, Math.abs(this._wave[i] + this._waveRest[i]))
-      maxV = Math.max(maxV, Math.abs(this._waveV[i]))
-    }
-    this._waveOn = maxH > WAVE_REST
-    if (maxV > 0.02) {
-      this._waveDirty = true
-      return true
-    }
-    if (this._waveDirty) {
-      this._waveDirty = false
-      return true // en sista omritning så den slutgiltiga formen faktiskt hamnar i bild
-    }
-    return false
+  // Höjdfältet bor i `lib/ytvag.js` (porten ur det handbyggda fältet, uppmätt lika steg för steg
+  // över 900 steg: `scripts/_ytvagprobe.mjs`). Det som är kvar här är bara vad SPELET vet:
+  // var stötarna kommer ifrån och hur ankans dell ser ut. De fyra fällorna — konstant kraft,
+  // energikälla, dämpning sist, rörelsestyrd omritning — och det FASTA tidssteget (Takt) ligger
+  // i libbet och står förklarade i dess filhuvud.
+  //
+  // Sant medan ytan rör sig + en sista gång så slutformen hamnar i bild.
+  _updateWave(dts) {
+    this._waveDent()
+    return this._ytvag.uppdatera(dts * 1000)
   },
 
   // ANKANS DELL i ytan — den fördjupning ett flytande föremål trycker ner där det ligger.
-  //
-  // ⚠️ TVÅ MODELLER PROVADES OCH BÅDA VAR FEL PÅ VAR SITT SÄTT, båda mätta:
-  //  1. *En impuls varje bildruta medan hon dras.* Det är en KONSTANT KRAFT, inte en våg:
-  //     dämpningen tar 2,8 % per steg, så jämvikten blir insatsen/0,028 ≈ 36×. Ett halvt
-  //     sekunds drag pumpade fältet till sitt TAK (uppmätt 20,0 px = `WAVE_MAX`).
-  //  2. *Att varje steg dra fältet mot ett måldjup vid hennes x.* Då slåss dellen mot
-  //     fjädern som drar tillbaka mot noll, i all evighet — en energiKÄLLA. Uppmätt:
-  //     resthastighet 0,367 fyra sekunder efter att allt slutat röra sig, alltså krusningar
-  //     som strålar ut för alltid och ett vatten som ritas om varje bildruta för alltid.
-  //
-  // Rätt modell: dellen är fältets VILOLÄGE, inte en kraft i det. `_wave` bär bara
-  // AVVIKELSEN från viloläget och kan därför gå till exakt noll, och vågor uppstår av att
-  // viloläget FLYTTAR SIG — en stillastående anka gör inga vågor, en som dras gör vågor i
-  // proportion till hur fort hon dras. Det går inte att pumpa, och det tar slut.
+  // Dellen är fältets VILOLÄGE (deklareras varje bildruta medan hon är i badet), inte en kraft i
+  // det: en stillastående anka gör inga vågor, en som dras gör vågor i proportion till hur fort.
   _waveDent() {
-    const rest = this._waveRest
-    const v = this._waveV
-    for (let i = 0; i < WAVE_N; i++) this._waveRestPrev[i] = rest[i]
-    rest.fill(0)
-    if (this._duck && !this._duck.destroyed) {
-      const dopp = clamp(this._duckBase.y - this._floatY(), 0, DUCK_DIP_MAX)
-      const djup = 2.2 + dopp * 0.075 // vilo-dell + så mycket djupare när hon trycks ner
-      const t = clamp((this._duckBase.x - IN_L) / (IN_R - IN_L), 0, 1) * (WAVE_N - 1)
-      const c = Math.round(t)
-      for (let k = -2; k <= 2; k++) {
-        const i = c + k
-        if (i < 0 || i >= WAVE_N) continue
-        rest[i] = djup * (1 - Math.abs(k) / 3)
-      }
-    }
-    // Att viloläget flyttar sig är det som skapar vågen. Bounded per bildruta, och exakt
-    // noll när hon står stilla.
-    for (let i = 0; i < WAVE_N; i++) v[i] += (rest[i] - this._waveRestPrev[i]) * 0.9
-  },
-
-  _waveStep() {
-    const h = this._wave
-    const v = this._waveV
-    this._waveDent()
-    for (let i = 0; i < WAVE_N; i++) v[i] -= WAVE_K * h[i]
-    // Sidledsspridning: varje punkt dras mot medelvärdet av sina grannar. Det är det som
-    // gör en lokal stöt till en VÅG som vandrar i stället för en grop som studsar på plats.
-    for (let i = 0; i < WAVE_N; i++) {
-      const l = h[i > 0 ? i - 1 : 0]
-      const r = h[i < WAVE_N - 1 ? i + 1 : WAVE_N - 1]
-      v[i] += WAVE_SPREAD * (l + r - 2 * h[i])
-    }
-    // ⚠️ DÄMPNINGEN SIST, EFTER SPRIDNINGEN. Låg den före (som i första versionen) blev
-    // spridningens eget bidrag helt odämpat, och för det snabbaste moden — den där varannan
-    // stödpunkt går upp och varannan ner — är `l + r − 2h` lika med −4h. Med två pass gav det
-    // en effektiv styvhet på 0,88 per steg mot en dämpning på 0,972: en nästan ostabil
-    // svängning vid Nyquist-frekvensen. Uppmätt: resthastighet **0,087** fyra sekunder efter
-    // att allt slutat röra sig, alltså ett vatten som darrar och ritas om för alltid.
-    for (let i = 0; i < WAVE_N; i++) {
-      v[i] *= WAVE_DAMP
-      h[i] = clamp(h[i] + v[i], -WAVE_MAX, WAVE_MAX)
-    }
+    if (!this._duck || this._duck.destroyed) return
+    const dopp = clamp(this._duckBase.y - this._floatY(), 0, DUCK_DIP_MAX)
+    const djup = 2.2 + dopp * 0.075 // vilo-dell + så mycket djupare när hon trycks ner
+    this._ytvag.vila(this._duckBase.x, djup, 3 * this._ytvag.dx)
   },
 
   // Stöt in i ytan vid x. Positivt = nedåt (något trycker ner), negativt = uppåt (en bubbla
   // som poppar lyfter ytan).
   _wavePoke(x, kraft) {
-    if (!this._wave) return
-    const t = (x - IN_L) / (IN_R - IN_L)
-    const i = clamp(Math.round(t * (WAVE_N - 1)), 0, WAVE_N - 1)
-    this._waveV[i] += kraft
-    if (i > 0) this._waveV[i - 1] += kraft * 0.55
-    if (i < WAVE_N - 1) this._waveV[i + 1] += kraft * 0.55
-    this._waveOn = true
+    this._ytvag?.stot(x, kraft)
   },
 
   // Ytans höjd vid x (vilonivån + vågen) — allt som ligger I ytan läser den här.
   _waveAt(x) {
-    if (!this._wave || !this._waveOn) return 0
-    const t = clamp((x - IN_L) / (IN_R - IN_L), 0, 1) * (WAVE_N - 1)
-    const i = Math.floor(t)
-    const j = Math.min(WAVE_N - 1, i + 1)
-    const f = t - i
-    // Ytan = vilolaget (ankans dell) + avvikelsen (vagen). Bada behovs: dellen ensam ar en
-    // stilla grop, vagen ensam glommer att nagot FLYTER dar.
-    const a = this._wave[i] + this._waveRest[i]
-    const b = this._wave[j] + this._waveRest[j]
-    return a + (b - a) * f
+    return this._ytvag ? this._ytvag.hojd(x) : 0
   },
 
   // Bara VÅGEN vid x (avvikelsen), utan ankans egen dell. Ankan rider på det som kommer
-  // utifrån — läste hon sin egen grop (`_waveRest`) skulle hon sjunka i den hon själv gör.
+  // utifrån — läste hon sin egen grop skulle hon sjunka i den hon själv gör.
   _waveOnlyAt(x) {
-    if (!this._wave || !this._waveOn) return 0
-    const t = clamp((x - IN_L) / (IN_R - IN_L), 0, 1) * (WAVE_N - 1)
-    const i = Math.floor(t)
-    const j = Math.min(WAVE_N - 1, i + 1)
-    const f = t - i
-    return this._wave[i] + (this._wave[j] - this._wave[i]) * f
+    return this._ytvag ? this._ytvag.avvikelse(x) : 0
   },
 
   // Mållinjen hänger i ytan: skummet mäts från ytan och uppåt, så sjunker vattnet måste
@@ -1152,7 +1068,7 @@ export default {
     g.clear()
     const s = this._surf
     if (s >= TUB_BOT - 12) return
-    const vag = this._waveOn ? (x) => this._waveAt(x) : null
+    const vag = this._ytvag?.pa ? (x) => this._waveAt(x) : null
     tubPath(g, s, TUB_BOT - 4, 6, 48, vag).fill(verticalFillAlpha(this._bath().water, this._bath().water, 0.3, 0.62))
   },
 
@@ -1171,7 +1087,7 @@ export default {
     g.clear()
     const SURFACE_Y = this._surf // lokalt alias: allt under läser den LEVANDE ytan
     if (SURFACE_Y >= TUB_BOT - 12) return
-    const vag = this._waveOn ? (x) => this._waveAt(x) : null
+    const vag = this._ytvag?.pa ? (x) => this._waveAt(x) : null
     tubPath(g, SURFACE_Y, TUB_BOT - 4, 6, 48, vag).fill({ color: this._bath().tint, alpha: 0.28 })
     // VATTENYTAN. I sidovy är den här linjen scenens viktigaste streck — den är vad som
     // gör "under vattnet" och "ovanför vattnet" till två olika ställen. Den låg på
@@ -2240,7 +2156,7 @@ export default {
     if (rinner) this._wavePoke(PLUG.x, 0.06) // avloppet suger ner ytan över hålet
     // Ankan gör vågor genom sin DELL i ytan (`_waveDent`), inte genom en stöt per bildruta.
 
-    const vagLever = this._updateWave(Math.max(0.2, dts * 60))
+    const vagLever = this._updateWave(dts)
     const d = this._surf - fore
     if (Math.abs(d) < 0.01 && !vagLever) return
     if (Math.abs(d) < 0.01) {

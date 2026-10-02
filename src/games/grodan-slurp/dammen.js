@@ -54,6 +54,7 @@
 import { Container, Graphics } from 'pixi.js'
 import { mat, Matter } from '../../lib/physics.js'
 import { Flytvolym } from '../../lib/flytkraft.js'
+import { Ytvag } from '../../lib/ytvag.js'
 import { createScene, lerpColor } from '../../lib/scene.js'
 import { sphereFill, cylinderFill, topLightFill, verticalFill, verticalFillAlpha } from '../../lib/form.js'
 import { BLEED_X, BLEED_Y } from '../../lib/view.js'
@@ -304,10 +305,9 @@ export class Dammen {
     this._nastaBubbla = rnd(0.8, 2)
     this._lastade = new Set()
 
-    this._vag = new Float32Array(this._vagN)
-    this._vagV = new Float32Array(this._vagN)
-    this._vagA = new Float32Array(this._vagN)
-    this._vagAcc = 0
+    // Höjdfältet bor i lib/ytvag.js (porten ur det handbyggda; lika steg för steg, _ytvagprobe).
+    this._ytvag = new Ytvag({ n: this._vagN, x0: VAG_X0, x1: VAG_X0 + (this._vagN - 1) * VAG_DX, sprid: VAG_SPRID, k: VAG_K, damp: VAG_DAMP, max: VAG_MAX })
+    this._vag = this._ytvag.h // alias: avvikelsen per stödpunkt (ritningen läser den)
 
     // guppAmp/vaggAmp sänkta från Flytvolyms standard (0.0007/0.00025): standardguppet är ~70 %
     // av tyngden, och stocken (halvhöjd 17 px) svängde MÄTT mellan y 549 och 577 med 3,3 s
@@ -2251,51 +2251,19 @@ export class Dammen {
 
   // ---- höjdfältet -------------------------------------------------------------------------
 
-  // Fast tidssteg (1/60), max 4 steg per bildruta — samma skäl som Mjukkropp (CLAUDE.md).
+  // Fast tidssteg (Takt, max 4 steg per bildruta) — dämpning SIST, rörelsestyrd omritning och de
+  // andra fällorna står i lib/ytvag.js. dt = 0 ger inget steg (Takt tolkar 0 ms som ett steg).
   _vagSteg(dt) {
-    this._vagAcc += dt * 60
-    const h = this._vag
-    const v = this._vagV
-    const a = this._vagA
-    let n = 0
-    while (this._vagAcc >= 1 && n < 4) {
-      this._vagAcc -= 1
-      n++
-      const N = this._vagN
-      for (let i = 0; i < N; i++) {
-        const l = h[i > 0 ? i - 1 : 0]
-        const r = h[i < N - 1 ? i + 1 : N - 1]
-        a[i] = VAG_SPRID * (l + r - 2 * h[i]) - VAG_K * h[i]
-      }
-      // Dämpningen SIST, efter spridningen (minnet: annars nästan instabil vid Nyquist).
-      for (let i = 0; i < N; i++) {
-        v[i] = (v[i] + a[i]) * VAG_DAMP
-        h[i] = klamp(h[i] + v[i], -VAG_MAX, VAG_MAX)
-      }
-    }
-    if (n >= 4) this._vagAcc = 0
+    if (dt > 0) this._ytvag.uppdatera(dt * 1000)
   }
 
   // Stöt i ytan vid x. Positivt = nedåt (något slog i), negativt = uppåt.
   _vagStot(x, kraft) {
-    const i = Math.round((x - VAG_X0) / VAG_DX)
-    const v = this._vagV
-    const add = (j, k) => {
-      if (j >= 0 && j < this._vagN) v[j] += k
-    }
-    add(i, kraft)
-    add(i - 1, kraft * 0.6)
-    add(i + 1, kraft * 0.6)
-    add(i - 2, kraft * 0.25)
-    add(i + 2, kraft * 0.25)
+    this._ytvag.stot(x, kraft)
   }
 
   _vagVid(x) {
-    const t = klamp((x - VAG_X0) / VAG_DX, 0, this._vagN - 1)
-    const i = Math.floor(t)
-    const j = Math.min(this._vagN - 1, i + 1)
-    const f = t - i
-    return this._vag[i] * (1 - f) + this._vag[j] * f
+    return this._ytvag.hojd(x)
   }
 
   // Svag omgivningsvåg — bara bild, aldrig i simuleringen (kan alltså inte pumpa fältet).

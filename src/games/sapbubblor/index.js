@@ -26,6 +26,7 @@ import { COLORS, PLAYFUL } from '../../lib/theme.js'
 import { randomFrom } from '../../lib/swedish.js'
 import { makeKaraktar } from '../../lib/karaktarer.js'
 import { SURPRISE_KEYS, makeSurprise, makeStar } from './overraskningar.js'
+import { nyPuffalt, stallPuffalt, puffAcc } from './sapvind.js'
 
 const TARGET_BUBBLES = 9 // håll ~7–10 bubblor i luften
 const MAX_BUBBLES = 15 // tak inkl. barnbubblor från poppningar
@@ -35,7 +36,8 @@ const IDLE_DELAY = 6 // s utan interaktion -> mild om-uppmaning
 // Vind: varje blås föder en PUFF som färdas längs siktlinjen och knuffar
 // bubblorna den sveper förbi (designkoordinater, px & sekunder).
 const GUST_SPEED = 620 // px/s som puffen färdas
-const GUST_FORCE = 2500 // kraft i puffens kärna
+// (Kraften i puffens kärna bor numera i `sapvind.js`: luftens fart × motståndet = 2709 px/s²,
+// passad mot den gamla `GUST_FORCE` 2500 — puffen är ett `Vindfalt`, se `lib/vind.js`.)
 const GUST_R0 = 84 // startradie
 const GUST_GROW = 120 // px/s radien växer (puffen breddas och tunnas ut)
 const GUST_LIFE = 0.9 // s
@@ -358,6 +360,7 @@ export default {
   _addGust(x, y, dx, dy) {
     if (this._gusts.length >= MAX_GUSTS) {
       const old = this._gusts.shift()
+      old?.falt?.destroy()
       if (old?.gfx && !old.gfx.destroyed) old.gfx.destroy()
     }
     const gfx = new Graphics()
@@ -372,7 +375,9 @@ export default {
     gfx.position.set(x, y)
     gfx.rotation = Math.atan2(dy, dx)
     this._windLayer.addChild(gfx)
-    this._gusts.push({ x, y, dx, dy, r: GUST_R0, life: GUST_LIFE, gfx })
+    const gu = { x, y, dx, dy, r: GUST_R0, life: GUST_LIFE, gfx, falt: null }
+    gu.falt = nyPuffalt(gu) // puffen ÄR ett vindfält som färdas med den (lib/vind.js)
+    this._gusts.push(gu)
   },
 
   // ---- Mätare --------------------------------------------------------------
@@ -902,6 +907,7 @@ export default {
       gu.x += gu.dx * GUST_SPEED * dt
       gu.y += gu.dy * GUST_SPEED * dt
       gu.r = GUST_R0 + GUST_GROW * (GUST_LIFE - gu.life)
+      stallPuffalt(gu.falt, gu, gu.life / GUST_LIFE)
       const t = 1 - Math.max(0, gu.life) / GUST_LIFE
       if (gu.gfx && !gu.gfx.destroyed) {
         gu.gfx.position.set(gu.x, gu.y)
@@ -913,6 +919,7 @@ export default {
       const vv = ctx.view
       const off = gu.x < vv.left - 200 || gu.x > vv.right + 200 || gu.y < vv.top - 200 || gu.y > vv.bottom + 200
       if (gu.life <= 0 || off) {
+        gu.falt?.destroy()
         if (gu.gfx && !gu.gfx.destroyed) gu.gfx.destroy()
         this._gusts.splice(i, 1)
       }
@@ -933,18 +940,18 @@ export default {
       if (!b || b.destroyed) { this._bubbles.splice(i, 1); continue }
       if (b._popped) continue // pop/score-tween styr den; rör inte positionen
 
-      // Vindpuffar: kraft / massa -> lätta bubblor blåser långt, jättar knappt.
-      // Kraften summeras också som en VEKTOR, för det är den som deformerar hinnan.
+      // Vindpuffar: luften i puffens fält, RELATIVT bubblans fart (sapvind.js) — lätta bubblor
+      // följer med och blåser långt, jättar släpar. Accelerationen summeras också som en
+      // VEKTOR, för det är den som deformerar hinnan.
       let fx = 0
       let fy = 0
       for (const gu of this._gusts) {
-        const d = Math.hypot(b.x - gu.x, b.y - gu.y)
-        if (d > gu.r) continue
-        const f = (GUST_FORCE * (1 - d / gu.r) * (Math.max(0, gu.life) / GUST_LIFE)) / b._mass
-        b._vx += gu.dx * f * dt
-        b._wy += gu.dy * f * dt
-        fx += gu.dx * f
-        fy += gu.dy * f
+        const a = puffAcc(gu.falt, b.x, b.y, b._vx, b._wy, b._mass, dt)
+        if (!a) continue
+        b._vx += a.ax * dt
+        b._wy += a.ay * dt
+        fx += a.ax
+        fy += a.ay
       }
       this._deformera(b, fx, fy, dtF)
       // Ambient bris (samma massberoende).
@@ -1020,7 +1027,7 @@ export default {
     this._hoopTween?.kill()
     this._rig?.destroy()
     this._rig = null
-    this._gusts?.forEach((gu) => { if (gu?.gfx && !gu.gfx.destroyed) gu.gfx.destroy() })
+    this._gusts?.forEach((gu) => { gu?.falt?.destroy(); if (gu?.gfx && !gu.gfx.destroyed) gu.gfx.destroy() })
     this._gusts = []
     this._fans?.forEach((f) => {
       if (f?.blade && !f.blade.destroyed) gsap.killTweensOf(f.blade)

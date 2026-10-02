@@ -103,6 +103,16 @@ och poppa-leksaken och ring-målet pratar aldrig med varandra.
 
 ## 5. Status / loggar
 
+- 2026-10-02 **F4/B3: puffen är ett `Vindfalt`** (`lib/vind.js`, form `kon` längs siktlinjen som färdas med puffen;
+  limmet i `sapvind.js`). Förut: en rund fläck med handräknad kraft `2500·(1−d/r)·liv/massa`. Nu känner bubblan luften
+  RELATIVT sin egen fart (`a = (K/massa)·(w − v)`, bara framåt — en puff bromsar aldrig). Formen är PASSAD mot den
+  gamla puffen i två steg (fartpåverkan över puffens liv → sedan i spelets egen rörelseloop): ett första försök med
+  luftfart 470 gav 0,22× på barnbubblan, så luftfarten är 1800 (taken 470/330 klipper som förr). Mätt
+  `node scripts/_sapvindprobe.mjs`: bubblor som flyttas ≥ 30 px av ett blås gammal/ny 217/233 (barn r 24) ·
+  142/151 · 64/62; median ny/gammal 0,77 · 0,98 · 1,03; jätten flyttas knappt av någon (< 30 px); korrelation 0,96;
+  ingen bubbla blåses nedåt; samma förflyttning vid 20/30/60 fps. Puffens bild är oförändrad. Köad kvar: svag vind
+  från nivå 1 (§4 [Quick] Motstånd tidigare).
+
 - 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): `_levelComplete` spelade eget
   `celebrate` + `bigCelebration` i samma tick som `complete()` — strukna; "Ringen är full!
   Bravo!" (2,39 s) sägs före `complete()` och står kvar. "Ny ring! Blås in bubblorna." kom

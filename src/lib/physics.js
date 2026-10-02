@@ -12,7 +12,7 @@ import Matter from 'matter-js'
 import { DESIGN_W, DESIGN_H } from './theme.js'
 import { ON as DIAG, logPhysics } from './gamelog.js'
 
-const { Engine, Composite, Bodies, Body, Vector, Events } = Matter
+const { Engine, Composite, Bodies, Body, Vector, Vertices, Events } = Matter
 
 // --- fällvakter (FYSIKPLAN R1) — rena tal, DEV-diagnosens egen logik ---
 // Två av CLAUDE.md:s dyraste tysta fällor, som inget konsolfel någonsin avslöjar:
@@ -144,10 +144,23 @@ export class PhysicsWorld {
   //   låtit kroppar vila i bleed-zonen där inget spel har någon interaktion. Ett spel
   //   som VILL låta hela den synliga ytan vara spelplan skickar `bounds: { ...ctx.view }`
   //   (ögonblicksbild vid skapandet — väggarna är statiska kroppar).
-  constructor({ gravityY = 1, gravityX = 0, walls = ['floor', 'left', 'right'], wallThickness = 120, wallExtra = 200, windAx = 0, windAy = 0, bounds = null } = {}) {
+  //
+  // iterationer: { position, fart, villkor } — lösarens varv per steg (FYSIKPLAN R5). Utelämnade
+  //   tal står kvar på matters förval (6 · 4 · 2). Tyngre kedjor/ragdolls vill ha fler.
+  // sova: true slår på matters sömn. OPT-IN och bara när en MÄTNING visar vilokryp — aldrig för
+  //   kostnadens skull (lösaren kostar 0,044 ms/steg vid 34 kroppar). ⚠️ En sovande kropp som
+  //   tappat sitt stöd väcks bara av en rörlig kropp; en statisk som flyttas väcker ingen.
+  constructor({ gravityY = 1, gravityX = 0, walls = ['floor', 'left', 'right'], wallThickness = 120, wallExtra = 200, windAx = 0, windAy = 0, bounds = null, iterationer = null, sova = false } = {}) {
     this.engine = Engine.create()
     this.engine.gravity.x = gravityX
     this.engine.gravity.y = gravityY
+    if (iterationer) {
+      if (iterationer.position != null) this.engine.positionIterations = iterationer.position
+      if (iterationer.fart != null) this.engine.velocityIterations = iterationer.fart
+      if (iterationer.villkor != null) this.engine.constraintIterations = iterationer.villkor
+    }
+    if (sova) this.engine.enableSleeping = true
+    this._fartTak = null // Map<body, max> — skapas första gången fartTak() anropas
     this.world = this.engine.world
     this._links = [] // { body, view, onUpdate? }
     this._alive = true
@@ -257,7 +270,12 @@ export class PhysicsWorld {
     const B = bounds?.bottom ?? DESIGN_H
     const W = R - L
     const H = B - T
-    const opt = { isStatic: true, restitution: 0.4, friction: 0.6, label: 'wall' }
+    // Väggarna är `{ restitution 0, friction 1 }` — INTE de 0,4/0,6 som stod här förut. De
+    // går aldrig genom `_make` och matter kör `setStatic` inifrån `Body.create`, som nollar
+    // restitution, sätter friction till 1 och inte lämnar något i `_original` (uppmätt i
+    // `_studsprobe` §5/§8). En vägg tar alltså den rörliga kroppens egen studs (max-regeln) och
+    // dess egen friktion (min-regeln) — mäter du en bana mot en vägg är det KROPPENS tal du mäter.
+    const opt = { isStatic: true, label: 'wall' }
     const defs = {
       floor: [L + W / 2, B + t / 2, W + ex * 2, t],
       ceiling: [L + W / 2, T - t / 2, W + ex * 2, t],
@@ -303,16 +321,28 @@ export class PhysicsWorld {
   // Loopen över `parts` speglar matters egen: en sammansatt kropp kolliderar med sina
   // delar, inte med föräldern.
   //
-  // OBS: `friction` rörs INTE. setStatic sätter den till 1 på alla statiska ytor, och
-  // varje ramp, golv och vägg i repot är trimmad mot just det.
+  // `friktion` (0..1) — samma sak för friktionen (FYSIKPLAN R3). `setStatic` sätter friction till
+  // 1 på varje statisk yta, och parets regel är `min(A, B)`: ett deklarerat `friction: 0.1` på en
+  // ramp gör alltså ingenting, och en glatt yta måste be om det med `{ isStatic: true, friktion: 0.1 }`.
+  // Den RÖRLIGA kroppens egen friktion är taket (min) — är den 0,03 hjälper inte ett statiskt 0,1,
+  // är den 0,5 blir paret 0,1. Läs kroppens tal innan du väljer. Utan nyckeln är friktionen 1 som
+  // förut: varje ramp, golv och vägg i repot är trimmad mot just det.
+  // `check.mjs --studs` listar de deklarerade `friction`-tal som aldrig gjort något.
   _make(body, opts) {
     if (opts.isStatic) {
       Body.setStatic(body, true)
-      if (opts.studs != null) {
-        const s = Math.max(0, Math.min(1, opts.studs))
+      const s = opts.studs != null ? Math.max(0, Math.min(1, opts.studs)) : null
+      const f = opts.friktion != null ? Math.max(0, Math.min(1, opts.friktion)) : null
+      if (s != null || f != null) {
         for (const part of body.parts) {
-          part.restitution = s
-          if (part._original) part._original.restitution = s
+          if (s != null) {
+            part.restitution = s
+            if (part._original) part._original.restitution = s
+          }
+          if (f != null) {
+            part.friction = f
+            if (part._original) part._original.friction = f
+          }
         }
       }
     }
@@ -320,18 +350,102 @@ export class PhysicsWorld {
   }
 
   rectangle(x, y, w, h, opts = {}) {
-    const { isStatic, studs, ...rest } = opts
+    const { isStatic, studs, friktion, ...rest } = opts
     return this._make(Bodies.rectangle(x, y, w, h, rest), opts)
   }
 
   circle(x, y, r, opts = {}) {
-    const { isStatic, studs, ...rest } = opts
+    const { isStatic, studs, friktion, ...rest } = opts
     return this._make(Bodies.circle(x, y, r, rest), opts)
   }
 
   polygon(x, y, sides, r, opts = {}) {
-    const { isStatic, studs, ...rest } = opts
+    const { isStatic, studs, friktion, ...rest } = opts
     return this._make(Bodies.polygon(x, y, sides, r, rest), opts)
+  }
+
+  // En KONVEX kropp ur punkter [{x,y}, …] i designkoordinater (FYSIKPLAN R6) — hörnen hamnar
+  // EXAKT på punkterna (matter centrerar annars kroppen på tyngdpunkten, som är en annan punkt).
+  // Går genom `_make`: `isStatic`/`studs`/`friktion` gäller, och en statisk kropp går att väcka.
+  // ⚠️ En KONKAV kontur kräver poly-decomp (finns inte här) — den ersätts tyst av sitt konvexa
+  // HÖLJE (`Vertices.hull`), så en konkav bit fylls igen. Dela den i flera konvexa kroppar.
+  konvex(punkter, opts = {}) {
+    const { isStatic, studs, friktion, ...rest } = opts
+    const v = Vertices.hull(punkter.map((p) => ({ x: p.x, y: p.y })))
+    const c = Vertices.centre(v)
+    const body = Bodies.fromVertices(c.x, c.y, [v], rest)
+    let minX = Infinity
+    let minY = Infinity
+    for (const p of v) {
+      minX = Math.min(minX, p.x)
+      minY = Math.min(minY, p.y)
+    }
+    Body.setPosition(body, { x: body.position.x + (minX - body.bounds.min.x), y: body.position.y + (minY - body.bounds.min.y) })
+    return this._make(body, opts)
+  }
+
+  // En SAMMANSATT kropp ur färdiga delar (`Bodies.rectangle(…)` o.s.v. som ännu inte lagts i
+  // världen) genom `_make`. `opts` gäller föräldern (label, frictionAir, collisionFilter, isStatic,
+  // studs, friktion). Kolliderar med delarna — kontaktens `bodyA/bodyB` är DELEN; `paKontakt` och
+  // `part.parent` ger föräldern. collisionFilter läses på FÖRÄLDERN i bredfasen.
+  sammansatt(delar, opts = {}) {
+    const { isStatic, studs, friktion, ...rest } = opts
+    return this._make(Body.create({ parts: delar, ...rest }), opts)
+  }
+
+  // Ett kollisionsgrupp-id (< 0): kroppar i SAMMA grupp kolliderar aldrig med varandra.
+  //   const g = phys.grupp();  rect(..., { collisionFilter: { group: g } })
+  grupp() {
+    return Body.nextGroup(true)
+  }
+
+  // Lyssna på kontakter mellan två etiketter, i BÅDA ordningarna (FYSIKPLAN R6):
+  //   phys.paKontakt('kula', 'kagla', (kula, kagla, par) => …)
+  // `kula`/`kagla` är alltid kroppen med första/andra etiketten — oavsett vilken som är `bodyA`.
+  // Etiketten läses på `part.parent`, så en sammansatt kropps delar räknas som föräldern (ett
+  // par vars ena sida är en DEL ger annars `label: 'Body'`). Samma etikett på båda sidor ger
+  // ETT anrop per par. Returnerar en avlyssnare att stänga av, som `onCollision`.
+  paKontakt(etikettA, etikettB, fn) {
+    return this.onCollision((e) => {
+      if (!this._alive) return
+      const pairs = e.pairs
+      for (let i = 0; i < pairs.length; i++) {
+        const par = pairs[i]
+        const a = par.bodyA.parent
+        const b = par.bodyB.parent
+        if (a.label === etikettA && b.label === etikettB) fn(a, b, par)
+        else if (a.label === etikettB && b.label === etikettA) fn(b, a, par)
+      }
+    })
+  }
+
+  // Fartspärr per kropp: |v| kläms till `max` (px/steg) före OCH efter varje fast steg
+  // (FYSIKPLAN R5). EFTER = den fart lösaren lämnade — den som en hemgjord spärr i beforeStep
+  // aldrig ser (lösaren kan ge farten tillbaka). FÖRE = en fart som spelet satte MELLAN två steg
+  // (en kick, ett kast i pointerup) får annars ett helt steg på full fart, och det steget är det
+  // som går igenom en vägg: mätt i `_fysikbank` S3. Ersätter spärrar som kör per BILDRUTA (1–5
+  // steg fel). ~40 px/steg är tunnlingsgränsen mot en 16 px vägg. Sovande/statiska hoppas över.
+  // `max` = null tar bort spärren. Spärren rensas av `removeBody` och `destroy`.
+  fartTak(body, max) {
+    if (!this._alive || !body) return
+    if (max == null) {
+      this._fartTak?.delete(body)
+      return
+    }
+    if (!this._fartTak) {
+      this._fartTak = new Map()
+      const klam = () => {
+        if (!this._alive) return
+        for (const [b, m] of this._fartTak) {
+          if (b.isStatic || b.isSleeping) continue
+          const v = Math.hypot(b.velocity.x, b.velocity.y)
+          if (v > m) Body.setVelocity(b, { x: (b.velocity.x / v) * m, y: (b.velocity.y / v) * m })
+        }
+      }
+      Events.on(this.engine, 'beforeUpdate', klam)
+      Events.on(this.engine, 'afterUpdate', klam)
+    }
+    this._fartTak.set(body, max)
   }
 
   _add(body) {
@@ -355,6 +469,7 @@ export class PhysicsWorld {
   removeBody(body) {
     if (!body) return
     Composite.remove(this.world, body)
+    this._fartTak?.delete(body)
     const i = this._links.findIndex((l) => l.body === body)
     if (i >= 0) this._links.splice(i, 1)
   }
@@ -531,6 +646,7 @@ export class PhysicsWorld {
       /* noop */
     }
     this._links = []
+    this._fartTak = null
     this.walls = []
   }
 }

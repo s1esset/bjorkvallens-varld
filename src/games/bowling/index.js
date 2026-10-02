@@ -774,14 +774,13 @@ export default {
       // Kantstödet är spelets tillgänglighetshjälp, så räcket måste göra det pricklinjen lovar
       // (ÅTGÄRDER V10b). Matters `Body.setStatic` nollade TVÅ av räckets tal: restitution (→ 0,
       // så klotet studsade på sin egen `heavy` 0,18) och friktionen (→ 1, så paret tog klotets
-      // 0,5 och studsen åt upp farten LÄNGS räcket). `studs` väcker studsen; friktionen sätts
-      // tillbaka för hand, eftersom `_make` medvetet aldrig rör friktion. Båda talen är de koden
-      // redan deklarerade, och 0,75 är det `_previewBounds` ritar.
+      // 0,5 och studsen åt upp farten LÄNGS räcket). `studs` väcker studsen och `friktion` (R3)
+      // sätter friktionen tillbaka; båda talen är de koden redan deklarerade, och 0,75 är det
+      // `_previewBounds` ritar.
       // MÄTT (`_studsprobe.mjs` §7, spelets geometri, tre bankskott): pricklinjens största fel
       // vid käglornas rader 214 px → 79 px med bara studsen → 9 px med båda.
-      const l = this._phys.rectangle(360, 400, 16, 540, { isStatic: true, studs: 0.75, label: 'bumper' })
-      const r = this._phys.rectangle(920, 400, 16, 540, { isStatic: true, studs: 0.75, label: 'bumper' })
-      l.friction = r.friction = 0.1
+      const l = this._phys.rectangle(360, 400, 16, 540, { isStatic: true, studs: 0.75, friktion: 0.1, label: 'bumper' })
+      const r = this._phys.rectangle(920, 400, 16, 540, { isStatic: true, studs: 0.75, friktion: 0.1, label: 'bumper' })
       this._bumperBodies = [l, r]
     } else if (!on && this._bumperBodies.length) {
       for (const b of this._bumperBodies) this._phys.removeBody(b)

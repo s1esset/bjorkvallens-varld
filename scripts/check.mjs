@@ -296,14 +296,25 @@ const objektRunt = (src, i) => {
   }
   return null
 }
+// Samma sak för FRIKTIONEN (FYSIKPLAN R3): `setStatic` sätter friction till 1, så ett deklarerat
+// `friction: 0.1` på en statisk kropp gör ingenting (parets regel är min(A, B)) — ska ytan vara
+// glatt: `{ isStatic: true, friktion: 0.1 }`. `friction: 1` räknas inte (det är vad setStatic ger).
+// Läslista, inte fixlista: ett lågt tal på en yta som en annan kropp är ENDA kontakten mot kan
+// ha varit handtrimmat mot just 1, och den rörliga kroppens egen friktion är taket.
+const dodaFriktion = []
 for (const g of games) {
   for (const m of g.src.matchAll(/\bisStatic\s*:\s*true/g)) {
     const obj = objektRunt(g.src, m.index)
-    if (!obj || !/\brestitution\s*:/.test(obj) || /\bstuds\s*:/.test(obj)) continue
-    const tal = obj.match(/\brestitution\s*:\s*([^,\s}]+)/)?.[1] ?? '?'
-    if (Number(tal) === 0) continue // `restitution: 0` säger samma sak som setStatic gör
+    if (!obj) continue
     const rad = g.src.slice(0, m.index).split('\n').length
-    dodaStuds.push({ id: g.id, rad, tal })
+    if (/\brestitution\s*:/.test(obj) && !/\bstuds\s*:/.test(obj)) {
+      const tal = obj.match(/\brestitution\s*:\s*([^,\s}]+)/)?.[1] ?? '?'
+      if (Number(tal) !== 0) dodaStuds.push({ id: g.id, rad, tal }) // `restitution: 0` säger samma sak som setStatic gör
+    }
+    if (/\bfriction\s*:/.test(obj) && !/\bfriktion\s*:/.test(obj)) {
+      const tal = obj.match(/\bfriction\s*:\s*([^,\s}]+)/)?.[1] ?? '?'
+      if (Number(tal) !== 1) dodaFriktion.push({ id: g.id, rad, tal })
+    }
   }
 }
 
@@ -332,7 +343,7 @@ const errors = problems.filter((p) => p.level === 'fel')
 const warnings = problems.filter((p) => p.level === 'varning')
 
 if (asJson) {
-  console.log(JSON.stringify({ games: games.length, errors, warnings, pendingClips, templateSays, loggarLasta, dodaStuds }, null, 2))
+  console.log(JSON.stringify({ games: games.length, errors, warnings, pendingClips, templateSays, loggarLasta, dodaStuds, dodaFriktion }, null, 2))
 } else {
   const scope = onlyGame ? `spel "${onlyGame}" (strikt)` : `${games.length} spel`
   console.log(`\n  Kontroll av ${scope}\n`)
@@ -346,6 +357,13 @@ if (asJson) {
     console.log(`  ⚙ ${dodaStuds.length} restitution-tal i ${spel} spel gör ingenting MEDAN kroppen är statisk (setStatic nollar dem, ÅTGÄRDER V10) — ska ytan studsa: { studs }${visaStuds ? '' : ' · lista: npm run check -- --studs'}`)
     if (visaStuds) {
       for (const d of dodaStuds) console.log(`      ${d.id}:${d.rad}  restitution ${d.tal}`)
+    }
+  }
+  if (dodaFriktion.length) {
+    const spel = new Set(dodaFriktion.map((d) => d.id)).size
+    console.log(`  ⚙ ${dodaFriktion.length} friction-tal i ${spel} spel gör ingenting MEDAN kroppen är statisk (setStatic sätter 1, R3) — ska ytan vara glatt: { friktion }${visaStuds ? '' : ' · lista: npm run check -- --studs'}`)
+    if (visaStuds) {
+      for (const d of dodaFriktion) console.log(`      ${d.id}:${d.rad}  friction ${d.tal}`)
     }
   }
   console.log(`  ${errors.length ? '✗' : '✓'} ${errors.length} fel · ${warnings.length} varningar\n`)

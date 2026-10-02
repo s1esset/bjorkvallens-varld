@@ -215,7 +215,8 @@ console.log('\n  `bowling`s kantstöd — klotets x vid käglornas rader mot pri
     // räckets egen friktion 0,1 tillbaka. `setStatic` sätter även friktionen till 1, och paret tar
     // min(klot 0,5 · räcke 1) = 0,5 — kontakten åt upp klotets fart LÄNGS räcket (vy −13,7 →
     // −11,5 i ett brant bankskott), så bara studsen hade halverat felet men inte tagit bort det.
-    const rack = form === 'head' ? { restitution: 0.75 } : { studs: 0.75 }
+    // 'nyckel' = `friktion: 0.1` ur R3 i stället för handraden — ska bli BIT-identisk med 'fix'.
+    const rack = form === 'head' ? { restitution: 0.75 } : form === 'nyckel' ? { studs: 0.75, friktion: 0.1 } : { studs: 0.75 }
     const l = v.rectangle(360, 400, 16, 540, { isStatic: true, friction: 0.1, label: 'bumper', ...rack })
     const r = v.rectangle(920, 400, 16, 540, { isStatic: true, friction: 0.1, label: 'bumper', ...rack })
     if (form === 'fix') l.friction = r.friction = 0.1
@@ -240,7 +241,7 @@ console.log('\n  `bowling`s kantstöd — klotets x vid käglornas rader mot pri
     { namn: 'vänster flack', vx: -22, vy: -12 },
     { namn: 'höger', vx: 20, vy: -14 },
   ]
-  const ARMAR = ['head', 'studs', 'fix']
+  const ARMAR = ['head', 'studs', 'fix', 'nyckel']
   const avvik = Object.fromEntries(ARMAR.map((a) => [a, []]))
   let kontrollOk = true
   let traffOk = true
@@ -258,7 +259,7 @@ console.log('\n  `bowling`s kantstöd — klotets x vid käglornas rader mot pri
     const t = ARMAR.map((a) => k[a].traff)
     if (s.kontroll) kontrollOk &&= t.every((x) => x === 0)
     else traffOk &&= t.every((x) => x > 0)
-    console.log(`    ${s.namn.padEnd(16)} träffar ${t.join('/')}  px fel HEAD / bara studs / fix:  ${bitar.join('  ·  ')}`)
+    console.log(`    ${s.namn.padEnd(16)} träffar ${t.join('/')}  px fel HEAD / bara studs / fix / nyckel:  ${bitar.join('  ·  ')}`)
   }
   const max = Object.fromEntries(ARMAR.map((a) => [a, Math.max(...avvik[a])]))
   ok('kontroll: ett skott som aldrig rör räcket stämmer i alla tre armarna', kontrollOk, 'fel < 3 px och 0 räckträffar')
@@ -268,6 +269,64 @@ console.log('\n  `bowling`s kantstöd — klotets x vid käglornas rader mot pri
     `bara studs ${max.studs.toFixed(1)} px mot fix ${max.fix.toFixed(1)} px`)
   ok('fix (studs 0,75 + räckets friktion 0,1): pricklinjen håller spelets löfte (~några px)', max.fix <= 10,
     `största fel ${max.fix.toFixed(1)} px`)
+  ok('nyckeln `friktion: 0.1` (R3) ger EXAKT samma bana som handraden',
+    avvik.nyckel.every((x, i) => Math.abs(x - avvik.fix[i]) < 0.05),
+    `största fel ${max.nyckel.toFixed(2)} px mot ${max.fix.toFixed(2)} px`)
+}
+
+// --- 8. `friktion`-opten (FYSIKPLAN R3): glidsträcka på en statisk yta -------------------
+// `setStatic` sätter friktionen till 1 och parets regel är min(A, B), så en deklarerad
+// `friction: 0.1` på en ramp gör ingenting (arm B = arm A). Opt-in `friktion` sätts EFTER
+// setStatic (som `studs`) och ska ge exakt samma glid som handraden `ramp.friction = 0.1`
+// (arm D, bowlings gamla rad). KONTROLLER: utan nyckeln är banan identisk med i dag (A = B),
+// och mätaren rör sig (C glider längre än A, annars mäter den inte friktionen). En LUTANDE ramp
+// duger inte som mätyta: matters friktion håller en kloss stilla på 0,5 rad redan vid friction 0,01 (uppmätt), så glidet är en knuff på platt yta.
+console.log('\n  `friktion`-opten (R3, byggd) — glidsträcka för en kloss (friction 0,5, knuff 10 px/steg) på en platt statisk yta:')
+{
+  const glid = (rampOpts, efter) => {
+    const v = new PhysicsWorld({ gravityY: 1, walls: [] })
+    const ang = 0
+    const ramp = v.rectangle(640, 400, 700, 20, { isStatic: true, frictionStatic: 0, label: 'ramp', ...rampOpts })
+    Body.setAngle(ramp, ang)
+    if (efter) efter(ramp)
+    const lx = 640 - Math.cos(ang) * 250 + Math.sin(ang) * 34
+    const ly = 400 - Math.sin(ang) * 250 - Math.cos(ang) * 34
+    const kloss = v.rectangle(lx, ly, 40, 40, { friction: 0.5, frictionStatic: 0, restitution: 0, label: 'kloss' })
+    Body.setAngle(kloss, ang)
+    Body.setVelocity(kloss, { x: 10, y: 0 }) // en knuff — matters friktion håller annars en ramp stilla redan vid 0,01 (uppmätt)
+    let parF = null
+    v.onCollision((e) => { for (const p of e.pairs) if (parF == null) parF = p.friction })
+    const x0 = kloss.position.x
+    const y0 = kloss.position.y
+    for (let i = 0; i < 120; i++) v.update(1000 / 60)
+    const d = Math.hypot(kloss.position.x - x0, kloss.position.y - y0)
+    const res = { d, parF, fr: ramp.friction, orig: ramp._original?.friction, falt: ramp.friktion, nan: !isFinite(kloss.position.x) }
+    // Väck rampen: originalen ska bära friktionen.
+    Body.setStatic(ramp, false)
+    res.vaken = ramp.friction
+    v.destroy()
+    return res
+  }
+  const A = glid({})
+  const B = glid({ friction: 0.1 })
+  const C = glid({ friktion: 0.1 })
+  const D = glid({}, (r) => { r.friction = 0.1 })
+  console.log(`    glid px: A utan ${A.d.toFixed(1)} · B deklarerad friction 0.1 ${B.d.toFixed(1)} · C friktion 0.1 ${C.d.toFixed(1)} · D handrad ${D.d.toFixed(1)}   (parets friction ${A.parF} / ${B.parF} / ${C.parF} / ${D.parF})`)
+  ok('KONTROLL: utan nyckeln identiskt med i dag — en deklarerad `friction: 0.1` gör ingenting (A = B)',
+    Math.abs(A.d - B.d) < 1e-9 && A.fr === 1 && B.fr === 1, `${A.d.toFixed(3)} mot ${B.d.toFixed(3)} px · ramp.friction ${B.fr}`)
+  ok('KONTROLL: mätaren rör sig — klossen glider längre med friktion 0,1 än utan', C.d > A.d * 1.3, `${C.d.toFixed(0)} mot ${A.d.toFixed(0)} px`)
+  ok('KONTROLL: parets friktion är min(A, B) — 0,5 utan nyckeln, 0,1 med', A.parF === 0.5 && Math.abs(C.parF - 0.1) < 1e-9, `${A.parF} → ${C.parF}`)
+  ok('nyckeln ger EXAKT samma glid som handraden (C = D)', Math.abs(C.d - D.d) < 1e-9, `${C.d.toFixed(3)} mot ${D.d.toFixed(3)} px`)
+  ok('`_original.friction` bär talet, så en väckt ramp behåller det', C.orig === 0.1 && C.vaken === 0.1, `_original ${C.orig} · efter setStatic(false) ${C.vaken}`)
+  ok('`friktion` läcker inte in i matters namnrymd', C.falt === undefined && !C.nan, `body.friktion = ${String(C.falt)}`)
+  ok('`friktion` kläms till 0..1 (5 → 1)', glid({ friktion: 5 }).fr === 1)
+  ok('`friktion: 0` är en medveten isbana', glid({ friktion: 0 }).fr === 0)
+  // Världsväggarna: de döda 0,4/0,6 är strukna ur _buildWalls — väggen ska vara exakt som förut.
+  const v = new PhysicsWorld({ walls: ['floor', 'left', 'right', 'ceiling'] })
+  ok('världsväggarna är oförändrade efter att de döda talen strukits (restitution 0 · friction 1 · statisk)',
+    v.walls.length === 4 && v.walls.every((w) => w.restitution === 0 && w.friction === 1 && w.isStatic && w.label === 'wall'),
+    v.walls.map((w) => `${w.restitution}/${w.friction}`).join(' '))
+  v.destroy()
 }
 
 console.log(`\n${fel === 0 ? '✓ alla mått gröna' : `✗ ${fel} mått röda`}\n`)

@@ -304,10 +304,7 @@ export default {
 
     // Väggarna står vid VÄRLDENS kanter (inte skärmens), och taket saknas med flit: ett superhopp
     // från den högsta grenen får gå över världens topp — kameran klämmer, grodan faller tillbaka.
-    const phys = new PhysicsWorld({ gravityY: 1, walls: ['floor', 'left', 'right'], bounds: { left: 0, top: VARLD_TOPP, right: VARLD_B, bottom: 720 } })
-    phys.engine.positionIterations = 8
-    phys.engine.velocityIterations = 6
-    phys.engine.constraintIterations = 5
+    const phys = new PhysicsWorld({ gravityY: 1, walls: ['floor', 'left', 'right'], bounds: { left: 0, top: VARLD_TOPP, right: VARLD_B, bottom: 720 }, iterationer: { position: 8, fart: 6, villkor: 5 } })
     this._phys = phys
 
     const L = this._L

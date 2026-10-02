@@ -126,8 +126,8 @@ Originaltexten för de avbockade punkterna står kvar nedan.
 ## 5. Status / loggar
 
 - 2026-10-02 · **Stapeln svajar (FYSIKPLAN P2, `lib/vippa.js`).** Burgarens stapel (`_stackLayer`) och locket
-  bor nu i ett inre barn `_svaj` mellan `_burger` och lagren; `vippa(_svaj, { axel: 'skev', max: 0,045, k: 130,
-  damp: 0,16 })` ger en liten skevning med foten (fatet) still och toppen svajande — som mest ≈ 16 px på den
+  bor nu i ett inre barn `_svaj` mellan `_burger` och lagren; `vippa(_svaj, { axel: 'skev', max: 0,07, k: 130,
+  damp: 0,16 })` ger en liten skevning med foten (fatet) still och toppen svajande — som mest ≈ 24 px på den
   högsta stapeln, så den vaggar men välter aldrig (`max` är taket även vid stötsalva). `_bulleStot` (anropas
   av `_insertLayer` och `_reinsertView`) ger stöten: åt det håll lagret landade, tyngre lager = större. Bullens
   `Mjukkropp` rörs inte och `_layoutStack` skriver fortfarande bara lagrens y — olika nod, olika axel.

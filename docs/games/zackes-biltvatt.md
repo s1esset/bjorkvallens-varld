@@ -171,6 +171,18 @@ inga spelobjekt är emoji-i-en-ruta längre. Kvarstående risker:
 
 ## 5. Status / loggar
 
+- 2026-10-02 · **Karossen fjädrar på hjulen (FYSIKPLAN P2, `lib/vippa.js`).** `_makeVehicle` ritar nu hjulen i
+  egen Graphics och allt ovanför (kaross, detaljer, glans, smutsfläckar) i ett inre barn `car._kaross`; `vippa(
+  kaross, { axel: 'y', max: 8, k: 240, damp: 0,2 })` per bil (`_kVippa`, riven före bilen i `_nextCar` och i
+  `destroy`). Stötar: bromsning när bilen rullat in (-0,9) och fågelbajs som landar (-0,7, bredvid `shake`).
+  En strålstöt (-0,3 per 0,22 s) prövades och ströks: den gav ≤ 1 px (osynlig), och bilen ska stå
+  still medan barnet siktar på fläckarna. Bilens rot (x för intåg/utkörning,
+  y för tutningen, `shake`) vippas aldrig. Träffgeometrin är orörd: `_fluidTick`s cirklar och `_spotWorld`/`inCar`
+  läser bilens rot + fläckens `pos` (data), inte den ritade karossen; fläckarna följer med bilden (de är
+  målade på plåten) så avvikelsen mellan ritad och räknad fläck är som mest 8 px, kortvarigt, mot fläckradier
+  26–47 px.
+
+
 - 2026-10-02 ✅ **T3: fast 60 Hz-steg via lib/takt.js — 57 fps-fysiken blir 60 Hz-fysik** (Ä10). `_stepHose` räknade antalet slangsteg som `clamp(round(dt*60),1,3)` (minst ett steg per bildruta, alltid) ⇒ slangens jämvikt följde bildfrekvensen; nu `this._hose.takt.kor(dt*1000, () => this._hoseSubstep())` med exakt 1 per steg (0 vid >60 Hz, max 3 efter en tappad ruta). `_hoseHemTick` (timer, sekunder) och `_drawHose` ligger kvar per bildruta; insvängningen vid bygget (60 × `_hoseSubstep`) orörd. Mäts med `_stralprobe`.
 - 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): firandet var redan rätt —
   ägarens "Bilen är skinande ren! Bra jobbat!" (3,65 s från 0,7 s) talar när `complete()`

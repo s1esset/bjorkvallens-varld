@@ -33,6 +33,7 @@ import { puff, sparkle, floatText, ripple, wiggle, shake } from '../../lib/feedb
 import { makeKaraktar } from '../../lib/karaktarer.js'
 import { valjEgna, byggEgenFigur, presentera, arEgen } from '../../lib/egnafigurer.js'
 import { Rep, repMesh } from '../../lib/rep.js'
+import { vippa } from '../../lib/vippa.js'
 import { FluidWorld, FluidView, FLUIDS } from '../../lib/vatska.js'
 import { FONT, DESIGN_W } from '../../lib/theme.js'
 
@@ -73,6 +74,7 @@ const OWNERS = [
 const SCALE = [523.25, 587.33, 659.25, 783.99, 880.0, 1046.5, 1174.66, 1318.51, 1568.0]
 
 const MAX_BAJS = 3        // taket: så många bajsfläckar kan finnas på bilen samtidigt
+const KAROSS_MAX = 8      // karossens fjädring i px (vippa, axel y) — ett tak, hur mycket det än stöter
 const CAR_X = 560
 const CAR_Y = 425
 const FLOOR_Y = 620       // slangen/munstycket kan aldrig sjunka under tvätthallsgolvet
@@ -878,6 +880,9 @@ export default {
     const v = bas.farger ? { ...bas, color: bas.farger[(Math.random() * bas.farger.length) | 0] } : bas
     this._vehicle = v
 
+    // Förra bilens fjädring dör FÖRE bilen (vippan lämnar noden på viloläget och tar sin ticker).
+    this._kVippa?.destroy()
+    this._kVippa = null
     if (this._car && !this._car.destroyed) {
       gsap.killTweensOf(this._car)
       this._car.destroy({ children: true })
@@ -887,6 +892,9 @@ export default {
     this._car = this._makeVehicle(v)
     this._car.position.set(-360, CAR_Y)
     this._carLayer.addChild(this._car)
+    // Karossen fjädrar på hjulen: ±8 px tak, lite stramare än en antenn. Stöt: bromsning vid
+    // intåget och bajs som landar. (Strålen stöter INTE — bilen står stilla medan barnet siktar.)
+    this._kVippa = vippa(this._car._kaross, { axel: 'y', max: KAROSS_MAX, k: 240, damp: 0.2, ticker: ctx.ticker })
 
     this._makeOwner(ctx, n)
 
@@ -901,6 +909,7 @@ export default {
       x: CAR_X, duration: 1.05, ease: 'power2.out',
       onComplete: () => {
         if (!this._alive) return
+        this._kVippa?.stot(-0.9) // bilen bromsar in på plats — nosdyk och tillbaka
         if (announce && this._started) {
           ctx.services.voice.say(`Här kommer ${v.namn}! Tvätta den ren.`)
         }
@@ -917,6 +926,11 @@ export default {
     const c = new Container()
     const w = v.w
     const h = v.h
+    // Hjulen står kvar på marken; allt ovanför (kaross, detaljer, glans, smutsfläckar) bor i
+    // `kaross`, ett INRE barn som fjädrar på hjulen (vippa, axel y). Bilens rot bär x/y för
+    // intåg, utkörning, tutning och skak — den vippas aldrig.
+    const hjul = new Graphics()
+    const kaross = new Container()
     const g = new Graphics()
 
     // Hjul
@@ -924,9 +938,10 @@ export default {
     for (let i = 0; i < v.wheels.length; i++) {
       const wx = v.wheels[i] * w
       const r = v.bigRear && i === 1 ? wheelR * 1.35 : wheelR
-      g.circle(wx, h / 2 + 6, r).fill(0x2f3640)
-      g.circle(wx, h / 2 + 6, r * 0.45).fill(0xb2bec3)
+      hjul.circle(wx, h / 2 + 6, r).fill(0x2f3640)
+      hjul.circle(wx, h / 2 + 6, r * 0.45).fill(0xb2bec3)
     }
+    c.addChild(hjul, kaross)
     // Kaross
     g.roundRect(-w / 2, -h / 2, w, h, 26).fill(v.color)
     // Tak/hytt
@@ -940,7 +955,7 @@ export default {
     // Ljus
     g.circle(w / 2 - 18, -h * 0.1, 13).fill(0xfff3c4)
     g.circle(-w / 2 + 18, -h * 0.1, 11).fill(0xffb3b3)
-    c.addChild(g)
+    kaross.addChild(g)
 
     // Ritad detalj per fordon (variation utan emoji-som-objekt).
     const d = new Graphics()
@@ -973,20 +988,21 @@ export default {
     } else {
       d.roundRect(rx + 6, roofTop - 10, rw - 12, 10, 5).fill({ color: 0xffffff, alpha: 0.55 })
     }
-    c.addChild(d)
+    kaross.addChild(d)
 
     // Glans-svep (används i finishen).
     const shine = new Graphics().roundRect(-w / 2, -h / 2 - h * v.roof, 60, h * (1 + v.roof) + 20, 20)
       .fill({ color: 0xffffff, alpha: 0.55 })
     shine.alpha = 0
-    c.addChild(shine)
+    kaross.addChild(shine)
     c._shine = shine
     c._w = w
     c._h = h
 
     const spotLayer = new Container()
-    c.addChild(spotLayer)
+    kaross.addChild(spotLayer)
     c._spotLayer = spotLayer
+    c._kaross = kaross
 
     c.eventMode = 'none'
     c.interactiveChildren = false
@@ -1809,6 +1825,7 @@ export default {
         if (traffar && this._car && !this._car.destroyed && !this._locked) {
           this._addSpot(ctx, pos, 'bajs', art, art.poopR)
           shake(this._car, { intensity: 4, duration: 0.3 })
+          this._kVippa?.stot(-0.7) // klicken landar med en duns — karossen fjädrar
           if (this._started && !ctx.services.voice.talar) ctx.services.voice.say('Akta! Fågeln bajsade på bilen!')
         } else {
           puff(this._fx, landX, landY, { count: 8, color: art.poop })
@@ -2054,6 +2071,8 @@ export default {
         gsap.killTweensOf(s.view.scale)
       }
     }
+    this._kVippa?.destroy() // karossens fjäder: tar sin ticker-lyssnare, noden tillbaka på viloläget
+    this._kVippa = null
     this._ownerBob?.kill()
     if (this._owner && !this._owner.destroyed) gsap.killTweensOf(this._owner)
     this._kar?.destroy() // river riggens alla tweens (idle, blink, humör, reaktion)

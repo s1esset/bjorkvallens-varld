@@ -36,6 +36,7 @@ import { bounceIn, pop, wiggle, shake, squash, liv, breathe, puff, sparkle, ripp
 import { shuffle, randomFrom } from '../../lib/swedish.js'
 import { shade } from '../../lib/theme.js'
 import { topLightFill, groundFill } from '../../lib/form.js'
+import { landa } from '../../lib/landa.js'
 import { FORM_KEYS, makeFormvan, makeHal, makeMus } from './former.js'
 
 // Lådans mått i designkoordinater. Fronten bär hålen, locket ligger ovanpå och lyfter
@@ -49,6 +50,19 @@ const LOCK_H = 40
 
 const TRA = 0xb5793c
 const TRA_LOCK = 0xc9924f
+
+// Bänken formvännerna står på: en bred planka bakom lådan med två ben ner i gräset. BANK_Y är
+// plankans YTA (mitten av den ritade översidan) — formernas fot landar på exakt den raden.
+const BANK_Y = 296
+const BANK_X0 = 70
+const BANK_W = 1140
+const BANK_BEN = [168, 1112]
+const BANK_TRA = 0x9b6431
+const BANK_TOPP = 0xd3a263
+
+// Tyngd per form: de tunga DUNSAR (en tung studs, lågt ljud), de lätta STUDSAR (flera hopp,
+// ett ljust plopp ur skalan). Se lib/landa.js.
+const TYNGD = { kvadrat: 'stor', femhorning: 'stor', cirkel: 'stor', triangel: 'liten', stjarna: 'liten', hjarta: 'liten', halvmane: 'liten' }
 
 // Djup: 3 → 6 former. Bara MER, aldrig svårare på fel sätt.
 const ANTAL = [3, 3, 4, 4, 5, 6]
@@ -117,7 +131,8 @@ export default {
     this._fx = new Container()
     this._fx.eventMode = 'none'
     this._fx.interactiveChildren = false
-    this._root.addChild(this._play, this._fx)
+    this._byggBank()
+    this._root.addChild(this._bank, this._play, this._fx)
 
     // Lådan (skakbar behållare) → hålens BILDER → osynliga släppmål → körlagret.
     this._boxSkak = new Container()
@@ -156,6 +171,51 @@ export default {
   },
 
   // --- lådan ---------------------------------------------------------------
+
+  // Bänken: ytan formvännerna landar på. Benen ligger bakom lådan (den ritas ovanpå), fronten
+  // ligger i en egen container så en tung landning kan trycka ner den några pixlar utan att
+  // översidan — det formerna står på — rör sig.
+  _byggBank() {
+    const bank = new Container()
+    bank.eventMode = 'none'
+    bank.interactiveChildren = false
+    const ben = new Graphics()
+    for (const bx of BANK_BEN) {
+      ben.ellipse(bx, GOLV + 6, 40, 10).fill({ color: 0x3a2412, alpha: 0.2 })
+    }
+    for (const bx of BANK_BEN) {
+      const h = GOLV + 2 - (BANK_Y + 16)
+      ben.roundRect(bx - 15, BANK_Y + 16, 30, h, 6).fill(topLightFill(0x8a5528, { highlight: 0.18, dark: 0.3 }))
+      ben.roundRect(bx - 15, BANK_Y + 16, 30, h, 6).stroke({ width: 4, color: shade(0x8a5528, 0.4) })
+    }
+    const front = new Container()
+    const fg = new Graphics()
+    fg.roundRect(BANK_X0, BANK_Y + 4, BANK_W, 36, 10).fill(topLightFill(BANK_TRA, { highlight: 0.14, dark: 0.3 }))
+    fg.roundRect(BANK_X0, BANK_Y + 4, BANK_W, 36, 10).stroke({ width: 4, color: shade(BANK_TRA, 0.38) })
+    for (let i = 0; i < 6; i++) {
+      const ax = BANK_X0 + 50 + ((i * 197) % (BANK_W - 260))
+      const ay = BANK_Y + 18 + (i % 3) * 8
+      fg.moveTo(ax, ay).quadraticCurveTo(ax + 60, ay + 4, ax + 130, ay).stroke({ width: 3, color: shade(BANK_TRA, 0.22), alpha: 0.4 })
+    }
+    front.addChild(fg)
+    // Översidan ritas SIST så fronten kan sjunka bakom den utan glipa.
+    const topp = new Graphics()
+    topp.roundRect(BANK_X0 - 6, BANK_Y - 10, BANK_W + 12, 20, 8).fill(topLightFill(BANK_TOPP, { highlight: 0.2, dark: 0.18 }))
+    topp.roundRect(BANK_X0 - 6, BANK_Y - 10, BANK_W + 12, 20, 8).stroke({ width: 4, color: shade(BANK_TRA, 0.34) })
+    topp.roundRect(BANK_X0 + 16, BANK_Y - 7, BANK_W - 32, 4, 2).fill({ color: 0xffffff, alpha: 0.18 })
+    bank.addChild(ben, front, topp)
+    this._bank = bank
+    this._bankFront = front
+  },
+
+  // En tung landning trycker ner bänkens front en aning (översidan står stilla).
+  _bankDip() {
+    const fr = this._bankFront
+    if (!fr || fr.destroyed) return
+    gsap.killTweensOf(fr)
+    fr.y = 0
+    gsap.to(fr, { y: 3, duration: 0.07, ease: 'power2.out', yoyo: true, repeat: 1 })
+  },
 
   // Statisk trälåda: markskugga, mörk insida, front med plankfogar och ådring, och ett
   // lock som studsar vid varje form och lyfter vid finalen.
@@ -293,23 +353,42 @@ export default {
       bounceIn(hal, { delay: 0.05 + i * 0.05, duration: 0.36 })
     })
 
-    // Figurerna i en slängd hög ovanför lådan.
+    // Figurerna står på bänken i en rad. De SLÄPPS ner uppifrån i slumpad ordning: `view`
+    // (släppmål + träffyta) ligger redan på sin vilplats, det är bara det inre barnet `fall`
+    // som faller (lib/landa.js) — ett grepp mitt i fallet tar föremålet ändå (`avbryt()`).
     const platser = layoutFigurer(n)
+    const faller = shuffle(figOrdning.map((_, i) => i))
+    const start = announce ? 330 : 420 // efter lockets smäll resp. efter att skärmen kommit fram
     figOrdning.forEach((key, i) => {
       const f = form[key]
       const fig = makeFormvan(key, r, f.farg, { gyllene: f.gyllene })
-      fig.view.position.set(platser[i].x, platser[i].y)
-      fig.kropp.rotation = (Math.random() * 2 - 1) * 0.07
+      // Foten på bänkens yta (2 px ner i plankan så de inte flyter på en glipa).
+      fig.view.position.set(platser[i], BANK_Y - fig.fot + 2)
+      fig.kropp.rotation = (Math.random() * 2 - 1) * 0.04
       fig.view.hitArea = new Circle(0, 0, r + 22)
       this._figLager.addChild(fig.view)
       f.fig = fig
 
       // Vilo-guppning med EGEN fas (P0 ASSETS: eget liv). Ligger på `kropp`, aldrig på
-      // `view` — draget äger view.x/y.
-      liv(fig.kropp, { bob: 5 + Math.random() * 2, sway: 0.03, duration: 2.2 + Math.random() * 0.8 })
+      // `view` — draget äger view.x/y. Guppar bara UPPÅT från bänken (−2·bob … 0): en
+      // symmetrisk gungning hade tryckt ner formen genom plankan.
+      const bob = 2.5 + Math.random() * 1.2
+      fig.kropp.y = -bob
+      liv(fig.kropp, { bob, sway: 0.03, duration: 2.2 + Math.random() * 0.8 })
+
+      const hojdOver = fig.view.y + fig.fot - Math.min(0, ctx.view?.top ?? 0)
+      f.landa = landa(fig.fall, {
+        ticker: ctx.ticker,
+        fran: -(hojdOver + 90), // helt ovanför synlig yta
+        markY: 0,
+        tyngd: TYNGD[key] || 'liten',
+        fordrojning: start + faller[i] * 130 + Math.random() * 50,
+        onLand: (tyngd, slag) => this._onLanda(ctx, f, tyngd, slag),
+      })
 
       fig.view.on('pointerdown', () => {
         if (!this._alive || f.klar) return
+        f.landa?.avbryt() // barnet var snabbare än fallet: föremålet ligger på bänken NU
         this._idle = 0
         this._klarHint()
         squash(fig.mitt, { intensity: 0.7 })
@@ -318,6 +397,7 @@ export default {
 
       this._drag.addItem(fig.view, { key }, {
         onSelect: () => {
+          f.landa?.avbryt() // tap-tap-vägen
           this._idle = 0
           this._klarHint()
         },
@@ -325,7 +405,6 @@ export default {
         onWrong: (_rec, target) => this._onWrong(ctx, f, target),
         onMiss: () => this._onMiss(ctx, f),
       })
-      bounceIn(fig.view, { delay: 0.1 + i * 0.06, duration: 0.34 })
     })
 
     // Kommer 2,55 s efter complete(), vars beröm är upp till 2,30 s — orden köar hellre än
@@ -335,6 +414,32 @@ export default {
       ctx.narTyst(() => {
         if (this._alive && this._rundor === runda) ctx.services.voice.say('Vilken form passar i hålet?')
       })
+    }
+  },
+
+  // --- landningen -------------------------------------------------------------
+
+  // Varje nedslag på bänken (lib/landa.js anropar vid VARJE studs). Tunga former dunsar:
+  // lågt ljud, damm och en nedtryckt bänkfront. Lätta studsar: ett ljust plopp ur C-durskalan
+  // (varje form sin egen ton) för de första hoppen. Hopp under ~220 px/s är för små att höra.
+  _onLanda(ctx, f, tyngd, slag) {
+    if (!this._alive || f.klar || slag.fart < 220) return
+    const fig = f.fig
+    if (!fig || fig.view.destroyed || !this._fx || this._fx.destroyed) return
+    const stark = Math.min(1, slag.fart / 1500)
+    const a = ctx.services.audio
+    if (tyngd === 'stor') {
+      a.tone({ freq: ton(-24), slideTo: ton(-24) * 0.55, dur: 0.17, type: 'sine', vol: 0.1 + 0.14 * stark })
+      if (slag.nr === 0) {
+        puff(this._fx, fig.view.x, BANK_Y, { count: 6, color: 0xd9c9a8 })
+        this._bankDip()
+      }
+      squash(fig.mitt, { intensity: 0.95 * stark })
+    } else {
+      const k = Math.max(0, FORM_KEYS.indexOf(f.key))
+      if (slag.nr <= 2) a.tone({ freq: ton(SKALA[k % SKALA.length] - 12), dur: 0.1, type: 'sine', vol: 0.05 + 0.09 * stark })
+      if (slag.nr === 0) puff(this._fx, fig.view.x, BANK_Y, { count: 3, color: 0xd9c9a8 })
+      squash(fig.mitt, { intensity: 0.6 * stark })
     }
   },
 
@@ -407,6 +512,7 @@ export default {
     const v = fig?.view
     if (!v || v.destroyed) return
     this._drag.removeItem(v)
+    f.landa?.avbryt()
     fig.kropp._fxLiv?.kill()
     gsap.killTweensOf(v)
     gsap.killTweensOf(v.scale)
@@ -689,6 +795,16 @@ export default {
       if (inner && !inner.destroyed) inner.scale.set(1 + f.gap * 0.1, 1 + f.gap * 0.15)
     }
 
+    // Skuggan på bänken följer höjden: liten och svag medan formen är högt uppe, full när den
+    // står. Sätts per bildruta (inga tweens) — `fall.y` är landningens enda utdata.
+    for (const f of this._formar) {
+      const fig = f.fig
+      if (!fig || f.klar || fig.view.destroyed || fig.skugga.destroyed || fig.fall.destroyed) continue
+      const s = 1 / (1 + Math.max(0, -fig.fall.y) / 220)
+      fig.skugga.scale.set(s)
+      fig.skugga.alpha = 0.3 + 0.7 * s
+    }
+
     // Den gyllene formen glittrar medan den ligger kvar.
     const gyl = this._formar.find((f) => f.gyllene && !f.klar && f.fig && !f.fig.view.destroyed)
     if (gyl) {
@@ -737,6 +853,8 @@ export default {
 
   _killForm(f) {
     if (!f) return
+    f.landa?.destroy() // lossar tickern (och lägger en levande nod på bänken) före rivning
+    f.landa = null
     if (f.fig) killFigur(f.fig)
     if (f.hal && !f.hal.destroyed) {
       gsap.killTweensOf(f.hal)
@@ -759,6 +877,7 @@ export default {
     this._bobo = null
     if (this._lock && !this._lock.destroyed) gsap.killTweensOf(this._lock)
     gsap.killTweensOf(this._boxSkak)
+    if (this._bankFront) gsap.killTweensOf(this._bankFront)
     gsap.killTweensOf(this._play)
     gsap.killTweensOf(this._root)
     ctx?.services?.voice?.cancel()
@@ -767,6 +886,8 @@ export default {
     this._play = null
     this._fx = null
     this._boxSkak = null
+    this._bank = null
+    this._bankFront = null
     this._halLager = null
     this._malLager = null
     this._korLager = null
@@ -787,7 +908,7 @@ function killFigur(fig) {
   if (!fig) return
   fig._hoppTl?.kill() // kör-hoppens tidslinje: dess .call() överlever killTweensOf(kropp)
   fig.kropp?._fxLiv?.kill()
-  for (const nod of [fig.view, fig.kropp, fig.mitt, fig.ogon, fig.mun, fig.body, fig.skugga, ...(fig.armar || [])]) {
+  for (const nod of [fig.view, fig.fall, fig.kropp, fig.mitt, fig.ogon, fig.mun, fig.body, fig.skugga, ...(fig.armar || [])]) {
     if (nod && !nod.destroyed) {
       gsap.killTweensOf(nod)
       gsap.killTweensOf(nod.scale)
@@ -795,27 +916,19 @@ function killFigur(fig) {
   }
 }
 
-// En slängd hög ovanför lådan: 1–2 rader, centrerade, med jitter så det inte blir en
-// prydlig tabell. Aldrig så högt upp att hem-knappen (70, 64) hamnar under en figur.
+// En rad på bänken, centrerad, med sidledsjitter så det inte blir en prydlig tabell. Höjden
+// bestäms av formernas FOT (de står på BANK_Y), inte av ett eget y. Hela raden ryms även för
+// sex former (5 × 196 = 980 px, bänken är 1140 bred), och ingen står under hem-knappen.
 function layoutFigurer(n) {
-  const perRad = n <= 4 ? n : Math.ceil(n / 2)
-  const rader = Math.ceil(n / perRad)
-  const sx = 196
-  const sy = 152
-  const topp = 244 - ((rader - 1) * sy) / 2
+  const sx = n <= 4 ? 220 : 196
   const jit = (m) => (Math.random() * 2 - 1) * m
   // Sidledsjittret måste RYMMAS i mellanrummet. Med ±26 px per figur kan två grannar
   // jittra mot varandra och pressa gapet från 48 px ner till ~3 px — under P0:s 24 px,
   // utan att figurerna någonsin överlappar (så inget syns i en skärmdump). Taket här är
   // halva det som blir över när båda träffytorna (2×74) och P0-marginalen är avdragna.
   const jitX = Math.max(0, Math.min(26, (sx - 2 * 74 - 24) / 2))
+  const bredd = (n - 1) * sx
   const p = []
-  for (let i = 0; i < n; i++) {
-    const rad = Math.floor(i / perRad)
-    const kolIRad = rad < rader - 1 ? perRad : n - perRad * (rader - 1)
-    const idx = i - rad * perRad
-    const bredd = (kolIRad - 1) * sx
-    p.push({ x: 640 - bredd / 2 + idx * sx + jit(jitX), y: topp + rad * sy + jit(18) })
-  }
+  for (let i = 0; i < n; i++) p.push(640 - bredd / 2 + i * sx + jit(jitX))
   return p
 }

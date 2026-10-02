@@ -73,9 +73,8 @@ Två designbeslut styr resten:
 
 ## 3. Vad gör det lättjefullt / tunt
 
-- Formvännerna svävar i luften ovanför lådan med en markskugga under sig — det är repots
-  vanliga hyllkonvention (`skuggmatchning` gör samma sak), men det finns ingen yta de ligger
-  på. En riktig hylla eller en gräsmatta under dem vore ärligare.
+- ~~Formvännerna svävar i luften ovanför lådan med en markskugga under sig~~ — löst
+  2026-10-02: de står och landar på en ritad trähylla (skuggen ligger på hyllans yta).
 - Musen är den enda motgången, och hon gör bara en sak. Ett andra litet hinder (en fjäril som
   sätter sig på en form och måste vinkas bort) skulle ge mer variation utan att höja svårigheten.
 - Kören i finalen sjunger skalan men gör ingen koreografi utöver vinkningen.
@@ -87,7 +86,9 @@ Två designbeslut styr resten:
 **Kärnloop**
 - [Quick] Låt formvännen som släpps i FEL hål fastna en aning i öppningen och puttas ut av
   hålet — motgången får en fysisk orsak i stället för bara en skakning.
-- [Medium] Lägg formerna på en ritad hylla/gräskant så de inte svävar.
+- ✅ ~~**[Medium] Lägg formerna på en ritad hylla/gräskant så de inte svävar.**~~ Klar 2026-10-02
+  (FYSIKPLAN P4): en trähylla bakom lådan (BANK_Y 296, två ben ner i gräset) — formerna
+  släpps ner uppifrån och landar på den (`lib/landa.js`, tunga dunsar, lätta studsar).
 
 **Variation**
 - [Quick] Andra hindret: en fjäril som sätter sig på en formvän och flyger iväg vid tryck.
@@ -141,3 +142,18 @@ importeras inte av spelet; ta bort eller flytta till scripts/ vid städning).`
   ovanför lådan.
 - `createScene('warm')` låg för nära träets egen ton — hela bilden blev EN beige yta. Bytt
   till `meadow` och mörkare trä.
+
+- 2026-10-02 ✅ **Formerna landar på en bänk** (FYSIKPLAN P4): premissen höll — formerna hade
+  markskugga men ingen yta. Nu: en hylla (`_byggBank`, yta BANK_Y 296) bakom lådan, och alla
+  former står i EN rad på den (tidigare 1–2 svävande rader med y-jitter; raden ryms för sex
+  former, 196 px mellan mitterna). Varje runda SLÄPPS formerna uppifrån i slumpad ordning
+  (130 ms emellan) med `lib/landa.js` på ett nytt inre barn `fig.fall` — `view` (släppmål +
+  träffyta) står redan på sin vilplats, så DragController mäter mot ett stilla mål. Tunga
+  former (kvadrat · femhörning · cirkel) DUNSAR: en tung studs, lågt ljud, damm och hyllans front
+  trycks ner 3 px; lätta (triangel · stjärna · hjärta · halvmåne) STUDSAR flera gånger med ett
+  ljust plopp ur C-durskalan (den formens egen ton). Fotpunkten `fig.fot` mäts ur den RITADE
+  silhuetten (`body.getLocalBounds().maxY`), skuggan ligger där och krymper/bleknar med
+  höjden. Vilo-guppningen går nu bara UPPÅT från hyllan (−2·bob…0). Grepp mitt i fallet
+  (`pointerdown` eller tap-tap `onSelect`) → `landa.avbryt()`: föremålet ligger på hyllan
+  direkt och följer fingret. `_killForm` anropar `landa.destroy()` före rivning. Bort: `bounceIn`
+  på figurerna (landningen ersätter den).

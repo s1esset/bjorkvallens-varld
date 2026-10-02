@@ -136,23 +136,27 @@ export function formVag(g, typ, r) {
 // --- formvännen -------------------------------------------------------------
 
 /**
- * En formvän: skugga + kropp (silhuett, glans, ögon, mun, två armar).
- * Allt LIV läggs på `kropp` — aldrig på `view`, som draget äger.
+ * En formvän: skugga + fall → kropp (silhuett, glans, ögon, mun, två armar).
+ * Allt LIV läggs på `kropp` — aldrig på `view`, som draget äger. `fall` är ett EGET
+ * inre barn som bara `lib/landa.js` rör (y): när formen släpps ner på bänken faller
+ * `fall`, medan view (släppmålet/träffytan) och skuggan står stilla. `fot` = hur långt
+ * under view-origo den RITADE silhuetten når (mätt ur geometrin, inte en tabell), och
+ * skuggan ligger precis där — på ytan formen står på.
  */
 export function makeFormvan(typ, r, farg, { gyllene = false } = {}) {
   const view = new Container()
   const mork = shade(farg, gyllene ? 0.3 : 0.36)
   const ljus = tint(farg, 0.45)
 
-  const skugga = new Graphics().ellipse(0, r * 1.24, r * 0.78, r * 0.22).fill({ color: 0x3a2412, alpha: 0.22 })
-  skugga.eventMode = 'none'
-
   // TVÅ lager, med flit: `kropp` bär vilo-guppningen (liv skriver y + rotation varje
   // bildruta) och `mitt` bär reaktionerna (squash/wiggle skriver scale + rotation). Slås
   // de ihop vinner guppningen varje bildruta och en vingel vid fel hål blir OSYNLIG —
   // utan ett konsolfel, utan att något ser fel ut i koden.
+  const fall = new Container()
+  fall.eventMode = 'none'
   const kropp = new Container()
   kropp.eventMode = 'none'
+  fall.addChild(kropp)
   const mitt = new Container()
   mitt.eventMode = 'none'
   kropp.addChild(mitt)
@@ -225,11 +229,26 @@ export function makeFormvan(typ, r, farg, { gyllene = false } = {}) {
   mun.position.set(fx, fy + r * 0.24 * fs)
   mitt.addChild(ogon, mun)
 
-  view.addChild(skugga, kropp)
+  // Fotpunkten: silhuettens nedersta ritade kant (inkl. kontur) i view-rum. Kroppen ligger
+  // i origo i både `kropp` och `mitt`, så lokal- och view-koordinat är samma sak här.
+  let fot = r
+  try {
+    const b = body.getLocalBounds()
+    if (Number.isFinite(b.maxY) && b.maxY > 0) fot = b.maxY
+  } catch {
+    /* reserv: cirkelns fot */
+  }
+  // Skuggan: en container i fotpunkten med en ellips i origo (inte en Graphics med .position).
+  const skugga = new Container()
+  skugga.position.set(0, fot)
+  skugga.eventMode = 'none'
+  skugga.addChild(new Graphics().ellipse(0, 0, r * 0.78, r * 0.2).fill({ color: 0x3a2412, alpha: 0.26 }))
+
+  view.addChild(skugga, fall)
   view.eventMode = 'static'
   view.cursor = 'pointer'
 
-  return { view, kropp, mitt, body, ogon, pupiller, mun, armar: armNoder, skugga, r }
+  return { view, fall, kropp, mitt, body, ogon, pupiller, mun, armar: armNoder, skugga, fot, r }
 }
 
 // --- hålet i trälådan -------------------------------------------------------

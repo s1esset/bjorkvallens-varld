@@ -90,6 +90,18 @@ i en tom värld, och hjälpen gör att man knappt behöver röra korgen.
 
 ## 5. Status / loggar
 
+- 2026-10-02 ⚙️ **R2: korgens kanter och sensor är kinematiska** (D7 B1). `_rimL/_rimR/_sensor` är kvar
+  som matter-kroppar men flyttas av `phys.kinematisk` (`_kRimL/_kRimR/_kSensor`, `maxFart` 26 px/steg):
+  `_update` ger dem korgens läge som MÅL före `phys.update`, och de går dit i fysiksteget med
+  förflyttningen som fart. Förut teleporterades de varje bildruta — ett snabbt svep gick IGENOM
+  frukten (5 av 20 kantkontakter) och korgen skyfflade utan rörelsemängd. Nu knuffar kanten på riktigt.
+  Korgens egen glid har samma tak per 1/60 s (`KIN_FART × dt` = 26, samma som före R2 — byggaren
+  föreslog 20, orkestreraren behöll 26 så korgens fart under fingret inte ändras) så kropparna
+  aldrig ligger efter det som ritas. Varje frukt har `fartTak` 12 px/steg (P0: en knuffad frukt
+  stannar i banan men får fart). Fånghjälpen (`_fangSteg`) och sensorn orörda.
+  Mätt (`_dag-r2drag.mjs fanga-frukten`, fullt svep): HEAD igenom 5/20 kontakter, fart efter möte 6 →
+  nu igenom 0/18, fart 12 (taket), ur bild 0.
+
 - 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): `_levelComplete` spelade eget
   `celebrate` + `bigCelebration` i samma tick som `complete()` — strukna; vinstrepliken sägs före
   `complete()` och står kvar. "Fler frukter!" (1,9 s) och ekorrens önskan (1,1 s efter en

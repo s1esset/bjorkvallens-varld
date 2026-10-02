@@ -128,7 +128,11 @@ const MAX_FRUIT = 6 // tak för samtidiga frukter (lugnt + prestanda)
 const GRAVITY_Y = 0.55 // mjuk matter-gravitation (litet barn ska hinna med)
 const MAX_FALL = 8 // px/steg-tak på fallfart (≈480 px/s) så det aldrig blir för snabbt
 const BASKET_HALF = 112 // halva korgbredden (klamp + handtag)
-const BASKET_STEP_MAX = 26 // px/bildruta-tak på korgens rörelse (mjuk för fysik-kanterna)
+// R2: korgens kanter + sensor är KINEMATISKA (`phys.kinematisk`) och går mot korgen med högst
+// KIN_FART px per fysiksteg. Korgens egen rörelse har samma tak (per 1/60 s) — då hinner kropparna
+// alltid med det som ritas, och en kant som skyfflar frukt gör det aldrig fortare än så.
+const KIN_FART = 26 // px/steg = 1 560 px/s; samma tak som korgens glid hade före R2 (känslan orörd)
+const FRUKT_FART = 12 // px/steg-tak på en frukt som korgen knuffat (rörelsemängd, men kvar i banan)
 const MOUTH_DX = 88 // kant-knopparnas offset från korgmitten
 const RIM_R = 14 // kant-knoppens radie (lekfull studs)
 const SENSOR_W = 156 // fångstsensorns bredd (generös, toddler-vänlig)
@@ -255,12 +259,17 @@ export default {
     // Fånghjälpen + fartgränsen läggs per FAST fysiksteg (T2) — avregistreras i destroy.
     this._avFang = this._phys.beforeStep(() => this._fangSteg())
 
-    // Korgen i fysiken: två studsiga kant-knoppar + en sensor i munnen. Statiska kroppar
-    // som flyttas varje bildruta med korgens x (mjuk rörelse -> inga teleport-smällar).
+    // Korgen i fysiken: två studsiga kant-knoppar + en sensor i munnen. Kropparna är matter-
+    // kroppar (`_rimL/_rimR/_sensor`) men flyttas av kinematiska handtag (`_kRimL/_kRimR/_kSensor`):
+    // de går mot korgen i fysiksteget med förflyttningen som fart, så en kant som möter en frukt
+    // KNUFFAR den (rörelsemängd) i stället för att teleportera förbi, och tunnlar aldrig.
     const bx = this._basket.x
     this._rimL = this._phys.circle(bx - MOUTH_DX, this._mouthY, RIM_R, { isStatic: true, friction: 0.4, label: 'rim' })
     this._rimR = this._phys.circle(bx + MOUTH_DX, this._mouthY, RIM_R, { isStatic: true, friction: 0.4, label: 'rim' })
     this._sensor = this._phys.rectangle(bx, this._mouthY + 26, SENSOR_W, SENSOR_H, { isStatic: true, isSensor: true, label: 'basket' })
+    this._kRimL = this._phys.kinematisk(this._rimL, { maxFart: KIN_FART })
+    this._kRimR = this._phys.kinematisk(this._rimR, { maxFart: KIN_FART })
+    this._kSensor = this._phys.kinematisk(this._sensor, { maxFart: KIN_FART })
 
     this._bMin = BASKET_HALF + 8
     this._bMax = ctx.width - BASKET_HALF - 8
@@ -349,21 +358,24 @@ export default {
     if (!this._alive) return
     const dt = Math.min(0.05, (t.deltaMS || 16.67) / 1000)
     this._t += dt
-    this._phys.update(t.deltaMS)
 
-    // Korgen glider mjukt mot fingrets x (bildtaktsoberoende lerp + fartgräns).
+    // Korgen glider mjukt mot fingrets x (bildtaktsoberoende lerp + fartgräns). Taket är kropparnas
+    // egen maxfart per fysiksteg (skalat med bildrutans längd), så korgen ritas aldrig före dem.
     const b = this._basket
     if (b && !b.destroyed) {
+      const stegMax = KIN_FART * clamp((t.deltaMS || 16.67) / (1000 / 60), 0.5, 3)
       let dx = (this._targetX - b.x) * Math.min(1, dt * 18)
-      dx = clamp(dx, -BASKET_STEP_MAX, BASKET_STEP_MAX)
+      dx = clamp(dx, -stegMax, stegMax)
       b.x += dx
     }
     const bx = b && !b.destroyed ? b.x : ctx.width / 2
 
-    // Flytta korgens fysik-kroppar med korgen (bara x ändras).
-    if (this._rimL) Body.setPosition(this._rimL, { x: bx - MOUTH_DX, y: this._mouthY })
-    if (this._rimR) Body.setPosition(this._rimR, { x: bx + MOUTH_DX, y: this._mouthY })
-    if (this._sensor) Body.setPosition(this._sensor, { x: bx, y: this._mouthY + 26 })
+    // Korgens fysik-kroppar får korgens läge som MÅL; de går dit i fysiksteget (före phys.update så
+    // att stegen i den här bildrutan redan går mot rätt läge).
+    this._kRimL?.till(bx - MOUTH_DX, this._mouthY)
+    this._kRimR?.till(bx + MOUTH_DX, this._mouthY)
+    this._kSensor?.till(bx, this._mouthY + 26)
+    this._phys.update(t.deltaMS)
 
     // Släpp ny frukt med jämna mellanrum (ej under firande, ej över taket).
     if (!this._busy) {
@@ -459,6 +471,8 @@ export default {
     })
     Body.setAngularVelocity(body, (Math.random() - 0.5) * 0.12) // gullig långsam snurr
     this._phys.link(body, view)
+    // Korgkanten knuffar nu med rörelsemängd (R2) — taket håller en knuffad frukt kvar i banan (P0).
+    this._phys.fartTak(body, FRUKT_FART)
     this._fruit.push({ body, view, kind, caught: false })
   },
 
@@ -921,6 +935,10 @@ export default {
     this._proxyTweens = []
     if (this._meterLayer && !this._meterLayer.destroyed) gsap.killTweensOf(this._meterLayer.scale)
 
+    this._kRimL?.destroy()
+    this._kRimR?.destroy()
+    this._kSensor?.destroy()
+    this._kRimL = this._kRimR = this._kSensor = null
     this._phys?.destroy()
     gsap.killTweensOf(this._root)
     ctx?.services?.voice?.cancel()

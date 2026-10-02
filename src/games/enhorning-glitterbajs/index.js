@@ -156,6 +156,7 @@ export default {
     // Fysik: lugn gravitation så regnet faller fångbart; sidoväggar + golv.
     this._phys = new PhysicsWorld({ gravityY: 1.0, walls: ['floor', 'left', 'right'] })
     this._unbindCollision = this._phys.onCollision((e) => this._onCollision(ctx, e))
+    this._avBoj = this._phys.beforeStep(() => this._bojSteg())
 
     this._buildMeter()
     this._buildPlatforms()
@@ -770,6 +771,22 @@ export default {
 
   // ---- Ticker: fysik, böjning, auto-hjälp, idle ---------------------------
 
+  // Kraftdelen, EN gång per fast fysiksteg (`phys.beforeStep`) — i tickern blev den 1–2
+  // gånger per bildruta beroende på takten, så böjen drog olika hårt vid 30 och 60 Hz.
+  _bojSteg() {
+    const cx = this._chest && !this._chest.destroyed ? this._chest.x : CHEST_START
+    for (const p of this._pellets) {
+      if (!p.body || p.caught) continue
+      // Fartgräns nedåt (fångbart + ingen tunneling genom sensorn).
+      if (p.body.velocity.y > MAX_FALL) Body.setVelocity(p.body, { x: p.body.velocity.x, y: MAX_FALL })
+      // Nivåberoende böjning: mjuk horisontell kraft mot burken på väg ner.
+      if (this._bend > 0 && p.body.position.y > 300) {
+        applyForce(p.body, p.body.mass * this._bend * Math.sign(cx - p.body.position.x), 0)
+      }
+    }
+  },
+
+
   _update(ctx, t) {
     if (!this._alive) return
     this._phys.update(t.deltaMS)
@@ -782,18 +799,11 @@ export default {
     for (let i = this._pellets.length - 1; i >= 0; i--) {
       const p = this._pellets[i]
       if (!p.body || p.caught) continue
-      const pos = p.body.position
       p.age += dt
       // Jackpot-stjärnan glimmar (skala på det ritade BARNET — kroppen och länken rör vi inte).
       if (p.jackpot && p.view && !p.view.destroyed && p.view.children[0]) p.view.children[0].scale.set(1 + 0.12 * Math.sin(p.age * 9))
 
-      // Fartgräns nedåt (fångbart + ingen tunneling genom sensorn).
-      if (p.body.velocity.y > MAX_FALL) Body.setVelocity(p.body, { x: p.body.velocity.x, y: MAX_FALL })
-
-      // Nivåberoende böjning: mjuk horisontell kraft mot burken på väg ner.
-      if (this._bend > 0 && pos.y > 300) {
-        applyForce(p.body, p.body.mass * this._bend * Math.sign(cx - pos.x), 0)
-      }
+      // Fartgränsen och böjningen ligger i `_bojSteg` (phys.beforeStep), en gång per fysiksteg.
 
       // Auto-hjälp: nästan stilla > 2 s, eller för gammal -> glid in i burken.
       const sp = Math.hypot(p.body.velocity.x, p.body.velocity.y)
@@ -978,6 +988,8 @@ export default {
   destroy(ctx) {
     this._alive = false
     ctx?.ticker?.remove(this._tick)
+    this._avBoj?.()
+    this._avBoj = null
     this._unbindCollision?.()
 
     this._timers.forEach((t) => t?.kill())

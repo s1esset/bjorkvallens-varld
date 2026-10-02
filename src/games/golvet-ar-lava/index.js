@@ -39,6 +39,7 @@ import { COLORS, FONT, DESIGN_W, DESIGN_H, shade, tint } from '../../lib/theme.j
 import { BLEED_X, BLEED_Y } from '../../lib/view.js'
 import { verticalFill, bage } from '../../lib/form.js'
 import { glod } from '../../lib/glod.js'
+import { vippa } from '../../lib/vippa.js'
 import { figurForOmgang, presentera } from '../../lib/egnafigurer.js'
 
 // --- Geometri (designkoordinater 1280×720) ---
@@ -64,6 +65,15 @@ const LAVA_YTA_PX = 157
 // Räckvidd (px) för hoppet FRÅN en stentyp → gör VILKEN sten till ett val, inte
 // bara var: studs kastar långt, bron ett hyfsat kliv, liljan ~vanlig men gullig.
 const REACH = { normal: 280, bounce: 460, bro: 360, lilja: 300 }
+// Stenens svikt när figuren landar (FYSIKPLAN P2, lib/vippa.js). Bara BILDEN sänks — i ett inre barn,
+// så träffyta, slot-snäpp och lavans kollisionshål står still. max = px ner vid full stöt (litet:
+// figuren lämnar stenen inom 1–2 bildrutor, då är glappet under fötterna < 1 px). tyngd = stötens styrka.
+const SVIKT = {
+  normal: { max: 7, k: 220, damp: 0.2, tyngd: 1 },
+  bro: { max: 5, k: 300, damp: 0.22, tyngd: 0.8 },
+  lilja: { max: 10, k: 140, damp: 0.15, tyngd: 1 }, // flyter — mjukare och långsammare
+  bounce: { max: 11, k: 150, damp: 0.12, tyngd: 1 }, // fjäder — djupast och guppar längst
+}
 // Skatten varierar per nivå → liten överraskning i st.f. samma fynd varje gång.
 // P0 ASSETS: fynden RITAS (egen silhuett), aldrig emoji.
 const FYND = ['diamant', 'krona', 'pokal', 'mynt', 'ring']
@@ -796,6 +806,7 @@ export default {
     this._drag = null
     for (const s of this._stones || []) {
       if (!s) continue
+      this._stillaStenen(s)
       // Hålet i lavan måste dö med stenen — annars ligger en osynlig kollision
       // kvar i floden och delar lavan där ingen sten finns.
       if (s._coll) {
@@ -812,9 +823,27 @@ export default {
     this._stones = []
   },
 
+  // Stenens vippa släpps (tar sin ticker-lyssnare, bilden tillbaka i viloläge) före rivning.
+  _stillaStenen(s) {
+    if (s?._vippa) {
+      s._vippa.destroy()
+      s._vippa = null
+    }
+  },
+
+  // En sten sviktar nedåt: stot(−k) ger y-utslag NEDÅT (fjädern sparkar åt motsatt håll mot tecknet).
+  _sviktStenen(s, styrka) {
+    if (!s || s.destroyed || !s._vippa) return
+    s._vippa.stot(-styrka * (s._svikt ?? 1))
+  },
+
   _makeStone(ctx, kind, homeX) {
     const c = new Container()
     c.position.set(homeX, TRAY_Y)
+    // Skuggan och träffytan står still; BILDEN ligger i ett inre barn som vippan sänker när figuren
+    // landar (animera aldrig noden som bär hitArea och glider till sin slot).
+    const bild = new Container()
+    bild.eventMode = 'none'
     if (kind === 'bro') {
       // Bro-platta: bred plank som täcker ett längre kliv (räckvidd 360).
       const shadow = new Graphics().ellipse(0, 12, 80, 22).fill({ color: 0x000000, alpha: 0.18 })
@@ -823,7 +852,8 @@ export default {
       for (const px of [-40, 0, 40]) body.moveTo(px, -20).lineTo(px, 20)
       body.stroke({ width: 3, color: 0x6f5d4e, alpha: 0.5 })
       body.eventMode = 'none'
-      c.addChild(shadow, body)
+      bild.addChild(body)
+      c.addChild(shadow, bild)
     } else if (kind === 'lilja') {
       // Flyt-lilja: gullig näckrosplatta med blomma (räckvidd 300).
       const shadow = new Graphics().ellipse(0, 8, STONE_R, 16).fill({ color: 0x000000, alpha: 0.15 })
@@ -840,7 +870,8 @@ export default {
       flower.circle(0, 0, 5).fill(0xffe08a).stroke({ width: 2, color: 0xe0a94f })
       flower.position.set(-14, -6)
       flower.eventMode = 'none'
-      c.addChild(shadow, pad, flower)
+      bild.addChild(pad, flower)
+      c.addChild(shadow, bild)
     } else {
       // normal (grå cirkel) + bounce (grön fjäder-sten).
       const isBounce = kind === 'bounce'
@@ -854,7 +885,8 @@ export default {
       spots.circle(-15, -14, 8).fill({ color: 0xffffff, alpha: 0.25 })
       spots.circle(13, 10, 5).fill({ color: 0xffffff, alpha: 0.18 })
       spots.eventMode = 'none'
-      c.addChild(shadow, body, spots)
+      bild.addChild(body, spots)
+      c.addChild(shadow, bild)
       if (isBounce) {
         // Fjäder-glans + uppåtpil → "studs"-känsla.
         // Fjädrarna sitter LÄNGST NER och dämpat — de konkurrerade förut med
@@ -869,10 +901,13 @@ export default {
         up.moveTo(-13, -6).lineTo(0, -22).lineTo(13, -6).closePath().fill(0xffffff)
         up.position.set(0, -6)
         up.eventMode = 'none'
-        c.addChild(spring, up)
+        bild.addChild(spring, up)
       }
     }
     c._kind = kind
+    c._bild = bild // det vippade inre barnet (bild.y sviktar nedåt vid landning)
+    c._svikt = SVIKT[kind].tyngd
+    c._vippa = vippa(bild, { axel: 'y', ticker: ctx.ticker, max: SVIKT[kind].max, k: SVIKT[kind].k, damp: SVIKT[kind].damp })
     c._isBounce = kind === 'bounce'
     c._reach = REACH[kind] || 280
     c._home = { x: homeX, y: TRAY_Y }
@@ -999,6 +1034,7 @@ export default {
     gsap.to(stone, { x: tx, y: ty, duration: 0.16, ease: 'power2.in' })
     ctx.services.audio.sfx('pop')
     pop(stone)
+    this._sviktStenen(stone, 0.4) // stenen sätter sig i lavan med ett litet duns
     sparkle(ctx.fxLayer, tx, ty)
     this._lavaReact(tx) // stänk + glödring där stenen möter lavan
     stone._px = tx // banan ritas mot slutpositionen, inte mitt i glidningen
@@ -1124,7 +1160,7 @@ export default {
     const sx = (s) => (typeof s._px === 'number' ? s._px : s.x)
     const placed = (this._stones || []).filter((s) => s && !s.destroyed && s._placed).sort((a, b) => sx(a) - sx(b))
     const seq = [{ x: this._heroStartX, y: EDGE_Y, isBounce: false, reach: 280 }]
-    for (const s of placed) seq.push({ x: sx(s), y: STONE_TOP, isBounce: !!s._isBounce, reach: s._reach || 280 })
+    for (const s of placed) seq.push({ x: sx(s), y: STONE_TOP, isBounce: !!s._isBounce, reach: s._reach || 280, stone: s })
     seq.push({ x: this._rightLandingX, y: EDGE_Y, isBounce: false })
     seq.push({ x: this._treasureNodeX, y: EDGE_Y, isTreasure: true })
     return seq
@@ -1265,6 +1301,9 @@ export default {
   },
 
   _onLand(ctx) {
+    // Stenen figuren landar på sviktar nedåt — hårdare ju högre fall, mjukt när molnet bar hen.
+    // Bara stenens BILD rör sig (inre barn); figurens landningspunkt är oförändrad.
+    this._sviktStenen(this._seq[this._stepTo]?.stone, this._mode === 'cloud' ? 0.35 : clamp(0.45 + this._H / 260, 0.5, 1))
     if (this._mode === 'cloud') {
       if (this._cloud && !this._cloud.destroyed) {
         puff(ctx.fxLayer, this._cloud.x, this._cloud.y, { count: 5, color: 0xffffff })
@@ -1701,7 +1740,9 @@ export default {
       gsap.killTweensOf(this._goBtn.scale)
     }
     for (const s of this._stones || []) {
-      if (s && !s.destroyed) {
+      if (!s) continue
+      this._stillaStenen(s) // vippan: ticker-lyssnaren bort, bilden i viloläge
+      if (!s.destroyed) {
         gsap.killTweensOf(s)
         gsap.killTweensOf(s.scale)
       }

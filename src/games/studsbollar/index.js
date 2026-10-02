@@ -102,6 +102,7 @@ export default {
       label: 'floor',
     })
     this._unbindCollision = this._phys.onCollision((e) => this._onCollision(ctx, e))
+    this._avDrift = this._phys.beforeStep(() => this._driftSteg())
 
     this._buildScene(ctx)
 
@@ -884,19 +885,7 @@ export default {
     if (ctx.services.voice.talar) this._idle = 0
     this._idle += dt
 
-    // Levande gropbollar: de liggande målbollarna rullar sakta fram och tillbaka i
-    // gropen i stället för att ligga still som dekor. De blir RÖRLIGA mål — lite mer
-    // sikte, mycket mer liv — men farten är så låg att träffytan förblir generös.
-    this._drift = (this._drift || 0) + dt
-    for (let i = 0; i < this._balls.length; i++) {
-      const b = this._balls[i].body
-      if (!b || b.isStatic) continue
-      if (b.position.y < FLOOR_Y - 120) continue // bara de som ligger i gropen
-      const speed = Math.hypot(b.velocity.x, b.velocity.y)
-      if (speed > 2.2) continue // stör inte en boll som redan är i rörelse
-      const f = Math.sin(this._drift * 0.8 + i * 2.1) * 0.00016 * b.mass
-      Body.applyForce(b, b.position, { x: f, y: 0 })
-    }
+    // Gropbollarnas drift ligger i `_driftSteg` (phys.beforeStep), en gång per fysiksteg.
 
     if (this._flying && this._shot?.body) {
       this._flightTime += dt
@@ -926,9 +915,29 @@ export default {
     }
   },
 
+  // Levande gropbollar: de liggande målbollarna rullar sakta fram och tillbaka i
+  // gropen i stället för att ligga still som dekor. De blir RÖRLIGA mål — lite mer
+  // sikte, mycket mer liv — men farten är så låg att träffytan förblir generös.
+  // EN gång per fast fysiksteg (`phys.beforeStep`): i tickern lades kraften 1–2 gånger
+  // per bildruta beroende på takten, så bollarna drev olika långt vid 30 och 60 Hz.
+  _driftSteg() {
+    this._drift = (this._drift || 0) + 1 / 60
+    for (let i = 0; i < this._balls.length; i++) {
+      const b = this._balls[i].body
+      if (!b || b.isStatic) continue
+      if (b.position.y < FLOOR_Y - 120) continue // bara de som ligger i gropen
+      const speed = Math.hypot(b.velocity.x, b.velocity.y)
+      if (speed > 2.2) continue // stör inte en boll som redan är i rörelse
+      const f = Math.sin(this._drift * 0.8 + i * 2.1) * 0.00016 * b.mass
+      Body.applyForce(b, b.position, { x: f, y: 0 })
+    }
+  },
+
   destroy(ctx) {
     this._alive = false
     ctx?.ticker?.remove(this._tick)
+    this._avDrift?.()
+    this._avDrift = null
     this._unbindCollision?.()
     this._launcher?.destroy()
 

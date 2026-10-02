@@ -37,7 +37,7 @@ import { randomFrom } from '../../lib/swedish.js'
 import { minns } from '../../lib/egnafigurer.js'
 import {
   SPH, KROPPAR, OGON, MUNNAR, TOPPAR, FARGER, STORLEKAR, TAK, SKALA, TON_BAS,
-  palett, byggVarelse, ritaOgon, rensaCfg, spelaMelodi,
+  palett, byggVarelse, ritaOgon, rensaCfg, spelaMelodi, vippaTopp,
 } from './varelse.js'
 
 // --- Geometri (designkoordinater 1280×720) --------------------------------
@@ -195,6 +195,7 @@ export default {
     this._busTid = 0
     ctx.services.voice.say(this.voiceIntro)
     bounceIn(this._vSkala, { duration: 0.5 })
+    this._vippaStot(0.7)
   },
 
   destroy(ctx) {
@@ -643,6 +644,10 @@ export default {
 
     if (this._vSnurr && !this._vSnurr.destroyed) wiggle(this._vSnurr)
     squash(this._vGrund, { intensity: 0.35 })
+    // Kittlingen skakar antenner och öron — åt det håll fingret kom ifrån (höger → tips åt
+    // vänster). Minst 0,55 så ett tryck mitt på också syns.
+    const sida = lok.x < 0 ? -1 : 1
+    this._vippaStot(-sida * Math.max(0.55, Math.min(1, Math.abs(lok.x) / 80)))
     this._vinka(0.6)
 
     // Skrattansiktet. Ögonens SKALA ägs annars av blinkningen och av `bounceIn` vid
@@ -725,12 +730,18 @@ export default {
     v.ogonNod.x = this._blick.x * 9
     v.munNod.x = this._blick.x * 6
     this._vLiv.addChild(v.nod)
+    // Prydnaden fjädrar (lib/vippa.js) på sitt eget inre barn `toppVipp` — `toppNod` har
+    // bounceIn vid delbyte och får inte delas. Vippan följer figuren: rivs i `_stadVarelse`.
+    v.vipp = vippaTopp(v, { ticker: ctx.ticker })
 
     const mal = STORLEKAR[this._cfg.storlek % STORLEKAR.length]
     this._matKittel(mal)
     if (bytt) {
       gsap.to(this._vSkala.scale, { x: mal, y: mal, duration: 0.28, ease: 'back.out(2)' })
       squash(this._vGrund, { intensity: 0.55 })
+      // Squashen skakar prydnaden: åt det håll knappen satt (vänster kolumn −, höger +).
+      const delRad = DELAR.find((d) => d.key === bytt)
+      v.vipp?.stot(0.8 * (delRad?.blick.x || 1))
       const delNod = { kropp: v.nod, ogon: v.ogonNod, mun: v.munNod, topp: v.toppNod, farg: v.nod, storlek: v.nod }[bytt]
       if (delNod && delNod !== v.nod) bounceIn(delNod, { duration: 0.34 })
       this._blinka()
@@ -744,12 +755,21 @@ export default {
   // som tas ner från väggen, för båda kan vara mitt i en vinkning när de försvinner.
   _stadVarelse(v) {
     if (!v) return
-    for (const nod of [...(v.armar || []), v.ogonNod, v.munNod, v.toppNod, v.nod]) {
+    for (const nod of [...(v.armar || []), v.ogonNod, v.munNod, v.toppNod, v.toppVipp, v.nod]) {
       if (!nod || nod.destroyed) continue
       gsap.killTweensOf(nod)
       gsap.killTweensOf(nod.scale)
     }
     v.nod?._fxLiv?.kill()
+    // Prydnadens fjäder är ingen tween utan en tickerlyssnare — släpp den FÖRE rivningen.
+    v.vipp?.destroy()
+    v.vipp = null
+  },
+
+  // En stöt i kompisens prydnad (antenner, öron, tofs). Hoppar tyst över om figuren just rivs.
+  _vippaStot(v) {
+    if (!this._alive) return
+    this._varelse?.vipp?.stot(v)
   },
 
   // Förhandsvisningen i raden: samma ritfunktioner som varelsen använder, i litet.
@@ -1020,6 +1040,9 @@ export default {
       this._vSnurr.rotation = 0
     }
     squash(this._vSkala, { intensity: 1, hop: 74 })
+    this._vippaStot(1)
+    // Landningen efter snurren (0,85 s) ger en ny skakning.
+    ctx.later(0.9, () => this._vippaStot(-0.9))
     gsap.to(this._vSnurr, { rotation: Math.PI * 2, duration: 0.85, ease: 'back.inOut(1.2)', onComplete: () => {
       if (this._alive && this._vSnurr && !this._vSnurr.destroyed) this._vSnurr.rotation = 0
     } })
@@ -1201,6 +1224,7 @@ export default {
     this._ritaVarelse(ctx, null)
     for (const del of DELAR) this._ritaPrev(del.key)
     bounceIn(this._vSkala, { duration: 0.5 })
+    this._vippaStot(0.7)
     sparkle(ctx.fxLayer, VX, VY - 130, { count: 10 })
     this._satKnappar(true)
     this._resolving = false
@@ -1283,6 +1307,7 @@ export default {
       .add(() => {
         if (!this._alive) return
         ctx.services.audio.tone({ freq: 520, dur: 0.12, type: 'sine', vol: 0.12 })
+        this._vippaStot(0.5) // fjärilens landning guppar antennerna
         // Den känner att något satte sig på huvudet och tittar upp.
         this._titta(0, -1, { hall: 1.6 })
       })

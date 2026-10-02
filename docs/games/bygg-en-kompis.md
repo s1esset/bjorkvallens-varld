@@ -108,6 +108,7 @@ Två designbeslut värda att minnas:
 **Juice**
 * ~~[Quick] Kompisen tittar på den knapp som just trycktes~~ ✅ v1.215.0
 * ~~[Quick] Damm-puff vid fötterna när storleken växer~~ ✅ v1.215.0
+* ~~[Quick] Antenner och öron fjädrar vid studs och kittling (FYSIKPLAN P2)~~ ✅ 2026-10-02 (D3)
 
 **Progression**
 * [Medium] En liten "affisch" på väggen som visar hur många delar som återstår att låsa upp.
@@ -118,7 +119,24 @@ Två designbeslut värda att minnas:
 **Ljud**
 * ~~[Quick] Egen materialklang per kroppsform (klot = mjuk, kloss = trä)~~ ✅ v1.215.0
 
+- [Quick] **Prydnadens pivå (P2-vippan, 2026-10-02 kritik):** skevningen sker kring `toppNod`s origo, inte fästet — rätt för antenner/tofs, men `runda-oron` (y 14, r 30) glider som i vind i stället för att gunga. Sätt pivån per prydnad i `TOPP_VIPP` om det syns.
+
 ## 5. Status / loggar
+
+- 2026-10-02 ✅ **Prydnaden fjädrar (D3 · FYSIKPLAN P2 · `lib/vippa.js`).** `toppNod` (placering +
+  `bounceIn` vid delbyte, `varelse.js`) fick ett INRE barn `toppVipp` som ensamt bär prydnadens
+  Graphics; fjädern (`vippaTopp`, axel `skev` = `skew.x`, pivå i prydnadens fot) skriver bara det
+  barnet, så den aldrig delar egenskap med bounceIn. Mjukheten per prydnad står i `TOPP_VIPP`
+  (antenn max 0,34 rad ≈ 21 px vid bollen · tofs · öron · horn nästan stelt 0,07 · vingar 0,14).
+  Stöt: delbyte (åt knappens kolumn), kittling (åt fingrets sida), mount/ny runda (bounceIn),
+  finishens hopp + landning efter snurren, och fjärilens landning på huvudet. Fjädern är en
+  tickerlyssnare, inte en tween: `_stadVarelse` släpper den före varje rivning av figuren
+  (delbyte, nedtagen ram, destroy). Riggen `Kompis` (andra spel) stegar sin egen vippa
+  tickerlöst i `tick()` och stöter vid varje landning. Kittelytans och kamerans `hitArea` är
+  orörda (de ligger på andra noder). Mät: `node scripts/_toppvippaprobe.mjs` (alla sex
+  prydnader rör sig ±2,5–21 px och står exakt still efter 8 s; riggen likaså).
+  **Drift:** FYSIKPLAN pekade på `:734` för `bounceIn` — det ligger i `_ritaVarelse` i
+  `index.js`, inte `varelse.js`; `toppNod` skapas `varelse.js` ~:400.
 
 - 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): Väggrepliken "Vilken fin kompis!
   Nu hänger den på väggen." (4,8 s) låg på fast 1,7 s och kapade berömmet från `complete()`.

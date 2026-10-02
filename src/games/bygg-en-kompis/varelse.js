@@ -17,6 +17,7 @@
 // kittling, bytesstudsar). Riggen är till för kompisar som står i ett annat spel.
 import { Container, Graphics, Point } from 'pixi.js'
 import { sphereFill } from '../../lib/form.js'
+import { vippa } from '../../lib/vippa.js'
 import { COLORS, shade, tint } from '../../lib/theme.js'
 
 export const SPH = { dark: 0.24, highlight: 0.3, spread: 0.6 }
@@ -397,10 +398,15 @@ export function byggVarelse(cfg, look) {
 
   // Prydnaden ligger BAKOM kroppen: öron och horn ska sticka upp ur silhuetten,
   // aldrig ligga som klistermärken ovanpå den.
+  // `toppNod` äger studsen vid delbyte (bounceIn → skala) och placeringen. `toppVipp` är ett
+  // INRE barn som bara fjädern (lib/vippa.js, axel skev) rör — så de två aldrig skriver samma
+  // egenskap, och fjädern sitter i prydnadens fot (origo) så spetsarna svajar men foten står.
   const toppNod = new Container()
+  const toppVipp = new Container()
   const tg = new Graphics()
   toppDef.rita(tg, p, m)
-  toppNod.addChild(tg)
+  toppVipp.addChild(tg)
+  toppNod.addChild(toppVipp)
   toppNod.position.set(0, toppDef.bak ? m.axelY - 16 : m.topY)
   bak.addChild(toppNod)
 
@@ -451,7 +457,28 @@ export function byggVarelse(cfg, look) {
   munNod.position.set(0, m.munY)
   fram.addChild(munNod)
 
-  return { nod, ogonNod, ogonG: og, munNod, toppNod, armar, m, p }
+  return { nod, ogonNod, ogonG: og, munNod, toppNod, toppVipp, toppId: toppDef.id, armar, m, p }
+}
+
+// Hur mjuk varje prydnad är (lib/vippa.js, axel 'skev' = skew.x i radianer; utslaget vid full
+// stöt). Antennen är en fjäder med en boll i änden; öronen är mjukt brosk; hornet är nästan stelt.
+// Spetsen på en skev prydnad flyttar sig ungefär sin höjd × sin(skev): antennbollen (~64 px upp)
+// rör sig som mest ~21 px, vingspetsen (~40 px) ~6 px.
+export const TOPP_VIPP = {
+  antenner: { max: 0.34, k: 170, damp: 0.14 },
+  tofs: { max: 0.3, k: 230, damp: 0.2 },
+  'runda-oron': { max: 0.24, k: 200, damp: 0.2 },
+  'spetsiga-oron': { max: 0.2, k: 260, damp: 0.22 },
+  horn: { max: 0.12, k: 420, damp: 0.3 },
+  vingar: { max: 0.14, k: 150, damp: 0.16 },
+}
+
+// Haka en fjäder på kompisens prydnad. `ticker: null` = anroparen stegar själv (riggen);
+// annars ctx.ticker. Returnerar vippan eller null.
+export function vippaTopp(v, opts = {}) {
+  const n = v?.toppVipp
+  if (!n || n.destroyed) return null
+  return vippa(n, { axel: 'skev', ...(TOPP_VIPP[v.toppId] || {}), ...opts })
 }
 
 // Rita om BARA ögonen med en ny blick. Det är sex cirklar i en enda Graphics — billigt
@@ -582,6 +609,9 @@ export class Kompis {
     this._hejaKvar = 0
     this._tuggKvar = 0
     this._armRot = [0, 0]
+    // Prydnaden fjädrar vid varje landning. Riggen stegar själv (`ticker: null`) i `tick()` —
+    // ingen egen tickerlyssnare att glömma — och vippan skriver bara toppVipp (ett inre barn).
+    this._vipp = vippaTopp(this._v, { ticker: null })
   }
 
   /** Ett eller flera skutt. */
@@ -660,6 +690,7 @@ export class Kompis {
       if (this._skuttFas >= 1) {
         this._skuttKvar--
         this._landa = 1
+        this._vipp?.stot(0.75)
         if (this._skuttKvar > 0) this._skuttFas = 0
         else {
           this._skuttAktiv = false
@@ -674,6 +705,7 @@ export class Kompis {
     this._tuggKvar = Math.max(0, this._tuggKvar - dt)
 
     this._apply(dt)
+    this._vipp?.steg(dt * 1000)
   }
 
   _blicka(dt, mal) {
@@ -769,6 +801,8 @@ export class Kompis {
 
   destroy() {
     this._alive = false
+    this._vipp?.destroy()
+    this._vipp = null
     if (this.view && !this.view.destroyed) this.view.destroy({ children: true })
     this._v = { armar: [] }
   }

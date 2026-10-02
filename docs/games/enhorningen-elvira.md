@@ -14,7 +14,9 @@ Jag **drar molnen** ut i luften (ett förlåtande drag, mjuk snäpp; släpps de 
 Elvira** för att sikta (riktning + kraft, prickad bana visar var hon hamnar) eller trycker
 **Hoppa!** för ett standardskott — hon flyger som en matter.js-kropp, **studsar mot molnen**
 mot regnbågen och plockar ädelstenar. Vikt-knappen ändrar gravitation + massa (lätt =
-flygig båge, tung = snabbt fall/längre kast); vinden ger med-/motvind. Når hon regnbågen →
+flygig båge, tung = snabbt fall/längre kast); vinden är en SYNLIG luftström (dis, streck och
+pastellblommor som blåser in från ena sidan, höjd slumpad per bana) som knuffar Elvira bara medan hon flyger
+genom den — en LÄTT Elvira blåser längre än en tung. Når hon regnbågen →
 firande, stjärnor, nästa nivå (regnbågen längre bort/högre, färre moln, mer vind).
 
 No-fail är noggrant byggt: molnstudsar är **avtagande och takade** (`MAX_BOUNCES`, garanterad
@@ -104,6 +106,11 @@ Allt programmatiskt, exit-säkert.
   exit mitt i flykten lämnar ingenting.
 
 ### Progression
+- **[Medium] G3b: sikt-kontrollens prickbana genom vindfältet.** Hint-bågen (_drawPreview) läser nu vinden ur
+  bandet i varje punkt (mätt: vindens bidrag inom 2 px). Sikt-kontrollens egen prickbana (`AimLauncher`) kan bara
+  bära ETT vind-tal, så den får bandets viktade medelacceleration längs det aktuella siktet (inom ~3 px i
+  `node scripts/_spindelvindprobe.mjs --bara B`), men kurvans mitt är rakare än verkligheten och talet ligger ett
+  sikte efter. Exakt kurva kräver G3b (banan genom `Vindfalt`).
 - **[Medium] Visa hur vikt/vind ändrar banan.** När man växlar vikt/vind: rita om prickbanan
   *direkt* (görs redan i `_drawPreview`!) och lägg en kort "se skillnaden"-blink mellan gamla
   och nya banan, så orsak-verkan blir tydlig utan läsning.
@@ -131,6 +138,15 @@ Allt programmatiskt, exit-säkert.
   *Not 2026-09-23:* vinst-stinget varieras redan app-brett (`AudioService._celebrate`); ambienten kvarstår.
 
 ## 5. Status / loggar
+
+- 2026-10-03 ✅ **Vind-knappen blir ett `Vindfalt` (FYSIKPLAN F4, kluster B2)**: global `setWind(±0,0005)` ersatt av en luftström
+  (`vindband.js`, bild i `vindbild.js`): ett band som blåser in från vänster (Medvind) eller höger (Motvind), starkast i
+  höjd med mitten (y 290–370 slumpas per bana, ±215 px), luftens fart 10,5 → 14 px/steg med nivån. Kraften är `frictionAir · luft`,
+  så Lätt/Tung-knappen syns i vinden: lätt (0,02) blåser 209 px, tung (0,012) 69 px i samma luft (`_spindelvindprobe` B). Bilden
+  är pastell: en svag dis, blåa streck och elva blommor i regnbågens färger som virvlar med strömmen (egen silhuett, snurrar och guppar).
+  Mätt mot dagens globala vind (HEAD): landningsskjutning lätt medel 193 px (max 281) mot HEAD 182 (283), tung 66 (95) mot 104 (158);
+  inget skott lämnar bild. Hint-bågen läser fältet exakt (bidrag-fel 2,0 px mot 134 px utan vind); sikt-kontrollens prickbana
+  får ett viktat medeltal (3,0 px). Vindbyte direkt Medvind → Motvind tonar bandet in på nytt i stället för att blommorna hoppar.
 
 - 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): klättringstoner per molnstuds och
   Elvira som reagerar i luften (💖 vid ädelsten, squash + 💫 vid väggstuds), se §4.

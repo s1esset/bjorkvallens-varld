@@ -8,7 +8,8 @@
 //
 // EXTRA KONTROLL: en stor knapp som växlar Elvira "lätt 🪶 / tung 🪨" (ändrar
 // gravitation + massa -> hon faller flygigt eller snabbt, helt annan studsbana).
-// På högre nivåer dyker en mild vind-knapp upp (medvind/motvind).
+// På högre nivåer dyker en vind-knapp upp (medvind/motvind): en luftström (lib/vind.js, Vindfalt) som blåser
+// in från ena sidan med blommor och streck som visar den, och som knuffar en LÄTT Elvira mer än en tung.
 //
 // INGET MISSLYCKANDE: landar hon utan att nå målet svävar hon mjukt tillbaka till
 // start så barnet kan flytta molnen och prova igen; efter ett par försök lägger spelet
@@ -18,7 +19,7 @@
 // Allt ritas programmatiskt (Pixi Graphics + emoji) — inga filer. Exit-säkert.
 import { Container, Graphics, Text, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
-import { PhysicsWorld, Body, predictTrajectory } from '../../lib/physics.js'
+import { PhysicsWorld, Body } from '../../lib/physics.js'
 import { AimLauncher } from '../../lib/launcher.js'
 import { createScene } from '../../lib/scene.js'
 import { Button } from '../../lib/Button.js'
@@ -28,6 +29,8 @@ import { COLORS, FONT, DESIGN_W } from '../../lib/theme.js'
 import { groundFill } from '../../lib/form.js'
 import { slumpIBand } from '../../lib/variation.js'
 import { Moln, molnTraff, MAX_BOUNCES } from './moln.js'
+import { nyttVindband, stallBand, forutsagBana, forhandsAcc, luftForNiva, BAND_HALV } from './vindband.js'
+import { Vindbild } from './vindbild.js'
 
 // --- Layout (designkoordinater 1280×720) ---------------------------------
 const START = { x: 185, y: 165 } // Elviras starthörn (uppe till vänster)
@@ -67,12 +70,11 @@ const WEIGHTS = [
   { key: 'tung', icon: '🪨', label: 'Tung', color: COLORS.purple, gravity: 1.45, density: 0.003, frictionAir: 0.012, voice: 'Nu är Elvira tung och faller snabbt!' },
 ]
 
-// Vind-lägen (mild, dyker upp på högre nivåer). ax = vind-ACCELERATION (px/steg).
-// matter applicerar kraft = massa×ax -> ~ax×277.8 px/steg² fart. 0.0005 ≈ lagom bris.
+// Vind-lägen (dyker upp på högre nivåer). dir = åt vilket håll luftströmmen blåser (vindband.js).
 const WINDS = [
-  { icon: '🍃', label: 'Lugnt', color: COLORS.green, ax: 0, voice: 'Ingen vind nu.' },
-  { icon: '➡️', label: 'Medvind', color: COLORS.blue, ax: 0.0005, voice: 'En bris blåser åt höger!' },
-  { icon: '⬅️', label: 'Motvind', color: COLORS.orange, ax: -0.0005, voice: 'En bris blåser åt vänster!' },
+  { icon: '🍃', label: 'Lugnt', color: COLORS.green, dir: 0, voice: 'Ingen vind nu.' },
+  { icon: '➡️', label: 'Medvind', color: COLORS.blue, dir: 1, voice: 'En bris blåser åt höger!' },
+  { icon: '⬅️', label: 'Motvind', color: COLORS.orange, dir: -1, voice: 'En bris blåser åt vänster!' },
 ]
 
 const RAINBOW = [0xff5d5d, 0xffa53d, 0xffe14d, 0x6bd66b, 0x5db4ff, 0xb487ff]
@@ -104,7 +106,9 @@ export default {
     this._weightIdx = 0
     this._weight = WEIGHTS[0]
     this._windIdx = 0
-    this._windAx = 0
+    this._windDir = 0
+    this._vindDef = { y: 330, halv: BAND_HALV, luft: luftForNiva(3) } // nivåns vindband (_levelConfig slumpar höjden)
+    this._senasteAim = null // fingrets senaste sikte — prickbanans vind räknas på det
     this._clouds = []
     this._gems = []
     this._tweens = []
@@ -120,6 +124,8 @@ export default {
     this._phys = new PhysicsWorld({ gravityY: this._weight.gravity, walls: ['left', 'right', 'ceiling'] })
     this._phys.rectangle(DESIGN_W / 2, GROUND_TOP + 70, DESIGN_W + 600, 140, { isStatic: true, restitution: 0.32, friction: 0.7, label: 'ground' })
     this._unbindCollision = this._phys.onCollision((e) => this._onCollision(ctx, e))
+    // Vindbandet: en luftström som bara tar i Elvira. Avstängt tills barnet trycker på vind-knappen.
+    this._vind = nyttVindband(this._phys, { luft: this._vindDef.luft, y: this._vindDef.y, halv: this._vindDef.halv })
 
     this._buildScene(ctx)
     this._buildRainbow()
@@ -202,6 +208,9 @@ export default {
     tray.eventMode = 'none'
     this._root.addChild(tray)
 
+    // Vindens bild (dis, streck, blommor) — ovanför bakgrunden, under moln/Elvira/prickbana.
+    this._vindbild = new Vindbild(this._root)
+
     // Prickad bansiktslinje (uppdateras när vikt/vind ändras eller moln läggs).
     this._preview = new Graphics()
     this._preview.eventMode = 'none'
@@ -264,20 +273,37 @@ export default {
         this._idle = 0
         this._hidePreview() // göm hint-bågen; den live-prickade banan tar över
       },
+      onAim: (v) => this._forhandsVind(v),
       onLaunch: (v) => this._launch(ctx, v),
     })
     this._applyPreviewCalibration()
   },
 
   // Håll både hint-bågen och sikt-kontrollens prickbana ärliga (matchar matter.js vid
-  // det fasta 1/60-steget): gy = 0.2778×gravitation, dämp = 1−frictionAir, vind = ax×277.8.
+  // det fasta 1/60-steget): gy = 0.2778×gravitation, dämp = 1−frictionAir, vind = bandets acceleration längs banan.
   _applyPreviewCalibration() {
     this._launcher?.setPreview({
       gravity: this._weight.gravity * 0.2778,
       damp: 1 - this._weight.frictionAir,
-      wind: this._windAx * 277.8,
       bounds: { floorY: GROUND_TOP - ELVIRA_R, leftX: ELVIRA_R, rightX: DESIGN_W - ELVIRA_R, restitution: CLOUD_REST },
     })
+    this._forhandsVind()
+  },
+
+  // Sikt-kontrollen kan bara bära ETT vind-tal (AimLauncher.setPreview). Det räknas ur bandet längs just det här
+  // siktet (vindband.js: viktad medelacceleration, så slutpunkten hamnar där Elvira landar). Utan sikte än: standardskottet.
+  // Hint-bågen (_drawPreview) läser däremot vinden ur bandet i varje punkt — exakt. Bandets exakta kurva i sikt-
+  // kontrollen väntar på G3b (banan genom fält); launchern ritar före onAim, så talet ligger ett sikte efter.
+  _forhandsVind(v) {
+    if (v) this._senasteAim = { vx: v.vx, vy: v.vy }
+    if (!this._launcher || !this._vind) return
+    const a = this._senasteAim || this._defaultLaunchVel()
+    const wind = forhandsAcc({
+      vind: this._vind, vx: a.vx, vy: a.vy,
+      gy: this._weight.gravity * 0.2778, damp: 1 - this._weight.frictionAir, fa: this._weight.frictionAir,
+      bounds: { floorY: GROUND_TOP - ELVIRA_R, leftX: ELVIRA_R, rightX: DESIGN_W - ELVIRA_R, restitution: CLOUD_REST },
+    })
+    this._launcher.setPreview({ wind })
   },
 
   // Standard-skott: sikta mot regnbågen med lagom kraft + ett litet lyft (fin båge).
@@ -351,6 +377,8 @@ export default {
     const cloudCount = Math.max(2, 3 - Math.floor(L / 3)) // färre moln senare
     const gemCount = L <= 0 ? 1 : L <= 2 ? 2 : 3
     const wind = L >= 3
+    // Vindbandet: höjden slumpas per nivå (ett annat band varje runda), styrkan växer med nivån.
+    const band = { y: Math.round(slumpIBand(330, 30, { golv: 290, tak: 370 })), halv: BAND_HALV, luft: luftForNiva(L) }
     const zig = Math.random() < 0.5 ? 1 : -1 // vilken sida första stenen ligger på
     const forstStar = Math.random() < 0.5
     const gems = []
@@ -362,7 +390,7 @@ export default {
       y = clamp(slumpIBand(y, 30), 150, 540)
       gems.push({ x, y, icon: (i % 2 === 0) === forstStar ? 'star' : 'gem' })
     }
-    return { goal: { x: gx, y: gy }, gems, cloudCount, wind }
+    return { goal: { x: gx, y: gy }, gems, cloudCount, wind, band }
   },
 
   _loadLevel(level) {
@@ -383,6 +411,8 @@ export default {
 
     const cfg = this._levelConfig(level)
     this._cfg = cfg
+    this._vindDef = cfg.band
+    this._senasteAim = null
 
     // Regnbåge.
     this._goalPos = { x: cfg.goal.x, y: cfg.goal.y }
@@ -502,8 +532,10 @@ export default {
 
   _applyWind(idx, silent) {
     this._windIdx = idx % WINDS.length
-    this._windAx = WINDS[this._windIdx].ax
-    this._phys.setWind(this._windAx, 0)
+    this._windDir = WINDS[this._windIdx].dir
+    // Bandet riktas om (källan sitter där vinden kommer ifrån) och bilden följer med.
+    stallBand(this._vind, { dir: this._windDir, y: this._vindDef.y, halv: this._vindDef.halv, luft: this._vindDef.luft })
+    this._vindbild?.stall({ dir: this._windDir, y: this._vindDef.y, halv: this._vindDef.halv, luft: this._vindDef.luft })
     this._applyPreviewCalibration()
     if (this._state === 'placing') this._drawPreview()
     if (!silent) this._ctx?.services.voice.say(WINDS[this._windIdx].voice)
@@ -530,12 +562,12 @@ export default {
       return
     }
     const v = this._defaultLaunchVel()
-    const pts = predictTrajectory({
-      x: START.x, y: START.y, vx: v.vx, vy: v.vy,
-      gy: this._weight.gravity * 0.2778, wx: this._windAx * 277.8,
-      damp: 1 - this._weight.frictionAir,
+    // Hint-bågen läser vinden ur bandet i varje punkt (inte som ett tal) — den visar var hon faktiskt hamnar.
+    const { pts } = forutsagBana({
+      vind: this._vind, vx: v.vx, vy: v.vy,
+      gy: this._weight.gravity * 0.2778, damp: 1 - this._weight.frictionAir, fa: this._weight.frictionAir,
       steps: 54, every: 3,
-      floorY: GROUND_TOP - ELVIRA_R, leftX: ELVIRA_R, rightX: DESIGN_W - ELVIRA_R, restitution: CLOUD_REST,
+      bounds: { floorY: GROUND_TOP - ELVIRA_R, leftX: ELVIRA_R, rightX: DESIGN_W - ELVIRA_R, restitution: CLOUD_REST },
     })
     g.visible = true
     for (let i = 0; i < pts.length; i++) {
@@ -660,6 +692,7 @@ export default {
     this._t += dtSec
     this._phys.update(ticker.deltaMS)
     this._syncClouds()
+    this._vindbild?.uppdatera(dtSec, this._vind) // dis, streck och blommor som blåser längs strömmen (dolt när det är lugnt)
 
     // "Nästan framme!" — regnbågen svarar på hur nära hon är. Ligger FÖRE tillstånds-
     // grenen så vilotillståndet också drivs härifrån: annars står regnbågen kvar och
@@ -1246,6 +1279,10 @@ export default {
       c.moln = null
       c.body = null
     }
+    this._vind?.destroy()
+    this._vind = null
+    this._vindbild?.destroy()
+    this._vindbild = null
     this._phys?.destroy()
     this._launcher?.destroy()
 

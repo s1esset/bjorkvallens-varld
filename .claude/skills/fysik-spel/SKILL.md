@@ -287,6 +287,21 @@ till sammanhängande vätska. Samma enheter som resten av repot: **px/steg**, fa
   renderingstextur → 0,5 fps. Därför: hastighetstak, tak på viskositetens kvadratterm,
   `Number.isFinite`-vakt i `_cull()` och låst `boundsArea`. Rör inte de spärrarna.
 
+## Fjädergrepp och kast (`lib/grepp.js` G1 · `lib/pekspar.js` G2)
+
+- `new Grepp({ phys, yta, kroppar: () => [...], halo: 24, punkt: 'fingret'|'mitten', k: 0.35, tak: {dv,v}|null, fartTak: (b)=>n, kast: false|{max:18,min:6}, tapTap, grupp, onLyft, onSlapp(b,{tryck,kast,framme?}), onMarkera, onAvmarkera, onMal(b,p) })` · `grepp.destroy()` (exit-säkert, inga anrop). `yta` = gemensam `static` förälder (pekare.js; ge `hitArea` om tap-tap ska ta mål i tomma ytan). Per fast steg: handen följer fingret med accelerationstak (`handSteg`, `HAND_ACC` 0,8) + `drivPunkt` med krafttak (`TAK_FORVAL` 3/22).
+- **Greppet är ALDRIG ett matter-`Constraint`** (r²·m/I > 2/stiffness − 1 skjuter över; mätt 630 572° mot 141°). `drivPunkt(b, r, hand, k, tak)` ligger i `grepp.js` (re-exporteras av `karl.js`). `tak: null` = stelt grepp: trycker igenom golvet (302 px, 59 px/steg) — använd bara som kontrollarm.
+- En driven kropp är en murbräcka: `grupp: phys.grupp()` sätts på FÖRÄLDERN medan den hålls (återställs vid släpp/`destroy`). Tap-tap: `onLyft` vid nedtrycket (vippning + ljud < 100 ms), `onMarkera` när det var ett tryck, andra trycket = mål, handen bär dit i `barFart` — aldrig en teleport; fastnat > `barStall` steg utan framsteg → släpp (`framme:false`).
+- `new Pekspar()` · `.lagg(performance.now(), x, y)` (FINGRETS läge) · `.fart(nu?)` → `{vx,vy,fart,x,y}` px/ms eller `null` (90 ms fönster, 130 ms ålder, provet bortom två fönster hoppas över). `kastSteg(k, max)` → px/steg. `DragController` använder samma klass (`_slappFart` är en tunn omväg).
+- Mät: `node scripts/_greppprobe.mjs` (Node; kontrollarmar: Constraint skenar vid 3,0 · tak null genom golvet · teleport · utan destroy · utan kast-läge). Port av ett spel = `_popcornhandtag` + `_popcornhall` identiska tal.
+
+## Leder: gångjärn · pendel · stiftled (`phys.gangjarn/pendel/led`, F1)
+
+- `const g = phys.gangjarn(kropp, {x,y}, { med?, styvhet: 1, damp: 0 })` · `phys.pendel({x,y}, kropp, { langd, styvhet: 1, damp: 0, ankare })` · `phys.led(a, b, { ankA, ankB, styvhet: 0.95, damp: 0 })`. Handtaget: `.constraint` (rå) · `.punkt` (flyttbart ankare i världen) · `.satt({langd,styvhet,damp})` · `.vinkel` · `.vinkelfart` · `.ta()`. `phys.destroy()`/`removeBody` tar leden. Port = samma tal som rå `Constraint`: ge spelets EXAKTA styvhet/damp (knuffa-tornets rep: 0,96/0,04 — inte förvalet 0).
+- `g.vridfjader({ vila, k, damp })` → `τ = −(vinkel − vila)·k − relativ vinkelfart·damp` per FAST steg på `body.torque` (balanstornets `STOD_K` är samma enhet; Δω = τ·277,78/tröghet). Varje tal får vara en funktion `() => tal`. `g.motor({ fart, maxMoment })`: rad/steg mot målfart med TAK på motorns moment (`g.moment` = senaste; utelämnat tak = fart/10 per steg). Moment läggs som ett PAR (+τ på B, −τ på A) — leden mellan två kroppar bevarar vinkelmomentet.
+- ⚠️ `damp` ≠ 0 på en led med LÄNGD 0 bromsar stel rotation (mätt: 0,3 % kvar efter 40 steg vid 0,18 mot 87 % vid 0), därför förval 0. På en pendel med längd verkar `damp` bara radiellt: en svängande kula tappar ändå ~64 % energi på 10 s av matters egen lösare (rå Constraint lika) — vill du ha en pendel som SVÄNGER LÄNGE är det inte leden som hjälper.
+- ⚠️ En TUNG massa långt från leden (56 kg 240 px bort) får matters lösare att skena (ω 400 rad/steg, även rå `Constraint`). Lägg leden nära tyngdpunkten; kedjor av leder vill ha `iterationer: { villkor: 5 }` (töjning 20,6 → 9,7 px på 6 leder). Mät: `node scripts/_fysikbank.mjs --bara S4`.
+
 ## Förhandsvisningens kalibrering (uppmätt mot matter.js vid fast 1/60-steg)
 
 Matters nedåtriktade hastighetsökning ≈ `0.2778 × gravityY` px/steg, och luftfriktionen dämpar

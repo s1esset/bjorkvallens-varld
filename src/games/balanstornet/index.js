@@ -8,9 +8,9 @@
 // höet — vilket ALDRIG är ett fall: Bobo skrattar, och tornet byggs upp igen från
 // den bästa höjd barnet nått. Efter var tredje tipp blir stödpunkten bredare (no-fail).
 //
-// FYSIK (matter.js). Plankan är en dynamisk kropp fastnålad i stödpunkten med en
-// revolut-constraint; klossarnas egen tyngd ger vridmomentet helt av sig själv. Stödets
-// BREDD modelleras som ett återförande vridmoment i `phys.beforeStep()`:
+// FYSIK (matter.js). Plankan är en dynamisk kropp fastnålad i stödpunkten med ett gångjärn
+// (`phys.gangjarn`, FYSIKPLAN F1); klossarnas egen tyngd ger vridmomentet helt av sig själv. Stödets
+// BREDD modelleras som ledens vridfjäder, ett återförande vridmoment per FAST steg:
 //
 //     torque += -(vinkel − vila) · STOD_K − vinkelfart · STOD_DAMP
 //
@@ -19,7 +19,9 @@
 // plankan 660×28 vid density 0,0016): en TUNG kloss ytterst ger 0,183 rad ≈ 10,5°, en
 // MELLAN 0,087, en LITEN 0,043, ballongklossen 0,012 — och två tunga på samma ytterläge
 // hamnar på 0,33–0,36 och passerar tippgränsen 0,32. Det är de talen hela
-// svårighetskurvan vilar på; ändra inte STOD_K utan att mäta om dem.
+// svårighetskurvan vilar på; ändra inte STOD_K utan att mäta om dem. (`node scripts/_fysikbank.mjs --bara S4`
+// mäter om dem med dagens konstanter — stor kloss ytterst, K 48/58/72 → 0,203/0,156/0,118 rad — och visar att
+// gångjärn + vridfjäder ur `phys` ger SAMMA bana som den råa Constraint + egna `torque` som stod här förut.)
 //
 // Fällor som respekteras med flit (CLAUDE.md):
 // · Ingen kropp BÄRS. Klossen dras som ren Pixi-vy och får sin matter-kropp först när
@@ -34,7 +36,7 @@
 //   BARN till dem, så snäppytan står still. Samma sak för klossarna på bänken.
 import { Container, Graphics, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
-import { PhysicsWorld, Body, Composite, Matter, mat } from '../../lib/physics.js'
+import { PhysicsWorld, Body, mat } from '../../lib/physics.js'
 import { createScene } from '../../lib/scene.js'
 import { DragController } from '../../lib/DragController.js'
 import { makeKaraktar } from '../../lib/karaktarer.js'
@@ -42,8 +44,6 @@ import { pop, wiggle, puff, sparkle, floatText, liv, stegra, kvittera } from '..
 import { COLORS } from '../../lib/theme.js'
 import { randomFrom } from '../../lib/swedish.js'
 import { groundFill, topLightFill, cylinderFill } from '../../lib/form.js'
-
-const { Constraint } = Matter
 
 // ---- Geometri (designkoordinater 1280×720) --------------------------------
 const GY = 640 // markens ovansida
@@ -174,7 +174,6 @@ export default {
     this._phys = new PhysicsWorld({ gravityY: G, walls: ['floor', 'left', 'right'] })
     this._unbindLjud = this._phys.impactAudio(ctx.services.audio, { vol: 0.22, hardSpeed: 12 })
     this._unbindSlag = this._phys.onImpact((h) => this._anslag(ctx, h), { minSpeed: 2.2, maxPerFrame: 2 })
-    this._unbindSteg = this._phys.beforeStep(() => this._stod())
 
     this._byggScen(ctx)
     this._byggPlanka()
@@ -298,14 +297,17 @@ export default {
       restitution: 0.02,
       label: 'planka',
     })
-    this._constraint = Constraint.create({
-      pointA: { x: PX, y: PY },
-      bodyB: this._plankBody,
-      pointB: { x: 0, y: 0 },
-      length: 0,
-      stiffness: 1,
+    // Gångjärn + vridfjäder ur `phys` (FYSIKPLAN F1) — samma tal som den råa Constraint + egna `torque` som
+    // stod här (`_fysikbank` S4: bit för bit lika). Fjädern läser `vila`/`k`/`damp` varje steg ur spelets egna
+    // fält, och tippläget (stödet har släppt) byter den mot ren dämpning. Lyssnaren för `_stod` (nedan)
+    // läggs EFTER fjäderns — som förut kläms vinkeln efter att momentet lagts på.
+    this._led = this._phys.gangjarn(this._plankBody, { x: PX, y: PY })
+    this._led.vridfjader({
+      vila: () => this._vila,
+      k: () => (this._tippar ? 0 : this._stodK),
+      damp: () => (this._tippar ? 90 : STOD_DAMP),
     })
-    Composite.add(this._phys.world, this._constraint)
+    this._unbindSteg = this._phys.beforeStep(() => this._stod())
 
     this._plankView = makePlanka()
     this._plankView.eventMode = 'none'
@@ -657,17 +659,12 @@ export default {
     this._blinkaMarkorer()
   },
 
-  // ---- Stödmomentet (per FAST fysiksteg) ----------------------------------
+  // ---- Nödbromsen (per FAST fysiksteg; stödmomentet är ledens vridfjäder) ----
 
   _stod() {
     const pb = this._plankBody
     if (!pb) return
-    if (this._tippar) {
-      // Stödet har släppt taget: plankan får svaja över, bara lätt dämpad.
-      pb.torque += -pb.angularVelocity * 90
-    } else {
-      pb.torque += -(pb.angle - this._vila) * this._stodK - pb.angularVelocity * STOD_DAMP
-    }
+    // Själva stödmomentet ligger i `this._led.vridfjader` (bildas i `_byggPlanka`); här bara nödbromsen.
     if (Math.abs(pb.angle) > MAX_LUT) {
       Body.setAngle(pb, Math.sign(pb.angle) * MAX_LUT)
       Body.setAngularVelocity(pb, 0)
@@ -1086,7 +1083,7 @@ export default {
     this._drag?.destroy()
     this._drag = null
 
-    this._phys?.destroy() // river även constrainten (Composite.clear)
+    this._phys?.destroy() // river även leden (gångjärn + vridfjäder)
     gsap.killTweensOf(this._root)
     ctx?.services?.voice?.cancel()
     this._root?.destroy({ children: true })

@@ -241,3 +241,5 @@ Kort sagt: fysiken är äkta och kontrollerna rika, men **slaget är ljudlöst, 
   ⚠️ Docens §4 beställde både specialklossarna [Deep] och den snälla smällen [Quick] — båda
   var redan byggda, och kodhuvudet påstod fortfarande att slagen var tysta. Punkterna är
   därmed avbockade, inte gjorda igen.
+
+- 2026-10-02 · **F1-port (FYSIKPLAN D8, kluster B2).** Repet är nu `phys.pendel(krok, kulan, { langd, styvhet, damp })` i stället för en rå `Constraint`. Spelets egna rep-tal skickas in (styvt 0,96/0,04, elastiskt 0,18/0,06 — inte API:ts damp-förval 0), kärran flyttar fästet via `this._rep.punkt.x`, repbytet går via `this._rep.satt({ styvhet, damp })`. `_fysikbank` S4: kula 50° ut, kärran flyttad 120 px efter 90 steg, repbyte efter 200 → BIT FÖR BIT samma bana som den råa Constraint. Webbläsarsonden `_tornprobe` ska ge HEAD:s resultat (ALLT GRÖNT, 0 fysikavvikelser över 7 klossar).

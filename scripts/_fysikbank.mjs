@@ -37,7 +37,7 @@
 // start 1000 ms (rest på tröskeln), trots att varje ruta är "exakt" 16,667 ms.
 import Matter from 'matter-js'
 import { Ticker } from 'pixi.js'
-import { PhysicsWorld } from '../src/lib/physics.js'
+import { PhysicsWorld, STEG2 } from '../src/lib/physics.js'
 import { Flytvolym } from '../src/lib/flytkraft.js'
 import { FluidWorld } from '../src/lib/vatska.js'
 import { Mjukkropp } from '../src/lib/mjukkropp.js'
@@ -787,8 +787,388 @@ function s10() {
 }
 
 // ═════════════════════════════════════════════════════════════════════════════════════════════
+// S4 — LEDER (F1): gångjärnsdrift · stel rotation damp 0 mot 0,18, pendel · motor + momenttak · portar
+// ═════════════════════════════════════════════════════════════════════════════════════════════
+// Dagens mönster (rå `Constraint` + `Composite.add`, vridfjäder som en `beforeStep` på `body.torque`)
+// är KONTROLLARMEN och är inbäddat här — bänken beror inte på att spelen står i något visst läge.
+
+// Ankarpunkten på kroppen i världen (matters pointB roteras med kroppens vinkel sedan skapandet).
+function ankarVarld(c) {
+  const b = c.bodyB
+  const d = b.angle - c.angleB
+  const px = c.pointB.x
+  const py = c.pointB.y
+  return { x: b.position.x + px * Math.cos(d) - py * Math.sin(d), y: b.position.y + px * Math.sin(d) + py * Math.cos(d) }
+}
+
+// Gångjärnsdrift under last, två laster. `plank` = balanstornets verkliga fall: plankan 660×28 i sin mitt,
+// den tyngsta klossen ytterst, vridfjädern på (k 58, damp 280). `svang` = en stång 300×16 fäst i vänstra
+// änden (tyngdpunkten 150 px från leden), svänger från vågrätt: last = tyngd + centrifugal.
+// Mått: största avståndet mellan ankaret på kroppen och världspunkten, över 10 s.
+// ⚠️ MATTERS gräns, samma tal i den råa Constraintens arm: en TUNG massa långt från leden (sammansatt
+// stång + kula 56 kg 240 px bort) får lösaren att skena (ω 400 rad/steg) redan första steget. Lägg leden nära
+// tyngdpunkten eller håll lasten lätt — inget spel här bygger så.
+function gangjarnsDrift(arm, { last = 'plank', sek = 10, styvhet = 1 } = {}) {
+  const phys = new PhysicsWorld({ gravityY: last === 'plank' ? 1.2 : 1, walls: [] })
+  let k, P, vridfj = null
+  if (last === 'plank') {
+    P = { x: 640, y: 496 }
+    k = phys.rectangle(640, 496, 660, 28, { density: 0.0016, frictionAir: 0.02, friction: 0.86, frictionStatic: 1.5 })
+    phys.rectangle(820, 496 - 14 - 33, 170, 66, { density: 0.0026, friction: 0.72, frictionStatic: 1.2, frictionAir: 0.02, restitution: 0.02 })
+    vridfj = { vila: 0, k: 58, damp: 280 }
+  } else {
+    P = { x: 400, y: 300 }
+    k = phys.rectangle(550, 300, 300, 16, { density: 0.002, frictionAir: 0 })
+  }
+  let c, g
+  if (arm === 'rå') {
+    c = Matter.Constraint.create({ pointA: { x: P.x, y: P.y }, bodyB: k, pointB: { x: P.x - k.position.x, y: P.y - k.position.y }, length: 0, stiffness: styvhet })
+    Composite.add(phys.world, c)
+    if (vridfj) phys.beforeStep(() => { k.torque += -(k.angle - vridfj.vila) * vridfj.k - k.angularVelocity * vridfj.damp })
+  } else {
+    g = phys.gangjarn(k, P, { styvhet })
+    c = g.constraint
+    if (vridfj) g.vridfjader(vridfj)
+  }
+  let drift = 0
+  let toppFart = 0
+  for (let i = 0; i < sek * 60; i++) {
+    phys.update(FIXED)
+    const a = ankarVarld(c)
+    drift = Math.max(drift, Math.hypot(a.x - P.x, a.y - P.y))
+    toppFart = Math.max(toppFart, Math.abs(k.angularVelocity))
+  }
+  const vinkel = k.angle
+  phys.destroy()
+  return { drift, toppFart, vinkel }
+}
+
+// Två kroppar hopfogade med `gangjarn(…, { med })` (en kedja stativ → A → B, hängande under tyngd).
+// `rå` bygger samma sak med matters egna Constraint. Drift = glappet mellan de två ankarpunkterna.
+function tvaKroppsDrift(arm) {
+  const phys = new PhysicsWorld({ gravityY: 1, walls: [] })
+  const a = phys.rectangle(500, 300, 200, 16, { density: 0.002, frictionAir: 0 })
+  const b = phys.rectangle(680, 300, 200, 16, { density: 0.002, frictionAir: 0 })
+  const stativ = phys.rectangle(400, 300, 20, 20, { isStatic: true })
+  const lokal = (k, p) => ({ x: p.x - k.position.x, y: p.y - k.position.y })
+  const P2 = { x: 580, y: 300 }
+  let c, g0, g
+  if (arm === 'rå') {
+    const c0 = Matter.Constraint.create({ bodyA: stativ, pointA: lokal(stativ, { x: 400, y: 300 }), bodyB: a, pointB: lokal(a, { x: 400, y: 300 }), length: 0, stiffness: 1 })
+    c = Matter.Constraint.create({ bodyA: a, pointA: lokal(a, P2), bodyB: b, pointB: lokal(b, P2), length: 0, stiffness: 1 })
+    Composite.add(phys.world, [c0, c])
+  } else {
+    g0 = phys.gangjarn(a, { x: 400, y: 300 }, { med: stativ })
+    g = phys.gangjarn(b, P2, { med: a })
+    c = g.constraint
+  }
+  const rot = (k, p, vinkel0) => {
+    const d = k.angle - vinkel0
+    return { x: k.position.x + p.x * Math.cos(d) - p.y * Math.sin(d), y: k.position.y + p.x * Math.sin(d) + p.y * Math.cos(d) }
+  }
+  let drift = 0
+  for (let i = 0; i < 600; i++) {
+    phys.update(FIXED)
+    const pa = rot(c.bodyA, c.pointA, c.angleA)
+    const pb = rot(c.bodyB, c.pointB, c.angleB)
+    drift = Math.max(drift, Math.hypot(pa.x - pb.x, pa.y - pb.y))
+  }
+  const vinkel = b.angle - a.angle
+  g?.ta()
+  g0?.ta()
+  phys.destroy()
+  return { drift, vinkel }
+}
+
+// Pendel: kula r 15 i ett rep (längd 200) från (640, 100), släppt 60° ut, ingen luft. Energin per
+// massenhet i px²/steg² (½v² + a·h, a = 0,2778·g) — h över lägsta punkten; medel över sista 2 s.
+function pendelEnergi(arm, { damp = 0, sek = 10 } = {}) {
+  const gy = 1
+  const phys = new PhysicsWorld({ gravityY: gy, walls: [] })
+  const L = 200
+  const P = { x: 640, y: 100 }
+  const th = Math.PI / 3
+  const kula = phys.circle(P.x + L * Math.sin(th), P.y + L * Math.cos(th), 15, { density: 0.002, frictionAir: 0 })
+  if (arm === 'rå') Composite.add(phys.world, Matter.Constraint.create({ pointA: { x: P.x, y: P.y }, bodyB: kula, pointB: { x: 0, y: 0 }, length: L, stiffness: 1, damping: damp }))
+  else phys.pendel(P, kula, { langd: L, styvhet: 1, damp })
+  const a = gy * 0.001 * STEG2
+  const E = () => 0.5 * (kula.velocity.x ** 2 + kula.velocity.y ** 2) + a * (P.y + L - kula.position.y)
+  const E0 = E()
+  const slut = []
+  for (let i = 1; i <= sek * 60; i++) {
+    phys.update(FIXED)
+    if (i > (sek - 2) * 60) slut.push(E())
+  }
+  const Eslut = slut.reduce((x, y) => x + y, 0) / slut.length
+  phys.destroy()
+  return { E0, Eslut, kvar: Eslut / E0 }
+}
+
+// STEL ROTATION (CLAUDE.md "matter-ledernas damping bromsar varje stel rotation"): två rutor hopfogade i
+// sitt gemensamma hörn snurrar som EN stel kropp runt leden, utan tyngd och luft. Vinkelfart efter 40 steg.
+function stelSnurr(arm, damp) {
+  const phys = new PhysicsWorld({ gravityY: 0, walls: [] })
+  const A = phys.rectangle(570, 300, 60, 60, { frictionAir: 0, collisionFilter: { group: -1 } })
+  const B = phys.rectangle(630, 300, 60, 60, { frictionAir: 0, collisionFilter: { group: -1 } })
+  const w0 = 0.12
+  Body.setAngularVelocity(A, w0)
+  Body.setAngularVelocity(B, w0)
+  // som EN stel kropp runt leden (600, 300): v = ω × r
+  Body.setVelocity(A, { x: 0, y: -w0 * 30 })
+  Body.setVelocity(B, { x: 0, y: w0 * 30 })
+  if (arm === 'rå') Composite.add(phys.world, Matter.Constraint.create({ bodyA: A, pointA: { x: 30, y: 0 }, bodyB: B, pointB: { x: -30, y: 0 }, length: 0, stiffness: 0.95, damping: damp }))
+  else phys.led(A, B, { ankA: { x: 30, y: 0 }, ankB: { x: -30, y: 0 }, styvhet: 0.95, damp })
+  for (let i = 0; i < 40; i++) phys.update(FIXED)
+  const w = (A.angularVelocity + B.angularVelocity) / 2
+  phys.destroy()
+  return { w, kvar: w / w0 }
+}
+
+// MOTOR: stång 660×28 fäst i mitten + en tung kula på högra änden (sammansatt). Målfart −0,02 rad/steg
+// (lyfter lasten). Ett andra lyssnarlag läser `torque` EFTER motorns lyssnare — det oberoende måttet på
+// vad som faktiskt lades på (inget `h.moment`). `cap` = maxMoment.
+function motorKor({ cap, last = 0.008, fart = -0.02, steg = 240 }) {
+  const phys = new PhysicsWorld({ gravityY: 1, walls: [] })
+  const delar = [Bodies.rectangle(640, 300, 660, 28, { density: 0.0016 })]
+  if (last > 0) delar.push(Bodies.circle(640 + 290, 300, 30, { density: last }))
+  const k = phys.sammansatt(delar, { frictionAir: 0.02 })
+  const g = phys.gangjarn(k, { x: 640, y: 300 })
+  g.motor({ fart, maxMoment: cap })
+  let toppMoment = 0
+  const unbind = phys.beforeStep(() => { toppMoment = Math.max(toppMoment, Math.abs(k.torque)) })
+  let nadde = -1
+  for (let i = 1; i <= steg; i++) {
+    phys.update(FIXED)
+    if (nadde < 0 && Math.abs(k.angularVelocity - fart) < 0.05 * Math.abs(fart)) nadde = i
+  }
+  const res = { nadde, toppMoment, vinkel: k.angle, slutFart: k.angularVelocity }
+  unbind()
+  g.ta()
+  phys.destroy()
+  return res
+}
+
+// PORT 1 — balanstornet: plankan + vridfjädern ur filhuvudet (`torque += −(vinkel − vila)·STOD_K −
+// vinkelfart·STOD_DAMP`), en kloss på en kolumn. `rå` = HEAD:s kod ordagrant.
+function balansKor(arm, { k, klossIdx, x, vila = 0 }) {
+  const SPEC = { liten: { w: 100, h: 54, d: 0.0016 }, mellan: { w: 136, h: 60, d: 0.002 }, stor: { w: 170, h: 66, d: 0.0026 } }
+  const sp = SPEC[klossIdx]
+  const PX = 640, PY = 496, STOD_DAMP = 280
+  const phys = new PhysicsWorld({ gravityY: 1.2, walls: ['floor', 'left', 'right'] })
+  phys.rectangle(640, 770, 1900, 260, { isStatic: true, friction: 1, label: 'mark' })
+  const pb = phys.rectangle(PX, PY, 660, 28, { restitution: 0.02, friction: 0.86, frictionStatic: 1.5, frictionAir: 0.02, density: 0.0016, label: 'planka' })
+  Body.setAngle(pb, vila)
+  if (arm === 'rå') {
+    Composite.add(phys.world, Matter.Constraint.create({ pointA: { x: PX, y: PY }, bodyB: pb, pointB: { x: 0, y: 0 }, length: 0, stiffness: 1 }))
+    phys.beforeStep(() => { pb.torque += -(pb.angle - vila) * k - pb.angularVelocity * STOD_DAMP })
+  } else {
+    const g = phys.gangjarn(pb, { x: PX, y: PY })
+    g.vridfjader({ vila: () => vila, k: () => k, damp: STOD_DAMP })
+  }
+  phys.rectangle(x, PY - 14 - sp.h / 2, sp.w, sp.h, { restitution: 0.02, friction: 0.72, frictionStatic: 1.2, frictionAir: 0.02, density: sp.d, label: 'kloss' })
+  let topp = 0
+  const bana = []
+  for (let i = 0; i < 600; i++) {
+    phys.update(FIXED)
+    topp = Math.max(topp, Math.abs(pb.angle - vila))
+    if (i % 100 === 99) bana.push(pb.angle)
+  }
+  const res = { slut: pb.angle, topp, bana, x: pb.position.x, y: pb.position.y }
+  phys.destroy()
+  return res
+}
+
+// PORT 2 — vippbrädan: plankan fastnålad i mitten (längd 0, styvhet 1), en vikt släpps på högra armen.
+function vippKor(arm) {
+  const CX = 640, PIVOT_Y = 520
+  const phys = new PhysicsWorld({ gravityY: 1, walls: ['floor', 'left', 'right'] })
+  const pl = phys.rectangle(CX, PIVOT_Y, 600, 24, { density: 0.0012, frictionAir: 0.02, friction: 0.6, restitution: 0.05, label: 'plank' })
+  if (arm === 'rå') Composite.add(phys.world, Matter.Constraint.create({ pointA: { x: CX, y: PIVOT_Y }, bodyB: pl, pointB: { x: 0, y: 0 }, length: 0, stiffness: 1 }))
+  else phys.gangjarn(pl, { x: CX, y: PIVOT_Y })
+  const vikt = phys.circle(CX + 220, PIVOT_Y - 260, 26, { density: 0.004, restitution: 0.1, friction: 0.5, frictionAir: 0.004, label: 'vikt' })
+  let topp = 0
+  const bana = []
+  for (let i = 0; i < 480; i++) {
+    phys.update(FIXED)
+    topp = Math.max(topp, Math.abs(pl.angle))
+    if (i % 60 === 59) bana.push(pl.angle, vikt.position.y)
+  }
+  const res = { slut: pl.angle, topp, bana, vx: vikt.position.x, vy: vikt.position.y }
+  phys.destroy()
+  return res
+}
+
+// PORT 3 — knuffa-tornet: kulan hänger i repet (styvt 0,96/0,04 resp. elastiskt 0,18/0,06), släpps 50° ut;
+// kranens kärra flyttas 120 px i sidled efter 90 steg (`pointA.x`), repet byts efter 200 steg.
+function repKor(arm) {
+  const phys = new PhysicsWorld({ gravityY: 1, walls: ['floor', 'left', 'right'] })
+  const L = 260
+  const P = { x: 500, y: 90 }
+  const th = 50 * Math.PI / 180
+  const kula = phys.circle(P.x + L * Math.sin(th), P.y + L * Math.cos(th), 34, { density: 0.02, restitution: 0.1, friction: 0.4, frictionAir: 0.001, label: 'ball' })
+  let c, h
+  if (arm === 'rå') {
+    c = Matter.Constraint.create({ pointA: { x: P.x, y: P.y }, bodyB: kula, pointB: { x: 0, y: 0 }, length: L, stiffness: 0.96, damping: 0.04 })
+    Composite.add(phys.world, c)
+  } else {
+    h = phys.pendel(P, kula, { langd: L, styvhet: 0.96, damp: 0.04 })
+    c = h.constraint
+  }
+  const bana = []
+  for (let i = 0; i < 400; i++) {
+    if (i === 90) { if (h) h.punkt.x += 120; else c.pointA.x += 120 }
+    if (i === 200) { if (h) h.satt({ styvhet: 0.18, damp: 0.06 }); else { c.stiffness = 0.18; c.damping = 0.06 } }
+    phys.update(FIXED)
+    if (i % 40 === 39) bana.push(kula.position.x, kula.position.y)
+  }
+  phys.destroy()
+  return { bana }
+}
+
+// Kedja (F1-risken "constraintIterations 2 räcker inte"): fem stavar + en tung kula längst ned, alla leder
+// styvhet 1. Mått: kulans avstånd till fästet minus den stela kedjans längd (5·40 + 30) — töjningen.
+function kedjeTojning(villkor) {
+  const phys = new PhysicsWorld({ gravityY: 1, walls: [], iterationer: { villkor } })
+  const lank = []
+  for (let i = 0; i < 5; i++) lank.push(phys.rectangle(640, 120 + i * 40, 12, 40, { density: 0.002, frictionAir: 0.01, collisionFilter: { group: -1 } }))
+  const tung = phys.circle(640, 120 + 5 * 40 + 20, 30, { density: 0.02, collisionFilter: { group: -1 } })
+  phys.gangjarn(lank[0], { x: 640, y: 100 })
+  for (let i = 1; i < 5; i++) phys.led(lank[i - 1], lank[i], { ankA: { x: 0, y: 20 }, ankB: { x: 0, y: -20 }, styvhet: 1 })
+  phys.led(lank[4], tung, { ankA: { x: 0, y: 20 }, ankB: { x: 0, y: -30 }, styvhet: 1 })
+  Body.setVelocity(tung, { x: 6, y: 0 })
+  let max = 0
+  for (let i = 0; i < 300; i++) {
+    phys.update(FIXED)
+    max = Math.max(max, Math.hypot(tung.position.x - 640, tung.position.y - 100) - (5 * 40 + 30))
+  }
+  phys.destroy()
+  return { max }
+}
+
+function s4() {
+  const s = scen('S4', 'leder (F1) — gångjärnsdrift, stel rotation damp 0 mot 0,18, pendel, motor + momenttak, portar mot rå Constraint')
+  // ── KONTROLLRADER ───────────────────────────────────────────────────────────────────────
+  // (1) mätaren rör sig: ett MJUKT gångjärn (styvhet 0,2) under samma last MÅSTE drifta.
+  const mjuk = gangjarnsDrift('api', { styvhet: 0.03, last: 'svang' })
+  kontroll(s, 'mätaren rör sig: gångjärn med styvhet 0,03 under den svängande lasten driftar (> 0,5 px)', mjuk.drift > 0.5, `${f(mjuk.drift, 2)} px`)
+  // (2) STEL ROTATION: leden med damp 0,18 MÅSTE tappa snurret (CLAUDE.md: 0,18 → 0,002), damp 0 måste hålla.
+  const snurr18 = stelSnurr('api', 0.18)
+  const snurr0 = stelSnurr('api', 0)
+  kontroll(s, 'fällan är verklig: led med damp 0,18 tappar stel rotation (> 50 % bort på 40 steg)', snurr18.kvar < 0.5, `kvar ${f(snurr18.kvar * 100, 1)} % (damp 0,18) mot ${f(snurr0.kvar * 100, 1)} % (damp 0)`)
+  kontroll(s, 'damp 0 (förval) håller stel rotation (> 85 % kvar)', snurr0.kvar > 0.85, `${f(snurr0.kvar * 100, 1)} %`)
+  // (3) motorn: ett för litet momenttak MÅSTE stanna den (taket binder) — annars mäter "taket håller" ingenting.
+  const motorStall = motorKor({ cap: 4, last: 0.008 })
+  const motorFri = motorKor({ cap: 4000, last: 0.008 })
+  kontroll(s, 'mätaren rör sig: tak 4 stannar motorn under last (når inte målfarten)', motorStall.nadde < 0 && Math.abs(motorStall.slutFart) < 0.01, `slutfart ${f(motorStall.slutFart, 4)} · topp ${f(motorStall.toppMoment, 2)}`)
+  kontroll(s, 'mätaren rör sig: tak 4000 når målfarten −0,02 under samma last', motorFri.nadde > 0, `inom ${motorFri.nadde} steg`)
+  // (4) portarnas kontrollarm: rå mot rå ska vara identisk med sig själv, och mätaren ska skilja olika k.
+  const rA = balansKor('rå', { k: 58, klossIdx: 'stor', x: 820 })
+  const rB = balansKor('rå', { k: 58, klossIdx: 'stor', x: 820 })
+  const rC = balansKor('rå', { k: 48, klossIdx: 'stor', x: 820 })
+  kontroll(s, 'balanstornet rå-armen är deterministisk (två körningar, samma tal)', rA.slut === rB.slut && rA.topp === rB.topp, `${f(rA.slut, 6)} = ${f(rB.slut, 6)}`)
+  kontroll(s, 'balanstornet rå-armen rör sig: k 48 mot 58 skiljer (> 0,03 rad)', Math.abs(rC.slut - rA.slut) > 0.03, `${f(rC.slut, 4)} mot ${f(rA.slut, 4)}`)
+  if (!s.kontrollHolls) { ut('  ✗ kontrollen höll inte — inga mätrader för S4'); return }
+
+  // ── MÄTRADER ────────────────────────────────────────────────────────────────────────────
+  const mjukP = gangjarnsDrift('api', { styvhet: 0.03, last: 'plank' })
+  kontroll(s, 'mätaren rör sig: gångjärn med styvhet 0,03 under plank-lasten driftar (> 0,5 px)', mjukP.drift > 0.5, `${f(mjukP.drift, 2)} px`)
+  for (const last of ['plank', 'svang']) {
+    const gj = gangjarnsDrift('api', { last })
+    const gjRå = gangjarnsDrift('rå', { last })
+    s.rader.push({ last, gangjarn: gj, rå: gjRå })
+    const namn = last === 'plank' ? 'balanstornets plank + tyngsta klossen ytterst + vridfjäder' : 'svängande stång från vågrätt'
+    kontroll(s, `gångjärnets drift ≤ 0,5 px över 10 s — ${namn}`, gj.drift <= 0.5, `${f(gj.drift, 3)} px (rå Constraint: ${f(gjRå.drift, 3)}) · topp ω ${f(gj.toppFart, 4)} rad/steg`)
+    kontroll(s, `gångjärnet = den råa Constraintens bana — ${last} (slutvinkel, 1e-9)`, Math.abs(gj.vinkel - gjRå.vinkel) < 1e-9 && Math.abs(gj.drift - gjRå.drift) < 1e-9, `${f(gj.vinkel, 6)} mot ${f(gjRå.vinkel, 6)}`)
+  }
+  const tkA = tvaKroppsDrift('api')
+  const tkR = tvaKroppsDrift('rå')
+  s.rader.push({ tvaKroppar: { api: tkA, rå: tkR } })
+  kontroll(s, 'gångjärn mellan två kroppar (med: …) = råa Constraints: samma glapp och slutvinkel (1e-9)', Math.abs(tkA.drift - tkR.drift) < 1e-9 && Math.abs(tkA.vinkel - tkR.vinkel) < 1e-9, `glapp ${f(tkA.drift, 3)} px mot ${f(tkR.drift, 3)}`)
+  not(s, `kedja stativ → A → B (två gångjärn, 200 px stavar, hängande): ankarglappet är ${f(tkA.drift, 2)} px — matters egen lösare, samma tal i råa armen; en kedja av leder vill ha fler villkorsvarv (se raden nedan)`)
+
+  // Pendel: damp 0 mot 0,1
+  const p0 = pendelEnergi('api', { damp: 0 })
+  const p1 = pendelEnergi('api', { damp: 0.1 })
+  const r0 = pendelEnergi('rå', { damp: 0 })
+  const r1 = pendelEnergi('rå', { damp: 0.1 })
+  s.rader.push({ pendel: { damp0: p0, damp01: p1, rå0: r0, rå01: r1 } })
+  ut(`\n  pendel (kula r 15, rep 200, 60° ut, 10 s): energi kvar  damp 0 → ${f(p0.kvar * 100, 1)} %  ·  damp 0,1 → ${f(p1.kvar * 100, 1)} %  (rå: ${f(r0.kvar * 100, 1)} / ${f(r1.kvar * 100, 1)} %)`)
+  kontroll(s, 'pendel = den råa Constraintens energi (både damp 0 och 0,1, 1e-9)', Math.abs(p0.kvar - r0.kvar) < 1e-9 && Math.abs(p1.kvar - r1.kvar) < 1e-9, `${f(p0.kvar, 6)}/${f(r0.kvar, 6)} · ${f(p1.kvar, 6)}/${f(r1.kvar, 6)}`)
+  not(s, `pendel: matters constraint SJÄLV tar energi — ${f(p0.kvar * 100, 1)} % kvar efter 10 s vid damp 0 (rå Constraint: ${f(r0.kvar * 100, 1)} %), och damp 0,1 gör det inte märkbart värre (${f(p1.kvar * 100, 1)} %): damping verkar bara RADIELLT, en svängande kula är tangentiell. Fällan är en led med LÄNGD 0: stel rotation ${f(snurr18.kvar * 100, 1)} % kvar vid damp 0,18 mot ${f(snurr0.kvar * 100, 1)} % vid damp 0 (kontrollraden ovan)`)
+  s.rader.push({ stelSnurr: { damp0: snurr0, damp018: snurr18 } })
+
+  // Motor
+  ut('')
+  const motRad = []
+  const TAK = [4000, 4000, 60, 12, 4]
+  const KOR = [['olastad, tak 4000', { cap: 4000, last: 0 }], ['lastad, tak 4000', { cap: 4000, last: 0.008 }], ['lastad, tak 60', { cap: 60, last: 0.008 }], ['lastad, tak 12', { cap: 12, last: 0.008 }], ['lastad, tak 4', { cap: 4, last: 0.008 }]]
+  for (const [namn, o] of KOR) {
+    const m = motorKor(o)
+    motRad.push({ namn, ...m })
+    ut(`  motor ${pad(namn, 20)} når 95 % av målfarten inom ${padL(m.nadde < 0 ? '—' : m.nadde, 4)} steg · högsta moment ${padL(f(m.toppMoment, 2), 9)} (tak ${o.cap}) · slutfart ${padL(f(m.slutFart, 4), 8)} · vinkel ${f(m.vinkel, 2)}`)
+  }
+  s.rader.push({ motor: motRad })
+  const lastad = motRad[1]
+  kontroll(s, 'motorn når målfarten under last (≤ 40 steg)', lastad.nadde > 0 && lastad.nadde <= 40, `${lastad.nadde} steg`)
+  kontroll(s, 'motorn passerar ALDRIG momenttaket (fem körningar, oberoende läsning av body.torque)', motRad.every((m, i) => m.toppMoment <= TAK[i] + 1e-6), motRad.map((m) => f(m.toppMoment, 2)).join(' · '))
+  kontroll(s, 'ett bindande tak syns: taket 12 använder fullt moment (≥ 11,9) och når målfarten SENARE än taket 60', motRad[3].toppMoment >= 11.9 && (motRad[3].nadde < 0 || motRad[3].nadde > motRad[2].nadde), `${f(motRad[3].toppMoment, 2)} · tak 12 nådde ${motRad[3].nadde} mot tak 60 ${motRad[2].nadde}`)
+
+  // Motor mellan TVÅ fria kroppar (ingen tyngd, ingen luft): relativ fart når målet, momentet delas som ett PAR
+  {
+    const phys = new PhysicsWorld({ gravityY: 0, walls: [] })
+    const A = phys.rectangle(570, 300, 60, 60, { frictionAir: 0, collisionFilter: { group: -1 } })
+    const B = phys.rectangle(630, 300, 60, 120, { frictionAir: 0, collisionFilter: { group: -1 } })
+    const h = phys.led(A, B, { ankA: { x: 30, y: 0 }, ankB: { x: -30, y: 0 }, styvhet: 1 })
+    h.motor({ fart: 0.03, maxMoment: 3000 })
+    let nadde = -1
+    let L = 0
+    for (let i = 1; i <= 80; i++) {
+      phys.update(FIXED)
+      if (nadde < 0 && Math.abs(h.vinkelfart - 0.03) < 0.0015) nadde = i
+    }
+    // vinkelmomentet kring ledens punkt (ω·I per kropp + orbital) — ska hållas ~0 när momentet är ett par
+    const p = { x: 600, y: 300 }
+    for (const k of [A, B]) L += k.inertia * k.angularVelocity + k.mass * ((k.position.x - p.x) * k.velocity.y - (k.position.y - p.y) * k.velocity.x)
+    kontroll(s, 'motor mellan två fria kroppar: relativ vinkelfart når målet (±5 %) inom 40 steg', nadde > 0 && nadde <= 40, `${nadde} steg · rel ${f(h.vinkelfart, 4)} · A ${f(A.angularVelocity, 4)} · B ${f(B.angularVelocity, 4)}`)
+    kontroll(s, 'momentet fördelas som ett par: A får motsatt tecken mot B, och vinkelmomentet kring leden hålls ≈ 0', A.angularVelocity < 0 && B.angularVelocity > 0 && Math.abs(L) < 0.02 * Math.abs(B.inertia * B.angularVelocity), `L ${f(L, 1)} mot B:s ${f(B.inertia * B.angularVelocity, 1)}`)
+    phys.destroy()
+  }
+
+  // Portar
+  ut('')
+  let bit = true
+  for (const [k, kl, x, namn] of [[48, 'stor', 820, 'smal·stor ytterst'], [58, 'stor', 820, 'mellan·stor ytterst'], [72, 'stor', 460, 'bred·stor ytterst (vänster)'], [58, 'mellan', 820, 'mellan·mellan ytterst'], [58, 'liten', 820, 'mellan·liten ytterst'], [58, 'stor', 700, 'mellan·stor innerst']]) {
+    const a = balansKor('rå', { k, klossIdx: kl, x })
+    const b = balansKor('api', { k, klossIdx: kl, x })
+    const lika = a.slut === b.slut && a.topp === b.topp && a.x === b.x && a.y === b.y && a.bana.every((v, i) => v === b.bana[i])
+    bit = bit && lika
+    s.rader.push({ balanstornet: namn, k, rå: a, api: b, lika })
+    ut(`  balanstornet ${pad(namn, 28)} k ${padL(k, 2)} · lutning rå ${padL(f(a.slut, 4), 7)} rad · gångjärn+vridfjäder ${padL(f(b.slut, 4), 7)} rad · ${lika ? 'BIT FÖR BIT LIKA' : 'SKILJER ' + f(Math.abs(a.slut - b.slut), 9)}`)
+  }
+  kontroll(s, 'port balanstornet: gångjärn + vridfjäder ger EXAKT samma bana som rå Constraint + egen torque (6 konfigurationer × 600 steg)', bit)
+  const vA = vippKor('rå')
+  const vB = vippKor('api')
+  const vippLika = vA.slut === vB.slut && vA.topp === vB.topp && vA.bana.every((v, i) => v === vB.bana[i])
+  s.rader.push({ vippbradan: { rå: vA, api: vB, lika: vippLika } })
+  ut(`  vippbrädan: toppvinkel rå ${f(vA.topp, 4)} · gångjärn ${f(vB.topp, 4)} · slut ${f(vA.slut, 5)} / ${f(vB.slut, 5)}`)
+  kontroll(s, 'port vippbrädan: gångjärnet ger EXAKT samma bana som rå Constraint (viktfall på högra armen, 480 steg)', vippLika && vA.topp > 0.05, `topp ${f(vA.topp, 4)} rad`)
+  const nA = repKor('rå')
+  const nB = repKor('api')
+  const repLika = nA.bana.every((v, i) => v === nB.bana[i])
+  s.rader.push({ knuffaTornet: { rå: nA, api: nB, lika: repLika } })
+  ut(`  knuffa-tornet: rep (flytt av pointA.x efter 90 steg, repbyte efter 200) — ${repLika ? 'BIT FÖR BIT LIKA' : 'SKILJER'} över ${nA.bana.length / 2} provpunkter, slut (${f(nA.bana.at(-2), 1)}, ${f(nA.bana.at(-1), 1)}) mot (${f(nB.bana.at(-2), 1)}, ${f(nB.bana.at(-1), 1)})`)
+  kontroll(s, 'port knuffa-tornet: pendel med styvhet 0,96 / damp 0,04, flyttbart fäste och repbyte = samma bana som rå Constraint', repLika)
+
+  const k2 = kedjeTojning(2)
+  const k5 = kedjeTojning(5)
+  s.rader.push({ kedja: { villkor2: k2, villkor5: k5 } })
+  not(s, `kedja av 6 leder med en tung kula längst ned (300 steg): största töjningen — villkorsvarv 2: ${f(k2.max, 2)} px · 5: ${f(k5.max, 2)} px (grodan kör 5)`)
+}
+
+// ═════════════════════════════════════════════════════════════════════════════════════════════
 if (vill('S1')) s1()
 if (vill('S3')) s3()
+if (vill('S4')) s4()
 if (vill('S6')) s6()
 if (vill('S7')) s7()
 if (vill('S8')) s8()

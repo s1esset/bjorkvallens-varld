@@ -12,7 +12,7 @@ import Matter from 'matter-js'
 import { DESIGN_W, DESIGN_H } from './theme.js'
 import { ON as DIAG, logPhysics } from './gamelog.js'
 
-const { Engine, Composite, Bodies, Body, Vector, Vertices, Events } = Matter
+const { Engine, Composite, Bodies, Body, Vector, Vertices, Events, Constraint } = Matter
 
 // --- fällvakter (FYSIKPLAN R1) — rena tal, DEV-diagnosens egen logik ---
 // Två av CLAUDE.md:s dyraste tysta fällor, som inget konsolfel någonsin avslöjar:
@@ -592,6 +592,163 @@ export class PhysicsWorld {
     return k
   }
 
+  // ---- LEDER (FYSIKPLAN F1) — gångjärn · pendel · stiftled, med vridfjäder och motor ----------
+  //
+  //   const g = phys.gangjarn(planka, { x: CX, y: PIVOT_Y })            // planka fastnålad i världen
+  //   g.vridfjader({ vila: 0, k: 58, damp: 280 })                       // återförande moment (per steg)
+  //   g.motor({ fart: 0.05, maxMoment: 3000 })                          // rad/steg mot målfart, momenttak
+  //   const p = phys.pendel({ x, y }, kula, { langd: 220, styvhet: 0.96, damp: 0.04 })
+  //   const l = phys.led(a, b, { ankA: { x: 20, y: 0 }, ankB: { x: -20, y: 0 }, styvhet: 0.95 })
+  //   g.ta()                                                            // destroy() tar allt ändå
+  //
+  // Alla tre är EN matter-`Constraint` (längd 0 för gångjärn/led) med `damp 0` som förval: matters
+  // `damping` jämför kropparnas MITTPUNKTER, inte ankarpunkterna, och bromsar därför varje STEL
+  // rotation (0,18 → 0,002 rad/steg på 40 steg — CLAUDE.md). En pendel som ska tappa fart får be
+  // om det med `damp`; en led som ska rotera fritt lämnas på 0. Styvhet 1 = ett fast stift.
+  //
+  // `kropp`/`punkt` (gångjärn): `punkt` är en VÄRLDSPUNKT. Utan `med` fästs kroppen i världen; med
+  // `{ med: annanKropp }` sitter leden mellan de två. `led(a, b)` tar lokala ankare (px från
+  // kroppens mitt, i dess läge när leden skapas — matters egen konvention).
+  //
+  // VRIDFJÄDER och MOTOR drivs som VRIDMOMENT i `beforeStep` — en gång per FAST steg, aldrig per
+  // bildruta — och fördelas som ett PAR (+τ på B, −τ på A; matter delar på `inverseInertia`
+  // själv). Vinkeln är B:s vinkel minus A:s (A = världen → B:s egen). `body.torque` är samma enhet
+  // som balanstornets `STOD_K`: Δω = τ · 277,78 / tröghet (rad/steg) — se `STEG2`.
+  //   vridfjader({ vila, k, damp })  τ = −(vinkel − vila)·k − relativ vinkelfart·damp.
+  //                                  Varje tal får vara en funktion `() => tal` (läses varje steg).
+  //                                  Anropas igen = slås ihop med det som redan står; `null` tar bort.
+  //   motor({ fart, maxMoment })     driver relativ vinkelfart mot `fart` (rad/steg). `maxMoment` är
+  //                                  ett TAK på motorns eget moment — en motor utan tak är en
+  //                                  kraftkälla utan gräns (popcorngreppets lärdom): tung last
+  //                                  STANNAR den i stället för att skena. Utelämnat = ett tak som
+  //                                  ger högst fart/10 i fartändring per steg på den olastade leden.
+  //                                  `h.moment` = motorns senaste moment (för en mätning).
+  // Handtaget: `h.constraint` (matters råa), `h.punkt` (ankaret i världen, flyttbart: `h.punkt.x = …`),
+  // `h.satt({ langd, styvhet, damp })`, `h.vinkel`, `h.vinkelfart`, `h.ta()`.
+  _led(a, b, pA, pB, { langd = 0, styvhet = 1, damp = 0, label = 'led' } = {}) {
+    const varld = this
+    const opt = { pointA: pA, bodyB: b, pointB: pB, length: langd, stiffness: styvhet, damping: damp, label }
+    if (a) opt.bodyA = a
+    const c = Constraint.create(opt)
+    Composite.add(this.world, c)
+    let fjader = null
+    let motorn = null
+    let unbind = null
+    let levande = true
+    const tal = (v) => (typeof v === 'function' ? v() : v)
+    const fa = (k) => 1 - (k?.frictionAir || 0) // matters per-steg-faktor på den gamla farten
+    const iA = () => (a && !a.isStatic ? a.inverseInertia : 0)
+    const vA = () => (a && !a.isStatic ? a.angularVelocity : 0)
+    const steg = () => {
+      if (!levande || b.isStatic) return
+      const rel = h.vinkel
+      const w = h.vinkelfart
+      let tau = 0
+      if (fjader) tau = -(rel - tal(fjader.vila)) * tal(fjader.k) - w * tal(fjader.damp)
+      if (tau !== 0) {
+        b.torque += tau
+        if (a && !a.isStatic) a.torque -= tau
+      }
+      if (motorn) {
+        const S = iA() + b.inverseInertia
+        if (S > 0) {
+          // Vad den relativa farten blir efter steget UTAN motorn (frictionAir + fjädern), och hur
+          // mycket moment som saknas för att nå målet — klämt till taket.
+          const fri = b.angularVelocity * fa(b) - vA() * fa(a)
+          const utanMotor = fri + tau * S * STEG2
+          const tak = Number.isFinite(motorn.maxMoment) && motorn.maxMoment > 0 ? motorn.maxMoment : Math.abs(tal(motorn.fart)) / 10 / (S * STEG2)
+          let m = (tal(motorn.fart) - utanMotor) / (S * STEG2)
+          m = Math.max(-tak, Math.min(tak, m))
+          if (!Number.isFinite(m)) m = 0
+          b.torque += m
+          if (a && !a.isStatic) a.torque -= m
+          h.moment = m
+        }
+      } else h.moment = 0
+    }
+    const bind = () => {
+      if (!unbind) unbind = varld.beforeStep(steg)
+    }
+    const h = {
+      constraint: c,
+      a: a || null,
+      b,
+      moment: 0,
+      get punkt() {
+        return c.pointA
+      },
+      get vinkel() {
+        return b.angle - (a ? a.angle : 0)
+      },
+      get vinkelfart() {
+        return b.angularVelocity - vA()
+      },
+      satt({ langd: l, styvhet: s, damp: d } = {}) {
+        if (l != null) c.length = l
+        if (s != null) c.stiffness = s
+        if (d != null) c.damping = d
+        return h
+      },
+      vridfjader(o) {
+        if (!levande) return h
+        if (o === null) fjader = null
+        else {
+          fjader = { vila: 0, k: 0, damp: 0, ...(fjader || {}), ...o }
+          bind()
+        }
+        return h
+      },
+      motor(o) {
+        if (!levande) return h
+        if (o === null) {
+          motorn = null
+          h.moment = 0
+        } else {
+          motorn = { fart: 0, maxMoment: NaN, ...o }
+          bind()
+        }
+        return h
+      },
+      ta() {
+        if (!levande) return
+        levande = false
+        unbind?.()
+        unbind = null
+        fjader = null
+        motorn = null
+        varld._leder?.delete(h)
+        if (varld._alive) Composite.remove(varld.world, c)
+      },
+    }
+    ;(this._leder ||= new Set()).add(h)
+    return h
+  }
+
+  // Gångjärn i världspunkten `punkt` {x, y}. Längd 0, styvhet 1, damp 0 (om inget annat anges).
+  gangjarn(kropp, punkt, { med = null, styvhet = 1, damp = 0, label = 'gangjarn' } = {}) {
+    const lokal = (k) => {
+      // Världspunkten som ett avstånd från kroppens mitt — matters pointA/pointB bär kroppens
+      // egen orientation från skapandet (`angleA/angleB`), så en kropp som redan vridits går bra.
+      const dx = punkt.x - k.position.x
+      const dy = punkt.y - k.position.y
+      return { x: dx, y: dy }
+    }
+    if (med) return this._led(med, kropp, lokal(med), lokal(kropp), { langd: 0, styvhet, damp, label })
+    return this._led(null, kropp, { x: punkt.x, y: punkt.y }, lokal(kropp), { langd: 0, styvhet, damp, label })
+  }
+
+  // Pendel: kroppen hänger i en världspunkt i ett rep/en stång av längd `langd`. `ankare` = var på
+  // kroppen repet sitter (lokalt, förval kroppens mitt). `langd` utelämnad = avståndet just nu.
+  pendel(punkt, kropp, { langd = null, styvhet = 1, damp = 0, ankare = { x: 0, y: 0 }, label = 'pendel' } = {}) {
+    const l = langd != null ? langd : Math.hypot(kropp.position.x + ankare.x - punkt.x, kropp.position.y + ankare.y - punkt.y)
+    return this._led(null, kropp, { x: punkt.x, y: punkt.y }, { x: ankare.x, y: ankare.y }, { langd: l, styvhet, damp, label })
+  }
+
+  // Stiftled mellan två kroppar (grodans mönster). `ankA`/`ankB` = lokala px från respektive mitt.
+  led(a, b, { ankA = { x: 0, y: 0 }, ankB = { x: 0, y: 0 }, styvhet = 0.95, damp = 0, langd = 0, label = 'led' } = {}) {
+    return this._led(a, b, { x: ankA.x, y: ankA.y }, { x: ankB.x, y: ankB.y }, { langd, styvhet, damp, label })
+  }
+
   _add(body) {
     Composite.add(this.world, body)
     return body
@@ -615,6 +772,7 @@ export class PhysicsWorld {
     Composite.remove(this.world, body)
     this._fartTak?.delete(body)
     if (this._kin) for (const r of [...this._kin]) if (r.body === body) r.destroy()
+    if (this._leder) for (const l of [...this._leder]) if (l.a === body || l.b === body) l.ta() // en led utan sin kropp hänger kvar i världen
     const i = this._links.findIndex((l) => l.body === body)
     if (i >= 0) this._links.splice(i, 1)
   }
@@ -783,6 +941,8 @@ export class PhysicsWorld {
     if (DIAG && this._diag) {
       logPhysics('riven', { kollisioner: this._diag.collisions, toppfart: Math.round(this._diag.maxSpeed), rutor: this._diag.frames })
     }
+    if (this._leder) for (const l of [...this._leder]) l.ta() // tar bort ledens lyssnare + constraint
+    this._leder = null
     try {
       Events.off(this.engine)
       Composite.clear(this.world, false)

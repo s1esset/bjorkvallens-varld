@@ -20,7 +20,7 @@ import { randomFrom } from '../../lib/swedish.js'
 import { slumpIBand } from '../../lib/variation.js'
 import { fjader1d } from '../../lib/takt.js'
 
-const { Constraint, Composite, Body } = Matter
+const { Body } = Matter
 
 const PLANK_W = 460
 const PLANK_H = 26
@@ -237,14 +237,9 @@ export default {
       restitution: 0.05,
       label: 'plank',
     })
-    this._constraint = Constraint.create({
-      pointA: { x: CX, y: PIVOT_Y },
-      bodyB: this._plankBody,
-      pointB: { x: 0, y: 0 },
-      length: 0,
-      stiffness: 1,
-    })
-    Composite.add(this._phys.world, this._constraint)
+    // Gångjärnet ur `phys` (FYSIKPLAN F1): längd 0, styvhet 1, damp 0 — samma tal som den råa Constraint som
+    // stod här (`_fysikbank` S4: bit för bit lika). Plankans egen sväng/dämpning (`_tame`) är spelets.
+    this._led = this._phys.gangjarn(this._plankBody, { x: CX, y: PIVOT_Y })
 
     this._plankView = makePlank()
     this._plankView.eventMode = 'none'
@@ -1111,7 +1106,7 @@ export default {
       if (b && !b.destroyed) gsap.killTweensOf(b.scale)
     })
 
-    this._phys?.destroy() // rensar även constrainten (Composite.clear)
+    this._phys?.destroy() // rensar även leden (gångjärnet)
     gsap.killTweensOf(this._root)
     ctx?.services?.voice?.cancel()
     this._root?.destroy({ children: true })

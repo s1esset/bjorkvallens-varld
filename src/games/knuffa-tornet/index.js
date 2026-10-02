@@ -1,5 +1,5 @@
 // Knuffa Tornet — fysik-spel (2–5 år). En tung rivningskula hänger i ett RIKTIGT REP
-// (matter.js Constraint = pendel) under en flyttbar krankärra ovanför ett torn av glada
+// (matter.js-pendel, `phys.pendel`) under en flyttbar krankärra ovanför ett torn av glada
 // klossar på en avsats. MÅL: knuffa NER ALLA klossar (och kronan 👑) av avsatsen — en
 // mätare fylls för varje kloss som ramlar, och när alla ligger nere kommer ett firande
 // och ett större torn.
@@ -36,7 +36,7 @@ import { puff, floatText, sparkle, burst, bounceIn, pop, shake } from '../../lib
 import { makeKaraktar } from '../../lib/karaktarer.js'
 import { COLORS, FONT, PLAYFUL } from '../../lib/theme.js'
 
-const { Constraint, Composite, Body } = Matter
+const { Body } = Matter
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
 
@@ -257,15 +257,14 @@ export default {
     })
     this._phys.link(this._ballBody, this._ballView)
     Body.setStatic(this._ballBody, true)
-    this._constraint = Constraint.create({
-      pointA: { x: this._pivot.x, y: this._pivot.y },
-      bodyB: this._ballBody,
-      pointB: { x: 0, y: 0 }, // fäst i kulans mitt (stabil pendel); repet RITAS till toppen
-      length: this._ropeLen,
-      stiffness: this._rope.stiffness,
-      damping: this._rope.damping,
+    // Pendeln ur `phys` (FYSIKPLAN F1): fäst i kulans mitt (stabil pendel; repet RITAS till toppen). Repets
+    // styvhet och `damp` är spelets egna (0,96/0,04 resp. 0,18/0,06) — inte API:ts förval 0 — så svingen är
+    // oförändrad (`_fysikbank` S4: bit för bit lika). Kärran flyttar `pointA` via `punkt`.
+    this._rep = this._phys.pendel({ x: this._pivot.x, y: this._pivot.y }, this._ballBody, {
+      langd: this._ropeLen,
+      styvhet: this._rope.stiffness,
+      damp: this._rope.damping,
     })
-    Composite.add(this._phys.world, this._constraint)
     this._bindBall(ctx)
     this._root.addChild(this._ballView)
 
@@ -718,7 +717,7 @@ export default {
 
   _setPivotX(x) {
     this._pivot.x = clamp(x, PIVOT_MIN_X, PIVOT_MAX_X)
-    if (this._constraint) this._constraint.pointA.x = this._pivot.x
+    if (this._rep) this._rep.punkt.x = this._pivot.x
     if (this._trolley && !this._trolley.destroyed) this._trolley.x = this._pivot.x
   },
 
@@ -785,10 +784,7 @@ export default {
   _setRope(idx) {
     this._ropeIdx = ((idx % ROPES.length) + ROPES.length) % ROPES.length
     this._rope = ROPES[this._ropeIdx]
-    if (this._constraint) {
-      this._constraint.stiffness = this._rope.stiffness
-      this._constraint.damping = this._rope.damping
-    }
+    if (this._rep) this._rep.satt({ styvhet: this._rope.stiffness, damp: this._rope.damping })
     this._refreshRopeTag()
   },
 
@@ -896,7 +892,7 @@ export default {
     this._freezeAt(c.x, c.y)
   },
 
-  // Släpp kulan: repet (Constraint) + gravitationen svingar/slungar ner den i tornet.
+  // Släpp kulan: repet (pendeln) + gravitationen svingar/slungar ner den i tornet.
   _release(ctx) {
     if (!this._alive) return
     this._hideInvite() // barnet tog över — inbjudan har gjort sitt

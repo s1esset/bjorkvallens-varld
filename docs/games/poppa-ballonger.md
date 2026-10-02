@@ -86,6 +86,7 @@ det någonsin blir svårt på ett bestraffande sätt.
 - **[Quick] Riktigt pop + glad röst.** Knyt 'pop' till ett inspelat ballong-pop; lägg en
   mjuk vind/utomhus-ambient för lugn. *(Blockerad 2026-09-23: kräver SFX-klipp — MOSS nere.
   Berömfrasen varieras redan i `progress.complete()`.)*
+- [Enkel] Pysballongen är bara sondmätt (`scripts/_natt-pys.mjs`: 6–7 s flykt, i bild, aldrig i skalets hörn) — lyssna på pruttet och se den på en riktig nivå 2 (2026-10-02).
 
 ## 5. Status / loggar
 
@@ -125,5 +126,7 @@ det någonsin blir svårt på ett bestraffande sätt.
   (6) **Bugg:** `gsap.delayedCall` för respawn bytt mot `ctx.later()` (överlevde spelomgången);
   den nya kompis-silhuettens oändliga tween använder proxy-mönstret så en ny runda mitt i
   animationen inte kan skriva till en nollställd transform.
+
+- 2026-10-02 · **Pysballongen + djup i bilden (FYSIKPLAN §5.4).** Ny specialtyp `pys` (nivå 2 ibland, från nivå 3 nästan alltid, nivå 7+ ibland två): en fullpumpad ballong med vitt sicksackband och ett rörformat munstycke. Första trycket poppar den INTE — luften pyser ut och den far runt i rummet i pulser (4,5 per sekund, ett prutt per puls via `audio.tone`, sågtand som sjunker i tonhöjd allt eftersom luften tar slut), munstycket slingrar så ballongen kan göra hela varv, den krymper och slappnar med luften, och när luften är slut (2,6–3,5 s) dalar den fladdrande ner i gräset där den krymper bort och räknas som klar (räknerundan fyller sin plupp, rundan väntar aldrig på ett tryck). Ett tryck medan den far poppar den som vilken ballong som helst. Luften är `Motstandsvolym` (kraft in, gränsfart 2,2 px/bildruta neråt, ~4,6 uppåt vid full luft) — ingen tween äger x/y. Tak: högst två pysande samtidigt (en tredje poppar direkt), hårda väggar x 110–1170 / tak y 100 med mjuka utskjut (≤10 px/bildruta, ingen hoppar), hörnet bakom skalets knappar (x<250, y<190) skjuts ut, golv i gräset, nödbroms efter dur+7 s. Ny replik "Oj, den pyser iväg!" (en gång per spelomgång, bara om ingen talar). Snörena som `Rep` är INTE med. Fonden fick `silhuett: 'skog'` + `forgrund: true` (L1, bakom spelytan). Ej körd i webbläsare under natten.
 
 - 2026-10-01 · **Barnets egna figurer (LYFTPLAN §10, v1.287.0).** Premissen "vänner i ballongerna" höll i grunden, men kompisraden är fem DJURSLAG sparade som arter (`custom.vanner`) — barnets figur kan inte bli en sparad rad-plats. I stället är den en extra gömd passagerare: varannan runda (`valjEgna` en gång per `_build`) bär en vanlig ballong (aldrig special/gul/kompisens) barnets knytt/kompis som skugga; poppas den snurrar figuren ut, seglar ner och ställer sig på gräset efter kompisraden (x 730, höjd 112), följer ballongerna med blicken, jublar när rundan är klar och hoppar glatt ut åt höger när nästa runda byggs — försvinner aldrig mitt i en runda. Byggs först vid räddningen (ingen tick i onödan). Tre repliker. Sond: `_egnakund` med `--trigger` som poppar den gömda ballongen, alla armar gröna.

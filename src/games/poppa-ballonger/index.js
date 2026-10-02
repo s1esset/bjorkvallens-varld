@@ -6,8 +6,9 @@
 // vi (delad complete()) och en ny, lite svårare runda fylls på (oändlig lek).
 import { Container, Graphics, Circle, Text } from 'pixi.js'
 import { gsap } from 'gsap'
-import { bounceIn, ripple, burst, sparkle, floatText, shake, breathe, pop, wiggle } from '../../lib/feedback.js'
+import { bounceIn, ripple, burst, sparkle, floatText, shake, breathe, pop, wiggle, puff } from '../../lib/feedback.js'
 import { createScene } from '../../lib/scene.js'
+import { Motstandsvolym } from '../../lib/luftmotstand.js'
 import { makeKaraktar } from '../../lib/karaktarer.js'
 import { valjEgna, byggEgenFigur, presentera } from '../../lib/egnafigurer.js'
 import { PLAYFUL, FONT, COLORS } from '../../lib/theme.js'
@@ -43,6 +44,20 @@ const FRIENDS = [
   { kind: 'uggla', sample: 'djur_uggla', say: 'En uggla! Hoo!', body: 0xb98a5e, ear: 0x8a5a3b },
   { kind: 'anka', sample: 'djur_anka', say: 'En anka! Kvack kvack!', body: 0xfff0a8, ear: 0xff9e3d },
 ]
+// Pysballongen (specialtyp): ett tryck släpper ut luften — den far runt i rummet med ett prutt
+// tills luften är slut, och dalar sedan ner på gräset. Motstånd ur Motstandsvolym, så den har
+// en egen gränsfart uppåt (pysen) och en annan neråt (den slappa ballongen).
+const PYS_MAX = 2 // högst två pysande ballonger samtidigt (tak på rörelse i bild)
+const PYS_KRAFT = 0.5 // px/bildruta² vid full luft (pulserar)
+const PYS_PULS = 4.5 // pruttar per sekund
+const PYS_MINX = 110
+const PYS_MAXX = 1170
+const PYS_TAK = 100
+const PYS_GOLV = 636 // underkant (i gräset) dit en slapp ballong sjunker
+// Skalets knappar uppe till vänster: en ballong som far in hit skjuts ut igen.
+const KNAPP_X = 250
+const KNAPP_Y = 190
+
 const FRIEND_X0 = 268 // vänraden börjar strax till höger om Bobo
 const FRIEND_GAP = 74
 const FRIEND_Y = 646
@@ -175,8 +190,13 @@ export default {
     ctx.stage.addChild(this._layer)
 
     // Polerad himmel-scen (gradient + sol + drivande moln). Dekorativ, FÖRSTA barnet.
-    this._scene = createScene('sky', { width: ctx.width, height: ctx.height })
+    // Djup: trädlinje på kullarna bakom och strån framför horisonten (båda BAKOM spelytan).
+    this._scene = createScene('sky', { width: ctx.width, height: ctx.height, silhuett: 'skog', forgrund: true, fro: 7 })
     this._layer.addChild(this._scene)
+    // Luften för pysballongerna (inget annat använder den).
+    this._vol = new Motstandsvolym({ grav: 0.05, maxFart: 9 })
+    this._pysFlyg = 0
+    this._pysSagt = false
 
     // Levande värld nederst: äng med blommor + Bobo som tittar upp och hejar, plus
     // raden med kompisar man befriat ur ballongerna. Ligger UNDER ballongerna så de
@@ -306,6 +326,8 @@ export default {
     })
     this._balloonLayer.removeChildren().forEach((o) => o.destroy({ children: true }))
     this._balloons = []
+    this._vol.rensa() // inga pysande kroppar följer med in i nästa runda
+    this._pysFlyg = 0
 
     const level = this._level
     const count = Math.min(9, 5 + Math.floor(level / 2)) // fler per nivå (tak 9)
@@ -329,6 +351,9 @@ export default {
     if (level >= 3) specials.push('kluster')
     if (level >= 4 && Math.random() < 0.7) specials.push('jatte')
     if (level >= 6 && Math.random() < 0.5) specials.push(randomFrom(['vatten', 'kluster']))
+    // Pysballongen: ibland redan på nivå 2, från nivå 3 nästan alltid (en per runda, ibland två).
+    if (level >= 2 && Math.random() < (level >= 3 ? 0.85 : 0.55)) specials.push('pys')
+    if (level >= 7 && Math.random() < 0.4) specials.push('pys')
     const typeAt = {}
     const freeSlots = shuffle([...Array(count).keys()].filter((i) => i !== goldenIndex))
     specials.forEach((t, k) => { if (freeSlots[k] != null) typeAt[freeSlots[k]] = t })
@@ -451,6 +476,26 @@ export default {
       for (let k = -1; k <= 1; k++) dots.circle(k * 14 * size, ry * 0.06, 6 * size).fill({ color: 0xffffff, alpha: 0.85 })
       dots.eventMode = 'none'
       b.addChild(dots)
+    } else if (type === 'pys') {
+      // pysballongen: ett vitt sicksackband tvärs över kroppen och ett rörformat munstycke
+      // med ribbor där luften ska ut — man ser att den är fullpumpad och redo att fara.
+      const band = new Graphics()
+      for (let k = -1; k <= 1; k++) {
+        const y = k * ry * 0.34
+        const halv = rx * 0.82 * Math.sqrt(Math.max(0.1, 1 - (y / ry) ** 2))
+        band.moveTo(-halv, y)
+        for (let s = 1; s <= 6; s++) band.lineTo(-halv + (s / 6) * halv * 2, y + (s % 2 ? -1 : 1) * 9 * size)
+      }
+      band.stroke({ width: 5 * size, color: 0xffffff, alpha: 0.6, cap: 'round', join: 'round' })
+      band.eventMode = 'none'
+      b.addChild(band)
+      const nozzle = new Graphics()
+      nozzle.roundRect(-10 * size, knotY - 3 * size, 20 * size, 17 * size, 5 * size).fill(darken(color, 0.38)).stroke({ width: 2 * size, color: darken(color, 0.55) })
+      nozzle.moveTo(-9 * size, knotY + 4 * size).lineTo(9 * size, knotY + 4 * size)
+        .moveTo(-9 * size, knotY + 9 * size).lineTo(9 * size, knotY + 9 * size)
+        .stroke({ width: 2 * size, color: darken(color, 0.6), alpha: 0.8 })
+      nozzle.eventMode = 'none'
+      b.addChild(nozzle)
     }
 
     // Gömd kompis: en mjuk skugga som rör sig inuti ballongen. Ingen text, ingen pil —
@@ -484,6 +529,8 @@ export default {
     b._type = type
     b._tapsLeft = type === 'jatte' ? 2 : 1 // jätten behöver en extra kram
     b._size = size
+    b._ry = ry
+    b._flyg = false // pysar runt just nu
     b._popped = false
     b._swayOffset = 0
     b._bumpCd = 0
@@ -516,6 +563,15 @@ export default {
   _pop(ctx, b) {
     if (!this._alive || b._popped) return
     this._idle = 0
+
+    // Pysballongen: första trycket släpper ut luften och den far iväg (den poppar inte). Trycker
+    // barnet på den medan den far, poppar den som vilken ballong som helst — att fånga den är
+    // också ett sätt att spela. Är två redan i luften poppar den direkt (tak på rörelsen).
+    if (b._type === 'pys' && !b._flyg && this._pysFlyg < PYS_MAX) {
+      this._pysStart(ctx, b)
+      return
+    }
+    if (b._flyg) this._pysSlapp(b)
 
     // Jätteballongen behöver en extra kram: första trycket ger en stor wobble + mjuk
     // låg ton, inte en pop. Aldrig ett "fel" — bara mer att göra innan den brister.
@@ -575,13 +631,7 @@ export default {
       this._releaseEgen(ctx, b)
     } else this._boboReact(ctx)
 
-    // Räkne-känsla: säg poppen ("ett, två, tre…") + fyll motsvarande plupp i raden.
-    if (this._countingRound) {
-      this._popCount++
-      this._fillPip(this._popCount - 1)
-      const word = NUM[this._popCount - 1]
-      if (word) ctx.services.voice.say(word)
-    }
+    this._raknaPop(ctx)
 
     // squash/stretch -> kollaps
     gsap.killTweensOf(b.scale)
@@ -598,6 +648,20 @@ export default {
         },
       })
 
+    this._kollaRunda(ctx)
+  },
+
+  // Räkne-känsla: säg poppen ("ett, två, tre…") + fyll motsvarande plupp i raden.
+  _raknaPop(ctx) {
+    if (!this._countingRound) return
+    this._popCount++
+    this._fillPip(this._popCount - 1)
+    const word = NUM[this._popCount - 1]
+    if (word) ctx.services.voice.say(word)
+  },
+
+  // Är alla ballonger i rundan klara (poppade eller pysta ut)? Då firar vi och bygger nästa.
+  _kollaRunda(ctx) {
     if (this._remaining <= 0 && !this._resolving) {
       this._resolving = true
       // complete() äger firandet: beröm-röst + konfetti + stjärna + klistermärke.
@@ -619,6 +683,140 @@ export default {
         this._build(ctx)
       })
     }
+  },
+
+  // ── Pysballongen ─────────────────────────────────────────────────────────────────
+  // Tryck → luften pyser ut: munstycket (nederst) pekar åt ett håll som slingrar av sig själv
+  // och ballongen far åt andra hållet, i pulser med ett prutt per puls. Luften tar slut linjärt;
+  // då är det bara tyngd och motstånd kvar och den dalar fladdrande ner i gräset. Allt går genom
+  // Motstandsvolym (kraft in, gränsfart ur luften) — ingen tween äger x/y, så inget kan slåss.
+  _pysStart(ctx, b) {
+    b._flyg = true
+    b._pysT = 0
+    b._pysDur = 2.6 + Math.random() * 0.9
+    b._pysPuls = 0
+    b._pysFas = [Math.random() * 6.28, Math.random() * 6.28]
+    b._pysW = [2.1 + Math.random() * 1.1, 4.4 + Math.random() * 1.8]
+    b._pysLuft = 1
+    b._pysRot0 = b.rotation
+    if (this._attractBalloon === b) this._stopAttract()
+    // Vagga, tilt och entré-studs lämnar över: från nu äger pysen position, rotation och skala.
+    b._sway?.kill()
+    b._sway = null
+    gsap.killTweensOf(b)
+    gsap.killTweensOf(b.scale)
+    b.scale.set(1)
+    b._baseX = b.x
+    b._swayOffset = 0
+    b._rec = this._vol.lagg(b, { massa: 1, gransfart: 2.2, vy: -(this._speed * b._speedMul) / 60 })
+    this._pysFlyg++
+
+    // Återkoppling < 100 ms: stort pyss-svep + ring + puff vid munstycket.
+    ctx.services.audio.tone({ freq: 230, dur: 0.24, type: 'sawtooth', vol: 0.2, slideTo: 85 })
+    ctx.services.audio.tone({ freq: 170, dur: 0.2, type: 'square', vol: 0.07, slideTo: 70, delay: 0.04 })
+    ripple(this._layer, b.x, b.y, { color: 0xffffff, maxR: 80 * b._size, alpha: 0.5 })
+    this._pysPuff(b)
+    this._boboReact()
+    if (!this._pysSagt && !ctx.services.voice.talar) {
+      this._pysSagt = true
+      ctx.services.voice.say('Oj, den pyser iväg!')
+    }
+  },
+
+  // Släpp pysen ur luften (poppad mitt i flykten, eller slut på luft).
+  _pysSlapp(b) {
+    if (!b._flyg) return
+    b._flyg = false
+    if (b._rec) this._vol.ta(b._rec)
+    b._rec = null
+    this._pysFlyg = Math.max(0, this._pysFlyg - 1)
+  },
+
+  // Ett litet moln luft där munstycket sitter (längst ner i ballongens egen riktning).
+  _pysPuff(b) {
+    const avst = (b._ry + 14 * b._size) * b.scale.y
+    const nx = b.x - Math.sin(b.rotation) * avst
+    const ny = b.y + Math.cos(b.rotation) * avst
+    puff(this._layer, nx, ny, { count: 3, color: 0xffffff })
+  },
+
+  // Krafterna på en pysande ballong (före luftens steg). dp = sekunder (klämd mot tappade rutor).
+  _pysKraft(ctx, b, dp) {
+    b._pysT += dp
+    const T = b._pysT
+    const luft = Math.max(0, 1 - T / b._pysDur)
+    b._pysLuft = luft
+    const [w1, w2] = b._pysW
+    const [p1, p2] = b._pysFas
+    // Munstycket slingrar: med full luft stora svängar (hela varv är möjliga), med slut luft bara
+    // ett lätt fladder. Första 0,3 s tonar in från ballongens egen lutning så det inte rycker.
+    const inn = Math.min(1, T / 0.3)
+    const kaos = luft * (1.5 * Math.sin(w1 * T + p1) + 0.8 * Math.sin(w2 * T + p2)) + (1 - luft) * 0.3 * Math.sin(3.1 * T + p1)
+    const rot = b._pysRot0 * (1 - inn) + kaos * inn
+    b.rotation = rot
+    const fas = T * PYS_PULS
+    const sv = Math.sin(fas * Math.PI * 2)
+    const kraft = PYS_KRAFT * luft * (0.65 + 0.35 * sv)
+    // Munstycket pekar nedåt i ballongens eget rum: rotation `rot` skjuter kroppen åt (sin, −cos).
+    this._vol.kraft(b._rec, Math.sin(rot) * kraft + (1 - luft) * 0.015 * Math.sin(2.7 * T + p2), -Math.cos(rot) * kraft)
+    // Slappnar med luften och klämmer ihop sig i takt med pulserna.
+    const s = 0.7 + 0.3 * luft
+    const k = 0.06 * sv * luft
+    b.scale.set(s * (1 + k), s * (1 - k))
+    // Ett prutt per puls — lägre och slappare ju mindre luft.
+    const n = Math.floor(fas)
+    if (n !== b._pysPuls && luft > 0.04) {
+      b._pysPuls = n
+      const f = (105 + 95 * luft) * (0.9 + Math.random() * 0.25)
+      ctx.services.audio.tone({ freq: f, dur: 0.13, type: 'sawtooth', vol: 0.13, slideTo: f * 0.55 })
+      this._pysPuff(b)
+    }
+  },
+
+  // Efter steget: håll den i bild (aldrig bakom skalets knappar), landa när luften är slut.
+  _pysEfter(ctx, b) {
+    const rec = b._rec
+    if (!rec) return
+    if (b.x < PYS_MINX) { b.x = Math.min(PYS_MINX, b.x + 10); if (rec.vx < 0) rec.vx = -rec.vx * 0.7 }
+    else if (b.x > PYS_MAXX) { b.x = Math.max(PYS_MAXX, b.x - 10); if (rec.vx > 0) rec.vx = -rec.vx * 0.7 }
+    // Alla "skjut ut"-steg är mjuka (högst 10 px per bildruta) så en ballong som trycktes nära en
+    // kant glider in i bild i stället för att hoppa.
+    if (b.y < PYS_TAK) { b.y = Math.min(PYS_TAK, b.y + 10); if (rec.vy < 0) rec.vy = -rec.vy * 0.5 }
+    // Hörnet med skalets knappar: ut längs den korta vägen.
+    if (b.x < KNAPP_X && b.y < KNAPP_Y) {
+      if (KNAPP_X - b.x < KNAPP_Y - b.y) { b.x = Math.min(KNAPP_X, b.x + 10); if (rec.vx < 0) rec.vx = -rec.vx * 0.7 }
+      else { b.y = Math.min(KNAPP_Y, b.y + 10); if (rec.vy < 0) rec.vy = -rec.vy * 0.5 }
+    }
+    const golv = PYS_GOLV - b._ry * b.scale.y
+    if (b.y >= golv) {
+      if (b._pysLuft <= 0.02) { this._pysLand(ctx, b); return }
+      // Studsa mjukt mot gräset; en ballong som trycktes nere vid kanten glider upp i stället för att hoppa.
+      if (rec.vy > 0) { rec.vy = -rec.vy * 0.35; rec.vx *= 0.7 }
+      b.y = Math.max(golv, b.y - 10)
+    }
+    if (b._pysT > b._pysDur + 7) this._pysLand(ctx, b) // nödbroms: rundan får aldrig hänga på den
+  },
+
+  // Slapp och stilla i gräset: ett sista fjuttande, en puff, sedan krymper den bort. Den räknas
+  // som klar (ingen runda väntar på ett tryck på en tom ballong).
+  _pysLand(ctx, b) {
+    if (b._popped) return
+    this._pysSlapp(b)
+    b._popped = true
+    b.eventMode = 'none'
+    this._remaining--
+    ctx.services.audio.sfx('soft')
+    ctx.services.audio.tone({ freq: 190, dur: 0.3, type: 'triangle', vol: 0.14, slideTo: 80 })
+    puff(this._layer, b.x, b.y + b._ry * 0.5, { count: 7, color: b._color })
+    sparkle(ctx.fxLayer, b.x, b.y, { count: 5 })
+    this._boboReact()
+    this._raknaPop(ctx)
+    gsap.killTweensOf(b.scale)
+    gsap.to(b.scale, {
+      x: 0, y: 0, duration: 0.4, delay: 0.25, ease: 'back.in(2)',
+      onComplete: () => { if (this._alive && !b.destroyed) b.visible = false },
+    })
+    this._kollaRunda(ctx)
   },
 
   // Bobo tittar upp och puffar till varje gång en ballong smäller — han är publiken.
@@ -959,7 +1157,7 @@ export default {
     let near = null
     let best = 1e9
     for (const b of this._balloons) {
-      if (b._popped) continue
+      if (b._popped || b._flyg) continue
       const d = (b.x - p.x) ** 2 + (b.y - p.y) ** 2
       if (d < best) {
         best = d
@@ -985,7 +1183,7 @@ export default {
   // Starta/stoppa idle-lockaren (en ballong "andas").
   _startAttract() {
     if (this._attractTween) return
-    const live = this._balloons.filter((b) => !b._popped && !b.destroyed)
+    const live = this._balloons.filter((b) => !b._popped && !b.destroyed && !b._flyg)
     if (!live.length) return
     const b = randomFrom(live)
     this._attractBalloon = b
@@ -1011,6 +1209,7 @@ export default {
       const live = []
       for (const b of this._balloons) {
         if (b._popped) continue
+        if (b._flyg) { live.push(b); continue } // pysande: Motstandsvolym äger x/y
         b.y -= this._speed * b._speedMul * dt
         if (b.y < -130) {
           // svävat ut över toppen -> mjuk respawn nere igen (oändlig sväng)
@@ -1060,6 +1259,7 @@ export default {
           const dy = c.y - a.y
           const rad = 58 * a._size + 58 * c._size
           const d2 = dx * dx + dy * dy
+          if (a._flyg || c._flyg) continue // pysande ballonger flyger fritt
           if (d2 >= rad * rad || d2 < 0.5) continue
           const d = Math.sqrt(d2)
           const push = (rad - d) * 0.45
@@ -1083,7 +1283,16 @@ export default {
           }
         }
       }
-      for (const b of live) b.x = b._baseX + b._swayOffset
+      for (const b of live) if (!b._flyg) b.x = b._baseX + b._swayOffset
+
+      // Pysande ballonger: krafter → ett luftsteg → bounds/landning.
+      if (this._pysFlyg > 0) {
+        const flyg = live.filter((b) => b._flyg)
+        const dp = Math.min(dt, 0.05)
+        for (const b of flyg) this._pysKraft(ctx, b, dp)
+        this._vol.steg(dp * 60)
+        for (const b of flyg) if (b._flyg) this._pysEfter(ctx, b)
+      }
     }
 
     // Kombo-ton svalnar: ingen pop på ~0,7s → nästa pop börjar om nerifrån.
@@ -1115,6 +1324,7 @@ export default {
     ctx.ticker.remove(this._tick)
     ctx.services.voice.cancel()
     this._respawnCall?.kill()
+    this._vol?.destroy()
     this._stopAttract()
     // Barnets egna figurer: tickern släpps och tweensen dör FÖRE rötterna rivs.
     for (const e of this._egnaFigurer || []) {

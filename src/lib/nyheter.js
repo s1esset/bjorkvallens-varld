@@ -10,6 +10,18 @@
 
 export const NYHETER = [
   {
+    version: '1.392',
+    fran: '1.387',
+    datum: '2026-10-02',
+    titel: 'Det man rör knuffar och fjädrar',
+    punkter: [
+      'Korgen i Fånga Frukten och tratten i Studsa Ner knuffar till det som faller när man drar dem snabbt, i stället för att saker glider rakt igenom kanten. Allt stannar kvar i bild.',
+      'Paddlarna i Flipperspel slår till kulan med sin egen fart, så ett slag skickar iväg kulan med mer kraft.',
+      'Molnen i Enhörningen Elvira trycks ihop när Elvira landar på dem och kastar upp henne igen. Ju högre hon faller ifrån, desto högre studsar hon, men aldrig upp i taket.',
+      'Plankan i Vippbrädan sviktar till när vikten slår i, mer ju tyngre vikten är. I Fallskärmen fjädrar gräsmattan när hopparen landar, och den tunga hopparen sjunker djupare och studsar högre än den lätta.',
+    ],
+  },
+  {
     version: '1.386',
     fran: '1.384',
     datum: '2026-10-02',

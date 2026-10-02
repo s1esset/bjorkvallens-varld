@@ -76,8 +76,9 @@ i en tom värld, och hjälpen gör att man knappt behöver röra korgen.
   ritar de faktiska frukterna barnet fångat (`_drawMeter`, `:630`), inte abstrakta prickar.
 
 ### Progression
-- **[Medium] Korgen blir full på riktigt.** I stället för en abstrakt prick-mätare: en korg
-  som visuellt fylls med de fångade frukterna, och vid nivåklart bär man fram den till djuret.
+- ✅ ~~**[Medium] Korgen blir full på riktigt.**~~ Klar 2026-10-02 (P3, `lib/hog.js`): fångad frukt ligger kvar i
+  korgen som en riktig hög (se §5). *("Bär fram korgen till djuret" vid nivåklart är INTE byggt — ekorren får
+  redan sin önskade frukt direkt, och en bärsekvens skulle ta över firandet.)*
 
 ### Karaktär & berättelse
 - **[Deep] Liten skördehistoria.** Mata djuret/Bobo nivå för nivå (mätt-mätare, glad min) — en
@@ -89,6 +90,20 @@ i en tom värld, och hjälpen gör att man knappt behöver röra korgen.
   `AudioService._celebrate`.)*
 
 ## 5. Status / loggar
+
+- 2026-10-02 ✅ **P3: frukten blir en hög i korgen (`lib/hog.js`).** `_catchFruit` förstör inte längre frukten
+  (`_tuck` struken): sensorn tar den som förut, men vyn byts mot en ny UTAN markskugga i korgens lager och
+  kroppen föds i en `Hog` (egen liten matter-värld i KORGENS rum, origo = munnens mitt; golv y 14, väggar ±92,
+  tak 8, sömn på) där den faller de sista pixlarna och lägger sig. Högen är barn till korgen och följer därför
+  med när den glider (kinematisk sedan R2 — korgen flyttas som vy, högens värld står still i korgens rum, så
+  ingenting kan tunnla eller skvalpa ur). Korgens främre kant (`makeBasketLip`, nedre halvan av munringen)
+  ritas OVANPÅ högen så frukten ligger i korgen. Fångstsensorn lyfter med högen (≤ 100 px) så frukten fångas
+  strax ovanför den. Taket 8 (en runda = 3–6 frukter + de som hinner i luften under firandet) — ingen fångad
+  frukt tonar bort under en runda. Första landningen ger en liten puff + mjukt duns (`impactAudio` 'gummi');
+  nivå klar → frukten i korgen hoppar till; ny nivå → högen tonar bort. Den önskade frukten som flyger till
+  barnets figur på grenen läggs INTE i korgen (den äts). Mätning: `g._nFangade` (lagda i högen denna runda)
+  mot `g._hog.antal` (synliga, ≤ 8) och `g._hog.rymt` (0). Node-prov med spelets egen `_hogOpt()`: 3/4/6/8
+  fångade → 3/4/6/8 syns, 12 → 8, 0 rymt, 0 kryp på 10 s, även efter hoppet. Kvar: gungande frukt i skaftet (F1).
 
 - 2026-10-02 ⚙️ **R2: korgens kanter och sensor är kinematiska** (D7 B1). `_rimL/_rimR/_sensor` är kvar
   som matter-kroppar men flyttas av `phys.kinematisk` (`_kRimL/_kRimR/_kSensor`, `maxFart` 26 px/steg):

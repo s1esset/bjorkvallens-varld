@@ -9,7 +9,8 @@
 // Allt ritas programmatiskt (Pixi Graphics + emoji) och städas exit-säkert.
 import { Container, Graphics } from 'pixi.js'
 import { gsap } from 'gsap'
-import { PhysicsWorld, Body } from '../../lib/physics.js'
+import { PhysicsWorld, Body, Matter } from '../../lib/physics.js'
+import { Hog } from '../../lib/hog.js'
 import { createScene } from '../../lib/scene.js'
 import { sphereFill } from '../../lib/form.js'
 import { COLORS } from '../../lib/theme.js'
@@ -33,12 +34,13 @@ const FRUIT_WISH = {
   apelsin: 'Jag vill ha en apelsin!', vindruvor: 'Jag vill ha vindruvor!',
 }
 
-// Rita en frukt med egen silhuett. `s` skalar (radie ≈ 26·s).
-function makeFruit(kind, s = 1) {
+// Rita en frukt med egen silhuett. `s` skalar (radie ≈ 26·s). `skugga` = markskuggan under frukten (av i
+// korgen: där ligger frukten på andra frukter, inte på gräset).
+function makeFruit(kind, s = 1, skugga = true) {
   const c = new Container()
   const g = new Graphics()
   const R = 26 * s
-  g.ellipse(0, R * 1.1, R * 0.8, R * 0.22).fill({ color: 0x2f6b34, alpha: 0.16 }) // markskugga
+  if (skugga) g.ellipse(0, R * 1.1, R * 0.8, R * 0.22).fill({ color: 0x2f6b34, alpha: 0.16 }) // markskugga
   if (kind === 'apple') {
     g.circle(-R * 0.34, 0, R * 0.82).fill(0xff6b6b)
     g.circle(R * 0.34, 0, R * 0.82).fill(0xff6b6b)
@@ -133,6 +135,17 @@ const BASKET_HALF = 112 // halva korgbredden (klamp + handtag)
 // alltid med det som ritas, och en kant som skyfflar frukt gör det aldrig fortare än så.
 const KIN_FART = 26 // px/steg = 1 560 px/s; samma tak som korgens glid hade före R2 (känslan orörd)
 const FRUKT_FART = 12 // px/steg-tak på en frukt som korgen knuffat (rörelsemängd, men kvar i banan)
+// Högen i korgen (FYSIKPLAN P3): fångad frukt tas ur spelvärlden och läggs i en `Hog` — en egen liten
+// matter-värld i KORGENS rum (origo = munnens mitt; vyerna är barn till korgen, så högen följer med när
+// korgen glider, även med den kinematiska fart den har sedan R2). Golvet ligger strax under munnens
+// mitt (y 14) så att den främre kanten (`makeBasketLip`) täcker fruktens nedre del; innerväggarna på
+// ±92. Taket 8 = en runda (3–6 frukter) plus de som hinner i luften under firandet, så ingen fångad
+// frukt tonar bort under en runda. Fångstsensorn lyfter med högen (≤ 100 px) så frukten fångas strax
+// OVANFÖR den. `g._nFangade` = frukter lagda i högen denna runda, `g._hog.antal` = de som syns (≤ taket).
+const HOG_TAK = 8
+const HOG_GOLV = 14
+const HOG_X = 92
+const SENSOR_LYFT_MAX = 100
 const MOUTH_DX = 88 // kant-knopparnas offset från korgmitten
 const RIM_R = 14 // kant-knoppens radie (lekfull studs)
 const SENSOR_W = 156 // fångstsensorns bredd (generös, toddler-vänlig)
@@ -164,7 +177,11 @@ export default {
     this._lastBounce = 0
     this._caughtEmojis = []
     this._fruit = [] // { body, view, emoji, caught }
-    this._proxyTweens = [] // transienta "ner-i-korgen"-tweens (städas i destroy)
+    this._proxyTweens = [] // transienta tweens (flyg till figuren) — städas i destroy
+    this._hog = null
+    this._pile = null
+    this._nFangade = 0 // frukter lagda i korgens hög denna runda (den önskade frukten till en figur på grenen räknas inte)
+    this._lift = 0 // hur mycket fångstsensorn lyfts av högen
 
     this._root = new Container()
     ctx.stage.addChild(this._root)
@@ -243,6 +260,16 @@ export default {
     this._basket.interactiveChildren = false
     this._root.addChild(this._basket)
     this._targetX = this._basket.x
+    // Högen: frukt (bak) → högens vyer → korgens främre kant (fram), alla barn av korgen.
+    this._pile = new Container()
+    this._pile.eventMode = 'none'
+    this._pile.interactiveChildren = false
+    this._basket.addChild(this._pile)
+    this._basket.addChild(makeBasketLip())
+    this._hog = new Hog(this._hogOpt())
+    // Första landningen i högen: liten puff + ett mjukt duns (hörs bara när frukten faktiskt slår i).
+    this._hog.paSlag((post, h) => this._landa(ctx, post, h), { minSpeed: 2, maxPerFrame: 2 })
+    this._hog.fysik.impactAudio(ctx.services.audio, { standard: 'gummi', vol: 0.05, minSpeed: 1.6, maxPerFrame: 1, minGapMs: 80 })
 
     // Frukter lever i ett eget lager, framför korgen.
     this._fruitLayer = new Container()
@@ -332,6 +359,11 @@ export default {
     this._drawMeter()
   },
 
+  // Högens kanter, tak och tyngd (ren funktion av modulens tal — `_hogprobe` bygger samma Hog).
+  _hogOpt() {
+    return { kanter: { x0: -HOG_X, x1: HOG_X, y1: HOG_GOLV, hornrund: 14 }, tak: HOG_TAK, sova: true, gravitation: 0.9 }
+  },
+
   // Kraftdelen, EN gång per fast fysiksteg (`phys.beforeStep`): fånghjälpen (växer med missarna,
   // aldrig före 2) och fartgränsen nedåt. Korgens x läses ur korgen själv, samma källa som förut.
   _fangSteg() {
@@ -374,8 +406,12 @@ export default {
     // att stegen i den här bildrutan redan går mot rätt läge).
     this._kRimL?.till(bx - MOUTH_DX, this._mouthY)
     this._kRimR?.till(bx + MOUTH_DX, this._mouthY)
-    this._kSensor?.till(bx, this._mouthY + 26)
+    // Sensorn lyfter med högen: frukten fångas strax ovanför den och faller de sista pixlarna.
+    const hojd = this._hog ? clamp(HOG_GOLV - this._hog.topp, 0, SENSOR_LYFT_MAX) : 0
+    this._lift += (hojd - this._lift) * Math.min(1, dt * 12)
+    this._kSensor?.till(bx, this._mouthY + 26 - this._lift)
     this._phys.update(t.deltaMS)
+    this._hog?.update(t.deltaMS) // frukten i korgen faller och lägger sig (egen värld, korgens rum)
 
     // Släpp ny frukt med jämna mellanrum (ej under firande, ej över taket).
     if (!this._busy) {
@@ -473,7 +509,7 @@ export default {
     this._phys.link(body, view)
     // Korgkanten knuffar nu med rörelsemängd (R2) — taket håller en knuffad frukt kvar i banan (P0).
     this._phys.fartTak(body, FRUKT_FART)
-    this._fruit.push({ body, view, kind, caught: false })
+    this._fruit.push({ body, view, kind, caught: false, s: def.fs / 62, r })
   },
 
   // ---- Kollisioner: fångst (sensor) + lekfull kant-studs (rim) -------------
@@ -607,7 +643,7 @@ export default {
     // Frukten ploppar ner i korgen (exit-säker proxy-tween) — men till barnets egen figur på
     // grenen flyger den ÖNSKADE frukten hela vägen till munnen och ätes (LYFTPLAN §10).
     if (wished && this._fig?._alive) this._flyToFigur(ctx, f)
-    else this._tuck(f, bx)
+    else this._laggIHog(ctx, f)
 
     // Mottagaren: fångade barnet den ÖNSKADE sorten blir djuret extra glatt (mums + hopp
     // + gnistor) och önskar sig något nytt. Fel sort är fortfarande kul — djuret fnissar,
@@ -768,38 +804,61 @@ export default {
     if (!forsta) bounceIn(h, { duration: 0.4 })
   },
 
-  // Tweena ett vanligt objekt och kopiera till frukten bara om den lever.
-  // En frukt som förstörs (t.ex. vid spel-exit) hoppas över -> kan aldrig krascha.
-  _tuck(f, bx) {
-    const v = f.view
+  // Frukten lämnas över till högen: en ny vy UTAN markskugga (samma frukt, samma läge och vinkel) läggs i
+  // korgens lager, den gamla rivs, och kroppen föds i korgens koordinater där sensorn tog frukten —
+  // den faller de sista pixlarna och lägger sig. Räkningen (`_nFangade`) sker HÄR, när kroppen ligger i högen.
+  _laggIHog(ctx, f) {
+    const gammal = f.view
+    if (!gammal || gammal.destroyed) return
+    const b = this._basket
+    if (!this._alive || !this._hog || !this._pile || this._pile.destroyed || !b || b.destroyed) {
+      this._rivVy(gammal)
+      return
+    }
+    const r = f.r || 22
+    const lx = clamp(gammal.x - b.x, -(HOG_X - r - 2), HOG_X - r - 2)
+    const ly = Math.min(gammal.y - this._mouthY, HOG_GOLV - r - 4)
+    const rot = gammal.rotation
+    const fart = f.body?.velocity
+    const vx = fart ? clamp(fart.x * 0.4, -2.5, 2.5) : 0
+    const vy = fart ? clamp(fart.y * 0.5, 0, 4) : 1.5
+    this._rivVy(gammal)
+    const nyVy = makeFruit(f.kind, f.s || 1, false)
+    this._pile.addChild(nyVy)
+    const post = this._hog.lagg({ cirkel: r, vy: nyVy, studs: 0.2, friktion: 0.2, luft: 0.02, label: 'fruktihog' }, lx, ly, { x: vx, y: vy })
+    if (!post) {
+      this._rivVy(nyVy)
+      return
+    }
+    post.landad = false
+    Body.setAngle(post.body, rot)
+    this._nFangade++
+  },
+
+  // Frukten har slagit i högen första gången: liten puff där den landade.
+  _landa(ctx, post, h) {
+    if (!this._alive || post.landad || !this._basket || this._basket.destroyed) return
+    post.landad = true
+    const px = this._basket.x + (h?.x ?? post.body.position.x)
+    const py = this._mouthY + (h?.y ?? post.body.position.y)
+    puff(ctx.fxLayer, px, py, { count: 4 })
+  },
+
+  // Firandet: frukten i korgen hoppar till (uppåtfart på alla kroppar) och landar igen.
+  _hogHopp() {
+    if (!this._hog) return
+    for (const p of this._hog.poster) {
+      if (p.ute) continue
+      Matter.Sleeping.set(p.body, false)
+      Body.setVelocity(p.body, { x: (Math.random() * 2 - 1) * 1.5, y: -(5 + Math.random() * 3) })
+    }
+  },
+
+  _rivVy(v) {
     if (!v || v.destroyed) return
     gsap.killTweensOf(v)
     gsap.killTweensOf(v.scale)
-    const st = { x: v.x, y: v.y, s: v.scale.x || 1, a: 1 }
-    const tw = gsap.to(st, {
-      x: bx,
-      y: this._mouthY + 40,
-      s: 0.18,
-      a: 0,
-      duration: 0.34,
-      ease: 'power2.in',
-      onUpdate: () => {
-        if (v.destroyed) {
-          tw.kill()
-          return
-        }
-        v.x = st.x
-        v.y = st.y
-        v.alpha = st.a
-        v.scale.set(st.s)
-      },
-      onComplete: () => {
-        const idx = this._proxyTweens.indexOf(tw)
-        if (idx >= 0) this._proxyTweens.splice(idx, 1)
-        if (!v.destroyed) v.destroy()
-      },
-    })
-    this._proxyTweens.push(tw)
+    v.destroy({ children: true })
   },
 
   // ---- Mål nått: firande + ny nivå ----------------------------------------
@@ -822,6 +881,7 @@ export default {
     const bx = this._basket && !this._basket.destroyed ? this._basket.x : ctx.width / 2
     sparkle(ctx.fxLayer, bx, this._mouthY, { count: 10 })
     if (this._basket && !this._basket.destroyed) pop(this._basket, { scale: 1.18 })
+    this._hogHopp() // frukten i korgen hoppar med
 
     this._level += 1
     ctx.progress.setLevel(this._level)
@@ -882,6 +942,9 @@ export default {
   // ---- Städning -----------------------------------------------------------
 
   _clearFruit() {
+    // Korgen töms: högen tonar bort (en ny runda börjar med en tom korg).
+    this._hog?.tom()
+    this._nFangade = 0
     for (const f of this._fruit) {
       if (f.body) this._phys.removeBody(f.body)
       const v = f.view
@@ -935,6 +998,9 @@ export default {
     this._proxyTweens = []
     if (this._meterLayer && !this._meterLayer.destroyed) gsap.killTweensOf(this._meterLayer.scale)
 
+    this._hog?.destroy() // vyerna rivs av roten
+    this._hog = null
+    this._pile = null
     this._kRimL?.destroy()
     this._kRimR?.destroy()
     this._kSensor?.destroy()
@@ -975,6 +1041,20 @@ function makeSquirrel() {
   c.eventMode = 'none'
   c.interactiveChildren = false
   return c
+}
+
+// Korgens främre kant (nedre halvan av munnens ring), ritad OVANPÅ högen så att frukten ligger i korgen,
+// inte på den. Samma färg, bredd och ellips som ringen i `makeBasket` (origo = munnens mitt).
+function makeBasketLip() {
+  const pts = []
+  for (let i = 0; i <= 28; i++) {
+    const a = (i / 28) * Math.PI
+    pts.push(Math.cos(a) * 108, -4 + Math.sin(a) * 22)
+  }
+  const g = new Graphics()
+  g.poly(pts, false).stroke({ width: 15, color: 0x9a6438, join: 'round', cap: 'round' })
+  g.eventMode = 'none'
+  return g
 }
 
 function makeBasket(scale = 1) {

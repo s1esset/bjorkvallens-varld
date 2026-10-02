@@ -19,15 +19,13 @@ import { gsap } from 'gsap'
 import { logDrag } from './gamelog.js'
 import { landa } from './feedback.js'
 import { ANIM } from './theme.js'
+import { Pekspar } from './pekspar.js'
 
 const FOLJ_LAG = 0.1 // s — hur långt efter fingret bilden ligger
 const LUT_MAX = 0.22 // rad — taket för lutningen
 const LUT_PER_PX = 0.008 // rad per px eftersläpning (uppmätt: 13 px släp -> ~6°)
 
-// KASTET (opt-in, `hooks.onKast`) — se `_slappFart`.
-const KAST_FONSTER = 90 // ms bakåt som farten mäts över
-const KAST_ALDER = 130 // ms — äldre sista prov = fingret STOD STILL, alltså inget kast
-const KAST_PROV = 6 // ringbuffertens längd
+// KASTET (opt-in, `hooks.onKast`) — spåret och släppfarten bor i `lib/pekspar.js` (G2).
 
 // PEKAR-ID (FYSIKPLAN K2). `globalpointermove` levereras för VARJE pekare, så ett andra finger
 // (eller en handflata) drog annars föremålet till sig. Greppet minns fingrets `pointerId` och
@@ -125,7 +123,7 @@ export class DragController {
     rec.view._fxWiggleBusy = true
     // Ringbufferten finns bara för den som bett om kastet. De 72 andra spelen ska inte
     // betala en allokering per pekrörelse för en krok de inte har.
-    rec._spar = rec.hooks.onKast ? [] : null
+    rec._spar = rec.hooks.onKast ? new Pekspar() : null
     rec._shadow = this._skugga ? this._makeShadow(rec) : null
     rec._qx = gsap.quickTo(rec.view, 'x', { duration: FOLJ_LAG, ease: 'power2.out' })
     rec._qy = gsap.quickTo(rec.view, 'y', { duration: FOLJ_LAG, ease: 'power2.out' })
@@ -155,42 +153,16 @@ export class DragController {
       // en fart mätt på den hade varit dämpad och försenad — alltså inte den rörelse
       // barnet just gjorde. Samma skäl som träffprövningen läser `rec.tx/ty`.
       if (rec._spar) {
-        rec._spar.push({ t: performance.now(), x: rec.tx, y: rec.ty })
-        if (rec._spar.length > KAST_PROV) rec._spar.shift()
+        rec._spar.lagg(performance.now(), rec.tx, rec.ty)
       }
     }
   }
 
-  /**
-   * Släppfarten i px/ms, eller `null` om släppet inte var ett kast.
-   *
-   * ⚠️ TVÅ FÄLLOR, båda tysta:
-   *  1. **Fönstret.** Mäts farten över hela draget blir ett långsamt drag med en snärt på
-   *     slutet ett medelvärde nära noll; mäts den över de två sista proven mäter man
-   *     bruset i ett enda pekvärde. ~90 ms bakåt är det spann som bär en snärt.
-   *  2. **Åldern.** Prov läggs bara vid `pointermove`. Stannar fingret och HÅLLER stilla
-   *     en halv sekund innan det lyfts kommer inga nya prov — det sista provet bär då
-   *     fortfarande full fart, och ett stillastående släpp hade lästs som ett kast.
-   *     Därför förfaller spåret efter `KAST_ALDER`.
-   */
+  // Släppfarten i px/ms, eller `null` om släppet inte var ett kast — mätningen (fönstret, åldern,
+  // sökningens tak: de tre tysta fällorna) bor i `Pekspar.fart()` sedan G2. Metoden finns kvar
+  // för att `_kastprobe` och spelen hakar på `_slappFart(rec)`.
   _slappFart(rec) {
-    const s = rec._spar
-    if (!s || s.length < 2) return null
-    const nu = s[s.length - 1]
-    if (performance.now() - nu.t > KAST_ALDER) return null
-    let i = s.length - 2
-    while (i > 0 && nu.t - s[i].t < KAST_FONSTER) i--
-    // ⚠️ SÖKNINGEN STANNAR PÅ FÖRSTA PROVET UTANFÖR FÖNSTRET, och det provet kan ligga
-    // hur långt bort som helst: draget pausar, handen står stilla, och nästa prov bakåt
-    // är 220 ms gammalt. Farten räknas då över 270 ms i stället för 50 och späds ut mot
-    // noll — uppmätt 0,29 px/ms för en snärt som var ~1,9, alltså ett kast som tyst blev
-    // ett släpp. Ligger provet mer än två fönster bort duger det yngre i stället.
-    if (i < s.length - 2 && nu.t - s[i].t > 2 * KAST_FONSTER) i++
-    const dt = nu.t - s[i].t
-    if (!(dt > 0)) return null
-    const vx = (nu.x - s[i].x) / dt
-    const vy = (nu.y - s[i].y) / dt
-    return { vx, vy, fart: Math.hypot(vx, vy), x: nu.x, y: nu.y }
+    return rec._spar ? rec._spar.fart() : null
   }
 
   // Körs varje bildruta medan något hålls: lutning ur eftersläpningen (blir automatiskt

@@ -1,10 +1,13 @@
 # Tårta i Ansiktet (`tarta-i-ansiktet`)
-> 🎉 roligt · mixed · 3–5 år · status: ✅ klar
+> 🎉 roligt · mixed · 3–5 år · status: 🔧 förbättringar pågår (cirkusen byggd 2026-10-02; [Deep] siktet / släppfarten G2 står kvar)
 
 ## 1. Nuläge (sett som spelare)
 
-Alissa — en stor, glad clown (rött hår/öron, röd näsa, fest-hatt, brett leende) — står på
-en scen med röda ridåer. Längst ner väntar en gräddtårta på en bricka. Jag GREPPAR tårtan,
+Alissa — en stor, glad clown (rött hår/öron, röd näsa, fest-hatt, brett leende) — står i en
+**manege** i ett stortält: randig tältduk som löper ihop uppåt, tre läktarrader med publik som
+guppar, en rep-list runt arenan, sandgolv med rakade ringar och två strålkastare som hänger i
+kappan och korsar strålarna över henne. Bobo och Zacke står bakom varsitt podie i arenan. Tältet
+byts mot en annan palett (vin · marin · skog) varje runda. Längst ner väntar en gräddtårta på en bricka. Jag GREPPAR tårtan,
 drar och SLÄPPER med fart (flick); den flyger i en fysik-båge (gravitation + mjuk styrning
 mot ansiktet) och PLASKAR: 3–5 vita grädde-klumpar studsar fram på ansiktet, en vit puff,
 clownen vinglar + studsar, rösten ropar något busigt ("Plask!", "Mums!", "Oj då!"). En
@@ -47,8 +50,8 @@ Loopen är stark, men slapstickens själva poäng underutnyttjas:
 - **En enda projektil, en enda splat.** Alltid samma gräddtårta, alltid vita cirkel-klumpar i
   samma slumpkluster. Ingen variation (choklad, bär, vaniljkräm, vattenballong), ingen
   splat-form utöver cirklar. Träff nummer sex ser likadan ut som träff nummer ett.
-- **Tom scen.** Clownen står ensam mellan två röda ridå-rektanglar. Ingen publik, ingen
-  medspelare, ingen uppbyggnad — slapstick utan reaktion *runt omkring* känns platt.
+- ~~**Tom scen.**~~ Rättad 2026-10-02: tält med läktare, publik som hoppar vid varje träff och
+  strålkastare som blixtrar/sveper (`cirkus.js`). (Före: clownen ensam mellan två ridåer.)
 - **Torkningen är mekanisk.** Klumparna krymper/tonar bort under svampen — skönt, men ingen
   squeegee-strimma, inga tvål-bubblor, ingen blank "ren"-glans som följer svampen.
 - **Tunt, generiskt ljud.** `pop`/`pling`/`whoosh`/`soft` + talade splat-ord. Inget riktigt
@@ -91,7 +94,14 @@ inte en medspelare, och flicken har inget att sikta på.
   torkat — gör "rent" synligt och inte bara "mindre kladd".
 
 ### Progression
-- **[Medium] Skrattande publik.** Små ansikten i kanten som fnissar/jublar mer ju kladdigare
+- ✅ ~~**[Medium] Skrattande publik.**~~ Grunden klar 2026-10-02: tre läktarrader med små
+  människor hoppar rad för rad vid varje träff (`jubla`), strålkastarna blixtrar, och vid rundans
+  slut sveper strålarna isär och publiken hoppar (`finale`). **Kvar:** att jublet *växer* med
+  kladdet (nu lika vid varje träff), och att publiken kastar konfetti.
+- **[Deep] Släppfarten → G2** (FYSIKPLAN §2 G2): `VEL_WINDOW`/`_measureFlick` (:50, :506) är
+  repots tredje egna släppfart bredvid DragController. **Inte med 2026-10-02** (ägarens avgränsning);
+  `STEER` (:46) avgör fortfarande landningen.
+- **[Medium, gammal] Skrattande publik** (rest): Små ansikten i kanten som fnissar/jublar mer ju kladdigare
   Alissa blir och kastar konfetti vid rundans slut — ger slapsticken en medskrattande omgivning.
 
 ### Karaktär & berättelse
@@ -103,6 +113,18 @@ inte en medspelare, och flicken har inget att sikta på.
   *(Blockerad 2026-09-23: kräver nya SFX-klipp — MOSS nere.)*
 
 ## 5. Status / loggar
+
+- 2026-10-02 🎪 **L2: en cirkus i stället för krämplattan** (`cirkus.js`, ny fil). Fonden (en
+  ljus platta mellan ridåer) och plankgolvet är utbytta mot ett stortält som byggs om varje runda
+  med en palett ur `PALETTER` (`nastaVariant`): tältduk av kilar mot en topp långt ovanför bild
+  (mörk mot taket, varm mot arenan), tre läktarrader (bakre raderna mörkare = djup) med ~40
+  människor per rad som guppar var för sig (`liv`), rampljusets sken bakom clownen,
+  manegekant med fält och guldlist, sandgolv med rakade ringar, korn och två ljuspölar, och två
+  strålkastare med trefaldiga ljuskäglor som korsar arenan och svajar. Publiken hoppar rad för rad
+  vid varje träff (`jubla`), strålarna blixtrar; rundans slut sveper lamporna och hoppar högre
+  (`finale`). Bobo och Zacke flyttade från kanterna (176/1104) till x 320/960 bakom podier som döljer
+  Bobos haka och Zackes ben (svampens hemplats 1130,600 ligger fri). Ridåerna och kappan står kvar
+  framför duken. Fysiken (`STEER`, flick) är orörd; släppfarten (G2) är EJ med.
 
 - 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): **varierad splat-form** — varje
   grädde-klump ritas av `ritaKlump` som en axelparallell ellips med 2–3 lober och 1–3 stänk

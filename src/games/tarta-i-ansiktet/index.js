@@ -15,10 +15,13 @@ import { BLEED_X, BLEED_Y } from '../../lib/view.js'
 import { verticalFill, cylinderFill, sphereFill, topLightFill } from '../../lib/form.js'
 import { makeKaraktar } from '../../lib/karaktarer.js'
 import { randomFrom } from '../../lib/swedish.js'
+import { nastaVariant } from '../../lib/variation.js'
+import { byggCirkus, PALETTER } from './cirkus.js'
 
-// Cirkusfondens toning — spänner om den gamla platta COLORS.bg, aldrig exakt den.
-const C_FOND_TOP = 0xfffbf1
-const C_FOND_BOT = 0xf4e7ca
+// Bakom tältet (som täcker allt): mörk plommon, så ingen kant av letterbox-crème skymtar
+// på en bred skärm om duken inte räcker ut. Fångar också "tomt tryck".
+const C_FOND_TOP = 0x3a2036
+const C_FOND_BOT = 0x5a2a42
 
 // Tårtsorter — projektilen roterar, och splatten får sortens färg. Förut var det
 // alltid samma gräddtårta och alltid vita klumpar: träff sex såg ut som träff ett.
@@ -97,28 +100,23 @@ export default {
 
     // Bakgrund: fångar "tomt tryck" -> lekfull vingel + mjukt ljud (aldrig fel).
     // Ritas med bleed åt alla håll så breda telefoner (synlig yta utanför 0..1280)
-    // aldrig visar creme-lister — se lib/view.js.
-    // Fonden lag pa 407 401 px — 44 % av skärmen — i EN ton (`_plattprobe --medbakgrund`),
-    // och tonen var `COLORS.bg`: en scen målad i exakt letterbox-cremen går inte att
-    // skilja från "ingen bleed alls" (kantCream i scripts/bildkoll.mjs). Nu är den en
-    // cirkusfond som är ljusast där rampljuset träffar och mörknar mot golvet.
+    // aldrig visar creme-lister — se lib/view.js. Själva platsen (tältduk, läktare, manege,
+    // strålkastare) ligger i cirkus.js och byggs om varje runda med en ny palett.
     const bg = new Graphics().rect(-BLEED_X, -BLEED_Y, ctx.width + 2 * BLEED_X, ctx.height + 2 * BLEED_Y).fill(verticalFill(C_FOND_TOP, C_FOND_BOT))
     bg.eventMode = 'static'
     bg.on('pointertap', () => this._emptyTap(ctx))
     this._root.addChild(bg)
 
-    // Dekor: scengolv + RIKTIGA ridåer. De två platta röda rektanglarna läste som
-    // en trasig ram, inte som en scen.
+    // Tältet: duk, läktare, manege och strålkastare. Två platshållare (bak/fram) ligger kvar i
+    // rätt ritordning medan innehållet byts ut varje runda (se _byggCirkus).
+    this._pal = null
+    this._cirkus = null
+    this._bakSlot = new Container()
+    this._bakSlot.eventMode = 'none'
+    this._root.addChild(this._bakSlot)
+
+    // Dekor: RIKTIGA ridåer + kappa med tofsar — tältets ingång, framför duken.
     const decor = new Graphics()
-    // Scengolv med kantlist. Breddas ±BLEED_X och dras BLEED_Y nedåt så golvet når
-    // skärmkanten även på breda telefoner och 4:3-plattor (deterministiskt värstafall).
-    // Golvet tonas i samma svep: så fort fonden slutade vara platt blev scengolvet
-    // bildens största enfärgade fält (122 303 px) — samma fynd, ny plats.
-    decor.rect(-BLEED_X, 560, ctx.width + 2 * BLEED_X, 160 + BLEED_Y).fill(verticalFill(0xf0e3cc, 0xdcc9a5))
-    decor.rect(-BLEED_X, 560, ctx.width + 2 * BLEED_X, 14).fill(0xcbb392)
-    // Plankskarvarna fortsätter i bleed-zonerna (i<0 och i>15) — original-index orörda
-    // så 16:9-bilden är pixel för pixel densamma.
-    for (let i = -3; i < 19; i++) decor.rect(i * 80 + 4, 574, 4, 146 + BLEED_Y).fill({ color: 0xcbb392, alpha: 0.5 })
     // Ridåveck i sidorna. Extra veck (i<0) fortsätter mönstret utåt i sidled, och varje
     // veck får raka flikar över/under scenen — de synliga kurvorna 0..720 är orörda.
     const curtain = (x0, dir) => {
@@ -158,7 +156,7 @@ export default {
 
     // Publik på scengolvet: Bobo och Zacke ser på och jublar när tårtan träffar.
     this._audience = []
-    for (const [ax, kind] of [[176, 'bobo'], [1104, 'zacke']]) {
+    for (const [ax, kind] of [[320, 'bobo'], [960, 'zacke']]) {
       // Bobo blir en rigg, Zacke är kvar som han var. `kropp: false`: publiken sitter
       // bakom scenkanten och bara huvudena syns — en kropp hade stuckit ner genom
       // golvet i stället för att ersätta något.
@@ -167,11 +165,16 @@ export default {
         this._kar = makeKaraktar({ r: 44, kropp: false })
         v = this._kar.view
       } else v = makeAudienceZacke()
-      v.position.set(ax, kind === 'bobo' ? 606 : 596)
+      v.position.set(ax, kind === 'bobo' ? 580 : 590)
       v.eventMode = 'none'
       this._root.addChild(v)
       this._audience.push({ view: v, baseY: v.y })
     }
+
+    this._framSlot = new Container() // podierna: ovanpå publiken, under clownen
+    this._framSlot.eventMode = 'none'
+    this._root.addChild(this._framSlot)
+    this._byggCirkus()
 
     this._buildClown(ctx)
     this._buildCake(ctx)
@@ -195,6 +198,16 @@ export default {
   },
 
   // ---- Scenbyggen ---------------------------------------------------------
+
+  // Tältet byts mot ett med en annan palett (aldrig samma som förra). Det gamla rivs med sina
+  // tweens först — annars skriver gsap på döda noder varje bildruta (se cirkus.js).
+  _byggCirkus() {
+    this._cirkus?.riv()
+    this._pal = nastaVariant(PALETTER, this._pal?.id)
+    this._cirkus = byggCirkus(this._pal)
+    this._bakSlot.addChild(this._cirkus.bak)
+    this._framSlot.addChild(this._cirkus.fram)
+  },
 
   // Glad clown av Pixi Graphics. Hela containern är EN stor träffyta (r=170)
   // så även de minsta kan "kasta" genom att trycka på clownen.
@@ -634,6 +647,7 @@ export default {
     wiggle(this._clown)
     pop(this._clown)
     ctx.services.voice.say(randomFrom(SPLATS))
+    this._cirkus?.jubla() // publiken på läktarna hoppar, strålkastarna blixtrar
     this._splats++
     // Mikroskak i ansiktet — kraftigare ju kladdigare det redan är (2,7 → 6,2 px).
     // Clownen skrivs inte av tickern (bara pop/vingel på skala/rotation), så skaket står sig.
@@ -869,6 +883,7 @@ export default {
     this._addCream()
     sparkle(ctx.fxLayer, FACE_X, FACE_Y, { count: 10 })
     pop(this._clown, { scale: 1.16 })
+    this._cirkus?.finale() // strålkastarna sveper, hela läktaren jublar
     this._celebrate = gsap.delayedCall(1.4, () => this._newRound(ctx))
   },
 
@@ -882,6 +897,7 @@ export default {
     this._perRound = throwsForLevel(this._level)
     this._clearCream()
     this._hideSponge()
+    this._byggCirkus() // ny palett och ny publik till nästa runda
     this._buildDots(ctx)
     this._resetCake()
     pop(this._clown)
@@ -993,6 +1009,8 @@ export default {
         gsap.killTweensOf(a.view.scale)
       }
     }
+    this._cirkus?.riv()
+    this._cirkus = null
     this._kar?.destroy() // river riggens alla tweens (idle, blink, humör, reaktion)
     this._kar = null
     gsap.killTweensOf(this._root)

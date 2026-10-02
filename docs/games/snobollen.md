@@ -89,8 +89,8 @@ auto-hjälpen kan spela banan åt barnet**.
 - ✅ ~~**[Quick] Befolka backen:** granar, snöiga stenar, en stuga med rykande skorsten, ett
   litet gupp/hoppbacke som kastar bollen i en glad båge. Tar bort tom-ramp-känslan.~~ Redan
   byggd 2026-07-01 (`_buildDecor` :420) + hoppkullar 2026-07-25 — uppdagat 2026-09-23.
-- **[Medium] Mål med personlighet + förväntan.** Ge pingviner/lådor ögon som tittar mot
-  bollen och hoppar undan i sista stund (eller vinkar). Lägg till varianter: en snögubbe att
+- **[Medium] Mål med personlighet + förväntan.** ✅ ~~Ge pingviner ögon som tittar mot
+  bollen~~ (2026-10-02, `_updateBlickar`). Kvar: lådor/pingviner som hoppar undan i sista stund (eller vinkar). Lägg till varianter: en snögubbe att
   krocka i bitar, en hög lösa lådor som rasar, en flock pingviner som sprids.
 - **[Deep] Hemliga snö-överraskningar:** ett snöfält gömmer ibland en morot/hatt/halsduk som
   bollen plockar upp och *bär med sig till snögubben* (kopplar till samlaren nedan).
@@ -281,3 +281,5 @@ auto-hjälpen kan spela banan åt barnet**.
 - 2026-08-09 ✅ **Full bleed [Quick]** (v1.68.0): flingornas wrap/respawn mot `ctx.view`, backens band + väderljus + styryta breddade (styrytan gör kantremse-tryck levande), gransiluetter från i=−2. Testad båda viewports: 0 fel.
 
 - **2026-10-02 · T2: styrning, hjälpskjuts och anti-tunnel-clamp per fysiksteg via phys.beforeStep — 57 fps-fysiken blir 60 Hz-fysik.** `_styrSteg` registreras en gång i `init` (`_avStyr`, avregistreras i `destroy`). Fart-blandningarna `v += (mål − v) · k` (STEER_BLEND, skjutsens 0,12) var en per bildruta och kördes EFTER `phys.update`; nu körs de precis FÖRE varje steg (blanda → clamp → steg — samma följd som förut, förskjuten en halv bildruta), så svaret vid 60 Hz (ett steg per bildruta) är detsamma. `_steering`/`_tapSteerT`/`_fingerX` läses direkt ur fälten i steget. Timers (`_tapSteerT`, `_helpPushT`), glitter, `_drawHint`, onGround/frameDist ligger kvar per bildruta.
+
+- **2026-10-02 · Pingvinernas ögon följer bollen (FYSIKPLAN §5.4).** Pingvinens ögon låg i samma `Graphics` som kroppen; nu är vitan och pupillen egna noder (`_makePenguin`: `art._pupL`/`art._pupR`). `_updateBlickar(dt)` (per bildruta, före tidiga return) räknar bollens läge i pingvinens EGET rum (hindren lutar med backen) och för pupillerna högst 2 px ur vilopunkten (-0,6, 0) med mjuk följning (1−e^(−9dt)). Gäller både hinder-pingvinerna och vakten vid målet (`_greeterArt`). Ingen fysik och ingen tween rörs. Mätning: `g._greeterArt._pupL.x` / `g._targets.filter(t=>t.type==='penguin').map(t=>t.art._pupL.x.toFixed(2))`.

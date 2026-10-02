@@ -125,6 +125,8 @@ const OBSTACLES = {
   snoman: { tip: 0.8, halfW: 32, h: 86, words: ['Puff!', 'Hihi!', 'Wii!'], snow: 8 },
 }
 const OB_TYPES = Object.keys(OBSTACLES)
+const PUPILL_VILA = { x: -0.6, y: 0 } // pingvinens pupill i vila (ögats rum)
+const PUPILL_MAX = 2 // längsta avstånd pupillen får vandra ur vilopunkten (vitan är 4,6 px)
 
 // C-durskala: varje passerad vimpel spelar nästa ton -> hörbar framfart.
 const SCALE = [523.25, 587.33, 659.25, 698.46, 783.99, 880, 987.77, 1046.5]
@@ -520,12 +522,60 @@ export default {
     g.circle(0, -28, 22).fill(0x3a4a5e) // huvud
     g.ellipse(-1, -24, 15, 14).fill(0xffffff) // ansikte
     g.moveTo(-5, -27).lineTo(-19, -21).lineTo(-5, -15).closePath().fill(0xef9a2e) // näbb
-    g.circle(-8, -31, 4.6).fill(0xffffff).circle(-8.6, -31, 2.4).fill(0x1d2733)
-    g.circle(5, -31, 4.6).fill(0xffffff).circle(4.4, -31, 2.4).fill(0x1d2733)
     g.ellipse(0, -46, 13, 5.5).fill({ color: 0xffffff, alpha: 0.95 }) // snömössa
+    // Ögonen är egna noder (vitt + pupill) så pupillerna kan titta mot bollen. Vilopupillen står
+    // en aning åt vänster = uppför backen, som förut. `_pupL`/`_pupR` är pupillernas Graphics:
+    // deras lokala x/y (i ögats rum, max ±2 px) är det som `_updateBlickar` skriver.
+    const oga = (x) => {
+      const o = new Container()
+      o.position.set(x, -31)
+      const vit = new Graphics().circle(0, 0, 4.6).fill(0xffffff)
+      const pup = new Graphics().circle(0, 0, 2.4).fill(0x1d2733)
+      pup.position.set(PUPILL_VILA.x, PUPILL_VILA.y)
+      vit.eventMode = 'none'
+      pup.eventMode = 'none'
+      o.eventMode = 'none'
+      o.addChild(vit, pup)
+      g.addChild(o)
+      return pup
+    }
+    g._pupL = oga(-8)
+    g._pupR = oga(5)
     g.scale.set(s)
     g.eventMode = 'none'
     return g
+  },
+
+  // Pingvinernas blick: varje pingvin (hinder + vakten vid målet) tittar mot bollen med en mjuk
+  // följning. Räknar bollens läge i pingvinens EGET rum (hindren lutar med backen) och flyttar
+  // pupillerna högst 2 px ur vilopunkten — vitan är 4,6 px, pupillen 2,4. Inget fysiskt rörs.
+  _updateBlickar(dt) {
+    const ball = this._ball
+    if (!ball || ball.destroyed) return
+    const k = 1 - Math.exp(-dt * 9)
+    const titta = (art, own) => {
+      if (!art || art.destroyed || !art._pupL || !own || own.destroyed) return
+      const dx = ball.x - own.x
+      const dy = ball.y - own.y
+      let tx = PUPILL_VILA.x
+      let ty = PUPILL_VILA.y
+      if (Math.abs(dx) < 1600 && Math.abs(dy) < 1000) {
+        const c = Math.cos(-own.rotation)
+        const s = Math.sin(-own.rotation)
+        const lx = dx * c - dy * s
+        const ly = dx * s + dy * c
+        const l = Math.hypot(lx, ly) || 1
+        const m = Math.min(1, l / 90) * PUPILL_MAX
+        tx = (lx / l) * m
+        ty = (ly / l) * m
+      }
+      for (const p of [art._pupL, art._pupR]) {
+        p.x += (tx - p.x) * k
+        p.y += (ty - p.y) * k
+      }
+    }
+    for (const t of this._targets) if (t.type === 'penguin') titta(t.art, t.view)
+    titta(this._greeterArt, this._greeter)
   },
 
   // Trälåda med plankor, snedstag och snö på locket.
@@ -664,7 +714,8 @@ export default {
     this._greeter.eventMode = 'none'
     const shadow = new Graphics().ellipse(0, 46, 30, 9).fill({ color: 0x6f86a0, alpha: 0.2 })
     shadow.eventMode = 'none'
-    this._greeter.addChild(shadow, this._makePenguin(0.9))
+    this._greeterArt = this._makePenguin(0.9)
+    this._greeter.addChild(shadow, this._greeterArt)
     this._zoneLayer.addChild(this._greeter)
     this._greetTween = breathe(this._greeter, { scale: 1.05, duration: 1.6 })
   },
@@ -1159,6 +1210,7 @@ export default {
     this._updateDebris(dt)
     this._updateCamera(dt)
     this._updateGlod(ctx, dt)
+    this._updateBlickar(dt)
     if (!this._alive || this._resolving) return
 
     const b = this._ballBody
@@ -1876,6 +1928,7 @@ export default {
       if (!g.destroyed) g.destroy()
     }
     this._swirls = []
+    this._greeterArt = null
     if (this._light) gsap.killTweensOf(this._light)
 
     this._phys?.destroy()

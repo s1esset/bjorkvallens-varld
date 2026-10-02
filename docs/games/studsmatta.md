@@ -56,6 +56,9 @@ Kort sagt: *en riktigt fin kontroll som spelet både motarbetar (centrering) och
 ## 4. Förbättringar & förhöjningar (plan)
 
 ### Kärnloop & agens
+- ✅ ~~**[Medium] Studsen ur mattan, inte ur ett skript (FYSIKPLAN P1 + R2).**~~ Klar 2026-10-02: mattan är en
+  `Fjaderbrada` på en kinematisk kropp (`matta.js`) — kaninens anslag lagras och ges tillbaka, så höjden följer
+  HUR HÖGT kaninen föll (med ett tak) och spänningen bestämmer var den jämnar ut sig. Dippen är brädans nedtryckning.
 - ✅ ~~**[Medium] Lätta på auto-centreringen.**~~ Redan byggd (anti-vingel 0,008 per bildruta,
   `index.js:294`; byggd 2026-07-01, se §5) — uppdagat 2026-09-23.
 - ✅ ~~**[Quick] Skjut auto-glidet senare / gör det mjukare.**~~ Redan byggd (`ASSIST_DELAY` 10 s,
@@ -98,6 +101,8 @@ Kort sagt: *en riktigt fin kontroll som spelet både motarbetar (centrering) och
 
 ## 5. Status / loggar
 
+- 2026-10-02 · **P1 + R2: mattan en fjäderbräda (FYSIKPLAN omgång D6).** Förut skriptad: `nudge(char, vx, -up)` med `up = 9 + power·15` vid varje landning och en gsap-dipp som VISADE en studs — höjden berodde bara på hur hårt mattan var spänd, aldrig på fallhöjden (HEAD uppmätt: stighöjd 385 / 396 / 420 px för fall 60 / 200 / 400 px). Nu: `Fjaderbrada` (`taEmot` vid landning, `steg` i fysiksteget via `phys.kinematisk`-avvikelsen), kaninen åker med brädan ner och kastas av dess egen fart uppåt; laddning = ½·anslagsfart + en pump ur spänningen, kapad av ett geometriskt tak (mittpunkten kommer aldrig över CEIL_Y+40). Uppmätt i `_studsmattaprobe` (power 0,5): fall 60 / 200 / 400 px → stighöjd 145 / 218 / 271 px, tak 271 px (bedY 470). Mattan följer fingret med högst 10 px/steg (R2) och den RITADE mattan är kroppens bas; dippen = 2 × nedtryckningen. Kaninens `restitution` 0 (brädan äger studsen), `fartTak` 18. Tryck-boosten finns kvar: nästa landning får full spänning och mattan dyker av sig själv. P0: 300 landningar × 6 körningar, högsta läge y ≈ 100 med nätet (aldrig ur bild); utan dragning håller taket utan nät (y 146 mot gräns 150). Ljudet är kvar (höjdtonen stiger med faktisk höjd, inte med spänningen).
+
 - 2026-10-01 · **Barnets egna figurer (LYFTPLAN §10, v1.287.0).** Picknick-gästen byts per montering (`figurForOmgang`, r 42, samma Karaktar-mått som Bobo → oförändrad placering): varannan gång sitter barnets EGET knytt eller kompis (eller ett MÖTT knytt) vid korgen. Den tuggar varje fångad morot/stjärna (`_boboMunch` → `react('nam')`), jublar när picknicken är serverad och följer kaninen med blicken (bara den egna figuren — Bobo är orörd). Inga repliker nämner Bobo, så bara presentationsraderna är nya. Utan egna figurer ser spelet ut som förut.
 - 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): `_winLevel` spelade själv vinstljud
   och konfettiregn i samma tick som `complete()` — strukna (WIN_CHEERS sägs före och står kvar).
@@ -137,3 +142,4 @@ Kort sagt: *en riktigt fin kontroll som spelet både motarbetar (centrering) och
 - 2026-08-09: **LYFTPLAN rad 3 / A2** (v1.47–48.0, `62b91db` + `bce776d`): stjärnorna ritas av delade `makeStjarna` (`lib/foremal.js`).
   Kontroll: `check` 0 fel · `test:all` 72/72 · skärmdump granskad. Inga spelregler eller layout rörda.
 - 2026-10-02 · **U2 jitter från nivå 0 (FYSIKPLAN omgång 0).** Målens läge slumpas via `slumpIBand` redan på nivå 0–3 (±14 px, lagom litet) och ±25 från nivå 4 som förut; bandet klipps mot golv/tak (x 360–920, y 200–470) FÖRE dragningen så inga mål samlas på kanten. Förut stod nivå 0–3 på en exakt rad. Studsen (P1) och mattan (R2) orörda.
+- 2026-10-02 · **Fixvarv 1 (P1).** Mattan studsar kaninen vidare även under firandet (`_resolving`, tyst — kaninens restitution 0 hade annars lämnat den stilla i ~1,9 s), och en landning på en matta som just är på väg upp (ett tryck precis före) ger nu squash + mjukt ljud (vaktat 150 ms) i stället för tystnad. Konstanter orörda.

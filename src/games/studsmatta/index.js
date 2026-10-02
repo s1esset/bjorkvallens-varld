@@ -13,6 +13,7 @@
 import { Container, Graphics, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { PhysicsWorld, nudge, Matter } from '../../lib/physics.js'
+import { Matta, HALF_SPAN, CHAR_R, BED_MIN_Y, BED_MAX_Y, GRAVITY_Y, CEIL_Y, KANIN_MAX_FART } from './matta.js'
 import { createScene } from '../../lib/scene.js'
 import { makeStjarna } from '../../lib/foremal.js'
 import { floatText, sparkle, puff, burst, pop, kvittera } from '../../lib/feedback.js'
@@ -26,13 +27,9 @@ import { slumpIBand } from '../../lib/variation.js'
 const { Body } = Matter
 
 // --- Geometri (designkoordinater 1280x720) ---
-const HALF_SPAN = 200 // halva mattans bredd
 const FLOOR_Y = 666 // där benen står
-const CHAR_R = 38 // kaninens fysik-radie
 const BED_MIN_X = 330 // hur långt åt vänster mattan får dras
 const BED_MAX_X = 950 // hur långt åt höger mattan får dras
-const BED_MIN_Y = 350 // högst upp mattan får dras (mjukast studs)
-const BED_MAX_Y = 560 // längst ner mattan får dras (spändast = högst studs)
 const DEFAULT_BED_Y = 470 // start: lagom spänning
 // Picknicken i högerkanten. Klar av kraftmätaren (x=1206) och av målens spawn-yta
 // (x 360..920). Studsmattans högra stolpe kan nå x=1150 vid full högerdragning, så
@@ -42,11 +39,9 @@ const PICNIC_GROUND = 690
 const PICNIC_R = 42
 const FLOOR_RESCUE_Y = 624 // föll kaninen bredvid mattan? mjuk räddnings-studs
 
-// --- Fysik-trimning (matter.js-enheter; finjustera vid speltest) ---
-const GRAVITY_Y = 1.2
-const MIN_UP = 9 // studs vid mattan högst uppe (mjukast)
-const MAX_UP = 24 // studs vid mattan längst ner (kaninen flyger ALDRIG ur skärmen)
-const CEIL_Y = 110 // mjukt tak: studsar tillbaka ned om kaninen ändå kommer för högt
+// --- Fysik-trimning (matter.js-enheter). Mattans egen fysik (studs, tak, fjäder) bor i ./matta.js. ---
+const MIN_UP = 9 // räddnings-/startstuds (px/steg)
+// CEIL_Y (matta.js) är nätet: studsar tillbaka ned om kaninen ändå kommer för högt (mattans eget tak ligger under det)
 
 // --- Insamling / mål ---
 const COLLECT_R = 72 // generös fångst-radie (barnvänlig)
@@ -101,6 +96,7 @@ export default {
     this._helpStage = 0
     this._lastLand = 0
     this._lastVoice = 0
+    this._lastSoft = 0
     this._bedX = 640
     this._bedY = DEFAULT_BED_Y
     this._tapBoost = false // tryck-fallback: en gångs extra-studs
@@ -114,7 +110,9 @@ export default {
     this._resolving = false
     this._collected = 0
     this._goals = []
-    this._bedProxy = { dip: 0 }
+    // Mattans RITADE läge = dess kropps bas (följer fingret med högst MAX_FART px/steg, R2), inte fingret.
+    this._visX = NaN
+    this._visY = NaN
     // Cache för change-guards (rita om matta/mätare bara när något ändrats).
     this._lastDip = NaN
     this._lastRigX = NaN
@@ -208,21 +206,19 @@ export default {
     // Fysik: golv + sidoväggar (mjukt tak hanteras manuellt i ticken).
     this._phys = new PhysicsWorld({ gravityY: GRAVITY_Y, walls: ['floor', 'left', 'right'] })
 
-    // Mattans bädd = statisk kropp som flyttas med _bedX/_bedY. Restitution 0 —
-    // studsen styr vi själva i _land (vår setVelocity efter Matters lösare = full kontroll).
-    this._bedBody = this._phys.rectangle(this._bedX, this._bedY + 22, HALF_SPAN * 2, 44, {
-      isStatic: true,
-      restitution: 0,
-      friction: 0,
-      label: 'bed',
-    })
+    // Mattan = en Fjaderbrada på en kinematisk kropp (./matta.js, FYSIKPLAN P1 + R2): studsen kommer
+    // ur brädans fjädring (anslaget lagras och ges tillbaka), den följer fingret med fart.
+    this._matta = new Matta(this._phys, this._bedX, this._bedY)
 
+    // Kaninens restitution är 0 MED FLIT: studsen ska vara brädans, inte ett extra (1+e)-kast ur lösaren.
     this._char = this._phys.circle(this._bedX, this._bedY - 120, CHAR_R, {
-      restitution: 0.9,
+      restitution: 0,
       friction: 0.001,
       frictionAir: 0.002,
       label: 'char',
     })
+    // Kast + en uppåtdragen matta får aldrig bli tunnling eller ett skott ur bild (P0).
+    this._phys.fartTak(this._char, KANIN_MAX_FART)
     // Kaninen är en FIGUR, inte en boll. Fysikkroppen snurrar fritt, men vyn hålls
     // ~upprätt med en liten lutning åt färdriktningen — ett upp-och-nedvänt ansikte
     // läser fel och gjorde kaninen oigenkännlig när den ritades i stället för emoji.
@@ -266,14 +262,15 @@ export default {
     const char = this._char
     const dtSec = t.deltaMS / 1000
 
-    // Rita elastisk matta (med ev. studs-dip) + uppdatera mätaren.
-    this._drawRig(this._bedProxy.dip)
+    // Rita elastisk matta (dippen är brädans egen nedtryckning) + uppdatera mätaren.
+    this._syncRig()
+    this._drawRig(this._matta.dip)
     this._updateMeter()
 
     // Skugga som krymper med höjden.
-    const h = clamp((this._bedY - char.position.y) / 380, 0, 1)
+    const h = clamp((this._visY - char.position.y) / 380, 0, 1)
     this._shadow.x = char.position.x
-    this._shadow.y = this._bedY + 16
+    this._shadow.y = this._visY + 16
     this._shadow.scale.set(1 - h * 0.5, 1)
     this._shadow.alpha = 0.18 * (1 - h * 0.6)
 
@@ -363,8 +360,8 @@ export default {
     if (!this._alive) return
     if (this._resolving || this._gliding) return this._kvitto(ctx)
     this._idle = 0
-    this._tapBoost = true // nästa landning får en garanterad hög studs
-    this._dipBed()
+    this._tapBoost = true // nästa landning får full spänning
+    this._matta.tryck() // mattan dyker och ringer ut av sig själv (bara när den vilar)
     this._squash(this._charView, false)
     ctx.services.audio.sfx('pop')
     if (Math.random() < 0.4) {
@@ -373,34 +370,51 @@ export default {
     if (Math.random() < 0.3) this._say(ctx, randomFrom(CHEERS), 1600)
   },
 
-  // ---- Landning på mattan: studsa upp så högt som mattan är spänd -------------
+  // ---- Landning på mattan: brädan tar emot, och kastar tillbaka -------------------
 
+  // Anropas vid collisionStart (före lösaren). Själva studsen är mattans (./matta.js): kaninens fart
+  // in i brädan lagras i fjädern och ges tillbaka — höjden följer FALLET och spänningen. Här sköts bara
+  // det barnet ser och hör (och sidfarten, som är spelets egen).
   _land(ctx) {
-    if (!this._alive || this._gliding || this._resolving) return
-    const now = performance.now()
-    if (now - this._lastLand < 90) return // skydd mot dubbel-kollision
-    this._lastLand = now
-
+    if (!this._alive || this._gliding) return
     const char = this._char
+    // Under firandet (_resolving) studsar mattan kaninen vidare — tyst, utan tryck-boost, ljud eller
+    // målräkning. Kaninens restitution är 0, så utan detta stod den still i hela firandet.
+    if (this._resolving) {
+      this._matta.landa(char, this._power())
+      return
+    }
     const power = this._tapBoost ? 1 : this._power()
+    const r = this._matta.landa(char, power)
+    const now = performance.now()
+    if (!r) {
+      // Underifrån, eller mattan är mitt i utkastet (ett tryck precis före landningen laddade den). Faller
+      // kaninen ändå in på brädan ska landningen höras och synas — vaktat så den inte spelas varje steg.
+      if (char.velocity.y > 0 && now - (this._lastSoft || 0) > 150) {
+        this._lastSoft = now
+        this._squash(this._charView, false)
+        ctx.services.audio.sfx('soft')
+      }
+      return
+    }
     this._tapBoost = false
-    const up = MIN_UP + power * (MAX_UP - MIN_UP)
-    const big = power > 0.5
+    this._lastLand = now
+    const hojd = r.hojd // 0…1 på en fast skala: ljudet stiger med höjden kaninen faktiskt får
+    const big = hojd > 0.5
     // Behåll MER av kaninens egen vågräta fart (kännbar sidled-studs) + en svagare mitt-
-    // dragning (bara anti-vingel, ingen autopilot).
+    // dragning (bara anti-vingel, ingen autopilot). Lodrätt är brädans.
     let vx = char.velocity.x * 0.5 + (this._bedX - char.position.x) * 0.018
     vx = clamp(vx, -7, 7)
-    nudge(char, vx, -up)
+    Body.setVelocity(char, { x: vx, y: char.velocity.y })
 
-    this._dipBed()
     this._squash(this._charView, big)
     ctx.services.audio.sfx(big ? 'boing' : 'soft')
-    // Höjdtonen: glider upp mot en topp som följer studskraften; fallet spelas när kaninen
+    // Höjdtonen: glider upp mot en topp som följer studshöjden; fallet spelas när kaninen
     // vänder (se _update). Golvet på 250 ms stryper dubbelstudsar.
     if (now - (this._hojdAt || 0) > 250) {
       this._hojdAt = now
-      const topp = HOJD_TOPP[power < 0.34 ? 0 : power < 0.67 ? 1 : 2]
-      ctx.services.audio.tone({ freq: HOJD_BAS, slideTo: topp, dur: 0.3 + power * 0.25, type: 'sine', vol: HOJD_VOL })
+      const topp = HOJD_TOPP[hojd < 0.34 ? 0 : hojd < 0.67 ? 1 : 2]
+      ctx.services.audio.tone({ freq: HOJD_BAS, slideTo: topp, dur: 0.3 + hojd * 0.25, type: 'sine', vol: HOJD_VOL })
       this._hojdTopp = topp
     }
 
@@ -413,11 +427,12 @@ export default {
   },
 
   _onCollision(ctx, e) {
-    if (!this._alive || this._gliding || this._resolving) return
+    if (!this._alive || this._gliding) return
     for (const pair of e.pairs) {
+      const bed = this._matta.body
       const hitBed =
-        (pair.bodyA === this._char && pair.bodyB === this._bedBody) ||
-        (pair.bodyB === this._char && pair.bodyA === this._bedBody)
+        (pair.bodyA === this._char && pair.bodyB === bed) ||
+        (pair.bodyB === this._char && pair.bodyA === bed)
       if (hitBed) {
         this._land(ctx)
         break
@@ -472,21 +487,37 @@ export default {
     }
   },
 
+  // MÅLET för mattan (fingret / hjälpen): kroppen går dit med högst MAX_FART px/steg (R2) och den ritade
+  // mattan följer kroppen (se _syncRig) — fysiken och bilden är samma sak.
   _setBed(x, y) {
     this._bedX = x
     this._bedY = y
-    this._applyBed()
+    this._matta.till(x, y)
   },
 
-  // Synka riggens position, träffyta och fysik-kroppen mot _bedX/_bedY.
+  // Ny omgång: bär mattan dit utan kastkraft (inget ryck på kaninen).
+  _resetBed(x, y) {
+    this._bedX = x
+    this._bedY = y
+    this._matta.flytta(x, y)
+    this._syncRig()
+  },
+
+  // Synka riggens position och träffyta mot mattans RITADE (kroppens) läge, och rita om den.
+  _syncRig() {
+    const m = this._matta
+    if (!m || !this._rig || this._rig.destroyed) return
+    if (m.x === this._visX && m.y === this._visY) return
+    this._visX = m.x
+    this._visY = m.y
+    this._rig.x = m.x
+    // Stor, förlåtande dra-träffyta runt mattan (>=96px), följer höjden.
+    this._rig.hitArea = new Rectangle(-HALF_SPAN - 46, m.y - 72, (HALF_SPAN + 46) * 2, 150)
+  },
+
   _applyBed() {
-    if (this._rig && !this._rig.destroyed) {
-      this._rig.x = this._bedX
-      // Stor, förlåtande dra-träffyta runt mattan (>=96px), följer höjden.
-      this._rig.hitArea = new Rectangle(-HALF_SPAN - 46, this._bedY - 72, (HALF_SPAN + 46) * 2, 150)
-    }
-    if (this._bedBody) Body.setPosition(this._bedBody, { x: this._bedX, y: this._bedY + 22 })
-    this._drawRig(this._bedProxy.dip)
+    this._syncRig()
+    this._drawRig(this._matta.dip)
   },
 
   // ---- Mål: skapa, fånga, hjälpa --------------------------------------------
@@ -784,7 +815,7 @@ export default {
       this._sinceCollect = 0
       this._helpStage = 0
       this._tapBoost = false
-      this._setBed(640, DEFAULT_BED_Y)
+      this._resetBed(640, DEFAULT_BED_Y)
       if (this._char) {
         Body.setStatic(this._char, false)
         Body.setPosition(this._char, { x: 640, y: this._bedY - 130 })
@@ -834,11 +865,11 @@ export default {
     if (!g || g.destroyed) return
     // Geometrin ändras bara vid studs-dip eller när mattan flyttas → annars hoppa över
     // (sparar en full re-tessellering varje frame medan kaninen är i luften).
-    if (dip === this._lastDip && this._bedX === this._lastRigX && this._bedY === this._lastRigY) return
+    if (Math.abs(dip - this._lastDip) < 0.05 && this._visX === this._lastRigX && this._visY === this._lastRigY) return
     this._lastDip = dip
-    this._lastRigX = this._bedX
-    this._lastRigY = this._bedY
-    const by = this._bedY
+    this._lastRigX = this._visX
+    this._lastRigY = this._visY
+    const by = this._visY
     const lx = -HALF_SPAN
     const rx = HALF_SPAN
     g.clear()
@@ -858,15 +889,6 @@ export default {
     // Ändknoppar (mattans fästen).
     g.circle(lx, by, 17).fill(COLORS.orange).stroke({ width: 3, color: COLORS.orangeDark })
     g.circle(rx, by, 17).fill(COLORS.orange).stroke({ width: 3, color: COLORS.orangeDark })
-  },
-
-  _dipBed() {
-    if (!this._alive) return
-    gsap.killTweensOf(this._bedProxy)
-    gsap
-      .timeline()
-      .to(this._bedProxy, { dip: 30, duration: 0.07, ease: 'power2.out' })
-      .to(this._bedProxy, { dip: 0, duration: 0.5, ease: 'elastic.out(1, 0.45)' })
   },
 
   // Kaninens ögon tittar mot närmaste mål som är kvar — och mot Bobo när allt är fångat.
@@ -950,8 +972,8 @@ export default {
       gsap.killTweensOf(this._charView)
       gsap.killTweensOf(this._charView.scale)
     }
-    gsap.killTweensOf(this._bedProxy)
     gsap.killTweensOf(this._root)
+    this._matta?.destroy()
     this._phys?.destroy()
     ctx?.services?.voice?.cancel()
     this._root?.destroy({ children: true })

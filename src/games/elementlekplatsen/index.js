@@ -29,7 +29,7 @@
 import { Container, Graphics, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { Sandlada, TOM, JORD, VATTEN, IS, ELD, ANGA, LERA, GLOD, STEN, FRO, ANTAL_MAT } from './automat.js'
-import { createScene } from '../../lib/scene.js'
+import { byggLabb } from './labb.js'
 import { bounceIn, pop, puff, sparkle, burst, ripple, liv, wiggle } from '../../lib/feedback.js'
 import { emitter } from '../../lib/partiklar.js'
 import { makeKaraktar } from '../../lib/karaktarer.js'
@@ -325,7 +325,9 @@ export default {
 
     this._root = new Container()
     ctx.stage.addChild(this._root)
-    this._root.addChild(createScene('warm', { width: ctx.width, height: ctx.height }))
+    // L2: ett labb med vägg, bänk och hyllor — dekor bakom lådan, ingen träffyta.
+    this._labb = byggLabb({ mittX: MITT_X, ladaX0: GX - 16, ladaY0: GY - 16, ladaX1: GX + GW + 16, ladaY1: GY + GH + 28 })
+    this._root.addChild(this._labb.root)
 
     // --- lådan: ram + mörk insida ---------------------------------------
     // Insidan är MÖRK med flit. Dels för att materialfärgerna ska poppa, dels för att
@@ -591,6 +593,8 @@ export default {
     this._paradTw = []
     for (const f of this._paradFigurer || []) if (f && !f.destroyed) gsap.killTweensOf(f)
     this._paradFigurer = []
+    this._labb?.stopp()
+    this._labb = null
     this._bobo?.destroy()
     this._bobo = null
     gsap.killTweensOf(this._root)
@@ -961,6 +965,8 @@ export default {
       this._aut.steg()
       steg++
     }
+    // Taket nåddes: en långsam enhet får inte samla en skuld som löses som ett ras.
+    if (this._acc >= 33.34) this._acc = 0
     if (!steg) return
 
     // Upptäckter ur automatens händelser.

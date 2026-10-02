@@ -127,6 +127,13 @@ kvar åt lådan är 928 × 416 px, och 16 px-celler ger fler celler i den ytan �
 
 ## 5. Status / loggar
 
+- 2026-10-02 ✅ **Bildlyft L2 + ackumulatorn** (natt F5 B2): den platta sandfärgade mallen ersatt av
+  ett labb (`labb.js`): grönblå vägg med panel och lampsken, en trädbänk som lådan står på (verktygen
+  står på skivan med sina skuggor), hyllor med kolvar och burkar, böcker med en liten planta,
+  termometer på väggen och en bubblande kolv på bänken. Allt dekor (`eventMode 'none'`), noll
+  texturbakningar, inget i x < 200 / y < 160. Automaten, cellerna, verktygen och träffytorna
+  är orörda. Enradsfix ur FYSIKPLAN T3: ackumulatorn kastar överskottet när steg-taket (3) nås
+  i stället för att växa obegränsat på en långsam enhet. Omätt i webbläsare (koordinatorn testar).
 - 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): penselstorlek per element, ångan
   puffar vid taket, Bobo följer elden med blicken och en porl-slinga när vatten rinner (se §4).
   Automaten fick bara två räknare (`takAnga`, `vattenFall` via `taFlode()`) — reglerna är orörda.

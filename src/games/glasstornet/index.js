@@ -196,6 +196,7 @@ export default {
     this._buildScene(ctx)
 
     this._phys = new PhysicsWorld({ gravityY: GRAV_Y, walls: ['floor', 'left', 'right'] })
+    this._avKnuff = this._phys.beforeStep(() => this._knuffSteg())
 
     this._newTower(ctx) // bygger också kärlet för aktuell nivå
 
@@ -725,6 +726,35 @@ export default {
 
   // ---- Uppdatering --------------------------------------------------------
 
+  // Knuffarna, EN gång per fast fysiksteg (`phys.beforeStep`). I tickern lades de en gång
+  // per BILDRUTA, så vid 30 Hz (två steg per bildruta) fick kulorna halva knuffen.
+  _knuffSteg() {
+    if (!this._alive) return
+    // Mjukglass sätter sig: kulor som ligger STILLA kryper långsamt mot mittlinjen så
+    // högen tidar upp sig till ett torn. Verkar aldrig på en kula som är i luften och
+    // aldrig snabbare än vinden — det är fortfarande barnets släpp som avgör.
+    if (!this._resolving) {
+      for (const rec of this._live) {
+        const b = rec.body
+        if (!b || b.isStatic || b === this._lastDropped) continue
+        if (Math.hypot(b.velocity.x, b.velocity.y) > 1.1) continue
+        const dx = TOWER_CX - b.position.x
+        if (Math.abs(dx) < 3 || Math.abs(dx) > 110) continue
+        Body.setVelocity(b, { x: b.velocity.x + clamp(dx, -1, 1) * 0.2, y: b.velocity.y })
+      }
+    }
+    // Mjuk magnet (auto-hjälp steg 2): en KNUFF mot mitten, inte ett ryck. Kapad
+    // till ±3,5 px/steg så kulan aldrig far tvärs över skärmen. Det som faktiskt får
+    // kulan att stanna är DÄMPNINGEN av sidled-farten (vinden slutar knuffa), inte
+    // dragningen mot mitten: kulan hamnar rätt om barnet siktade ungefär rätt, men
+    // släpper man vid kanten landar den fortfarande vid kanten.
+    const b = this._lastDropped
+    if (this._falling && b && this._lastRec && this._lastRec.magnet) {
+      const nudge = clamp((TOWER_CX - b.position.x) * 0.02, -3.5, 3.5)
+      Body.setVelocity(b, { x: b.velocity.x * 0.62 + nudge, y: b.velocity.y })
+    }
+  },
+
   _update(ctx, ticker) {
     if (!this._alive) return
     const dms = ticker.deltaMS
@@ -750,19 +780,8 @@ export default {
     // Vinden ritas varje frame (vimpel + streck) så motgången alltid syns.
     this._drawWind()
 
-    // Mjukglass sätter sig: kulor som ligger STILLA kryper långsamt mot mittlinjen så
-    // högen tidar upp sig till ett torn. Verkar aldrig på en kula som är i luften och
-    // aldrig snabbare än vinden — det är fortfarande barnets släpp som avgör.
-    if (!this._resolving) {
-      for (const rec of this._live) {
-        const b = rec.body
-        if (!b || b.isStatic || b === this._lastDropped) continue
-        if (Math.hypot(b.velocity.x, b.velocity.y) > 1.1) continue
-        const dx = TOWER_CX - b.position.x
-        if (Math.abs(dx) < 3 || Math.abs(dx) > 110) continue
-        Body.setVelocity(b, { x: b.velocity.x + clamp(dx, -1, 1) * 0.2, y: b.velocity.y })
-      }
-    }
+    // Knuffarna (mjukglassen som sätter sig + magneten) ligger i `_knuffSteg`
+    // (phys.beforeStep), en gång per fysiksteg.
 
     // Körsbäret guppar mjukt på måttstocken tills det får hoppa ner.
     if (this._cherry && !this._cherry.destroyed && !this._cherryFlying) {
@@ -812,17 +831,6 @@ export default {
         const sp = Math.hypot(b.velocity.x, b.velocity.y)
         if (sp < REST_SPEED) this._restAcc += dms
         else this._restAcc = 0
-        // Mjuk magnet (auto-hjälp steg 2): en KNUFF mot mitten, inte ett ryck. Kapad
-        // till ±2 px/steg så kulan aldrig far tvärs över skärmen — den hamnar rätt om
-        // barnet siktade någorlunda, men släpper man vid kanten landar den vid kanten.
-        // Det som faktiskt får kulan att stanna är DÄMPNINGEN av sidled-farten (vinden
-        // slutar knuffa), inte dragningen mot mitten. Därför en tydlig dämpning men en
-        // liten, kapad dragning: kulan hamnar rätt om barnet siktade ungefär rätt,
-        // men släpper man vid kanten landar den fortfarande vid kanten.
-        if (this._lastRec && this._lastRec.magnet) {
-          const nudge = clamp((TOWER_CX - b.position.x) * 0.02, -3.5, 3.5)
-          Body.setVelocity(b, { x: b.velocity.x * 0.62 + nudge, y: b.velocity.y })
-        }
       }
       if ((this._settle > 150 && this._restAcc >= REST_HOLD) || this._settle > SETTLE_MAX) {
         this._evaluate(ctx)
@@ -1620,6 +1628,8 @@ export default {
   destroy(ctx) {
     this._alive = false
     if (this._tick) ctx?.ticker?.remove(this._tick)
+    this._avKnuff?.()
+    this._avKnuff = null
     this._finishCall?.kill()
     this._cherryTween?.kill()
     this._serveTween?.kill()

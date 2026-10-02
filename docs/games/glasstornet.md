@@ -266,3 +266,4 @@ auto-hjälp + osynligt svaj urvattnar timing-skickligheten**.
   rutorna två steg; då får vobbeln två soft-steg i stället för ett steg med dtF 1,05 — utslaget följer nu
   matter-världens fasta takt. Vid 30 fps: två soft-steg per ruta i stället för ett med dtF 2 — uppmätt (`scripts/_taktlib.mjs`, vobbel) medelavvikelse 0,5 s efter en knuff **10,4 px → 0,71** och 5,6 px rest efter 1 s → 0,00 (före: ringen sprang iväg och lugnade sig inte). Vid 57–90 fps: 0,4–0,7 px båda sätten. Bildrutor utan fysiksteg (> 60 Hz) kör noll soft-steg.
   Orkestreraren kör `_vobbelprobe` (4,57 px utslag, 0,00 i vila).
+- 2026-10-02 ✅ **T2: knuffarna per fysiksteg** (v1.363.0): mjukglassens krypning mot mitten och magnetens knuff ur tickern till `phys.beforeStep` (`_knuffSteg`); `Takt`-vobbeln orörd — 57 fps-fysiken blir 60 Hz-fysik. `_taktprobe` (fyra magnetkulor, 10 s): 30/60 Hz skilde ≤ 1,0 px på HEAD, nu ≤ 0,2 (resten = vindens gravitation som sätts per bildruta).

@@ -302,6 +302,13 @@ till sammanhängande vätska. Samma enheter som resten av repot: **px/steg**, fa
 - ⚠️ `damp` ≠ 0 på en led med LÄNGD 0 bromsar stel rotation (mätt: 0,3 % kvar efter 40 steg vid 0,18 mot 87 % vid 0), därför förval 0. På en pendel med längd verkar `damp` bara radiellt: en svängande kula tappar ändå ~64 % energi på 10 s av matters egen lösare (rå Constraint lika) — vill du ha en pendel som SVÄNGER LÄNGE är det inte leden som hjälper.
 - ⚠️ En TUNG massa långt från leden (56 kg 240 px bort) får matters lösare att skena (ω 400 rad/steg, även rå `Constraint`). Lägg leden nära tyngdpunkten; kedjor av leder vill ha `iterationer: { villkor: 5 }` (töjning 20,6 → 9,7 px på 6 leder). Mät: `node scripts/_fysikbank.mjs --bara S4`.
 
+## Vev: dra runt en axel (`lib/vev.js`, G8)
+
+- `new Vev({ yta, hitArea, x, y, hitRadie: 66, rMin: 28, tapVinkel: π/2, damp: .03, acc: .012, maxFart: .3, gain: .35, klick: π/4, phys?, gangjarn?, maxMoment?, onNed, onGrepp, onKnuff, onKlick(n,rikt), onSlapp({tryck,drag,avbruten}) })` · `vev.uppdatera(dtMs)` (egen integrator, fast steg 1/60 s) · `vev.vinkel` (rad, medurs, ALDRIG modulo) · `.fart` (rad/steg) · `.varvPerS` · `.knuff()` · `.vrid(rad)` (hjälpen: en impuls som glider rad) · `.gripen` · `.destroy()`. `yta` = gemensam `static` förälder (K3). Ingen matter krävs; `phys + gangjarn: phys.gangjarn(hjul, {x,y})` kopplar den till en riktig kropp (momentet läggs på `body.torque`, `maxMoment` = tak i matters enhet).
+- DRAG: fingrets vinkelfart (tangentialfart / max(r, rMin), 90 ms fönster) → `dv = gain·(ω_finger − ω)` klämt till `acc`, farten klämd till `maxFart` — utan taken skenar en vild snurr (mätt 16 varv/s mot taket 2,9). Greppet tar först efter 12 px rörelse: ett stilla nedtryck bromsar aldrig ratten.
+- TAP = KNUFF: fartimpuls `tapVinkel·damp` (+ dödzonens svans) som glider ett kvarts varv på en stilla ratt; knuffar ADDERAS (taket gäller) → 10 tryck à 250 ms når 1,25 varv/s mot ett drags 1,0. Tryck hållet > 600 ms eller > 12 px är ingen knuff.
+- Mät: `node scripts/_vevlibprobe.mjs` (Node; kontroller: ingen input = 0 · damp 0 snurrar vidare · utan tak skenar · tung ratt med momenttak är långsammare). `_vevprobe.mjs` är KUGGHJULENS egen vev i webbläsaren — en annan sond. Första kund: `vattenvagen`s ventil (`_dag-vattenvagen.mjs`).
+
 ## Förhandsvisningens kalibrering (uppmätt mot matter.js vid fast 1/60-steg)
 
 Matters nedåtriktade hastighetsökning ≈ `0.2778 × gravityY` px/steg, och luftfriktionen dämpar

@@ -14,13 +14,16 @@ import { Container, Graphics, Circle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { PhysicsWorld, MATERIALS, Body } from '../../lib/physics.js'
 import { Rep, repPath } from '../../lib/rep.js'
-import { createScene, lerpColor } from '../../lib/scene.js'
+import { createScene, lerpColor, slump } from '../../lib/scene.js'
+import { nastaVariant } from '../../lib/variation.js'
 import { COLORS, shade, tint } from '../../lib/theme.js'
 import { groundFill, bage } from '../../lib/form.js'
 import { BLEED_X, BLEED_Y } from '../../lib/view.js'
 import { randomFrom } from '../../lib/swedish.js'
 import { pop, wiggle, sparkle, burst, floatText, bounceIn, breathe, puff, kvittera, squash } from '../../lib/feedback.js'
 import { makeKaraktar } from '../../lib/karaktarer.js'
+import { makeTreat } from './byten.js'
+import { ritaVagg, ritaFjarrTrad, ritaNaraTrad, ritaForgrundNatt, MARK_Y } from './kulisser.js'
 
 // Bytena RITAS (P0 ASSETS) — ascii-id:n, aldrig emoji som hela föremålet.
 const TREATS = ['karamell', 'klubba', 'choklad', 'larv', 'skalbagge']
@@ -123,6 +126,13 @@ export default {
 
     // Stjärnhimmel (FÖRSTA barn) + mörk markremsa nederst.
     this._root.addChild(createScene('night', { width: ctx.width, height: ctx.height }))
+    // Kulisser (L2): avlägsna trädkronor (lottas om per runda) och trädgårdsmuren som nätet
+    // sitter mot — bakom månen, eldflugorna, marken och allt spelbart.
+    this._fjarr = new Container()
+    this._fjarr.eventMode = 'none'
+    this._fjarr.interactiveChildren = false
+    this._root.addChild(this._fjarr)
+    this._root.addChild(ritaVagg(HOLES))
     // Månen och eldflugorna (byts per nivå i `_ritaNatt`) — bakom mark, nät och byten.
     this._natt = new Container()
     this._natt.eventMode = 'none'
@@ -142,6 +152,13 @@ export default {
     ground.rect(-BLEED_X - 40, 648, 1360 + 2 * BLEED_X, 12).fill({ color: 0x000000, alpha: 0.18 })
     ground.eventMode = 'none'
     this._root.addChild(ground)
+    // Det stora trädet står på marken framför muren (sida lottas per runda i `_ritaKulisser`).
+    this._tradL = new Container()
+    this._tradL.eventMode = 'none'
+    this._tradL.interactiveChildren = false
+    this._root.addChild(this._tradL)
+    this._trad = null
+    this._tradSida = undefined
 
     // Fysik: mjuk gravitation + sidoväggar; egen studsig markkropp en bit ner.
     this._phys = new PhysicsWorld({ gravityY: 0.9, walls: ['floor', 'left', 'right'] })
@@ -167,6 +184,13 @@ export default {
     this._web.position.set(this._baseX, BASE_Y)
     this._root.addChild(this._web)
 
+    // Bytenas skuggor på marken (en per byte, städas i `_update` när bytet försvunnit).
+    this._skuggLager = new Container()
+    this._skuggLager.eventMode = 'none'
+    this._skuggLager.interactiveChildren = false
+    this._root.addChild(this._skuggLager)
+    this._skuggor = []
+
     // Föremålslager (icke-interaktivt).
     this._itemLayer = new Container()
     this._itemLayer.eventMode = 'none'
@@ -177,6 +201,9 @@ export default {
     this._thread = new Graphics()
     this._thread.eventMode = 'none'
     this._root.addChild(this._thread)
+
+    // Mörka strån längst fram — framför marken, bakom spindeln och knapparna.
+    this._root.addChild(ritaForgrundNatt())
 
     // Spindeln (drag i sidled).
     this._spider = makeSpider()
@@ -285,6 +312,7 @@ export default {
     if (!lager || lager.destroyed) return
     for (const c of lager.removeChildren()) c.destroy({ children: true })
     this._eldflugor = []
+    this._ritaKulisser()
 
     const mane = new Graphics()
     const R = MANE.r
@@ -311,6 +339,21 @@ export default {
         f: 0.35 + Math.random() * 0.35, blink: 1.2 + Math.random() * 1.1, fas: Math.random() * 6.28,
       })
     }
+  },
+
+  // Träden och trädkronorna lottas om varje runda: stora trädet byter sida (aldrig samma två
+  // rundor i rad) och de avlägsna kronorna hamnar på nya platser. Bara bild — spelytan är densamma.
+  _ritaKulisser() {
+    const fl = this._fjarr
+    const tl = this._tradL
+    if (!fl || fl.destroyed || !tl || tl.destroyed) return
+    for (const c of fl.removeChildren()) c.destroy({ children: true })
+    for (const c of tl.removeChildren()) c.destroy({ children: true })
+    this._tradSida = nastaVariant([-1, 1], this._tradSida)
+    const fro = 1 + Math.floor(Math.random() * 1e9)
+    fl.addChild(ritaFjarrTrad(slump(fro)))
+    this._trad = ritaNaraTrad(this._tradSida, slump(fro + 17))
+    tl.addChild(this._trad)
   },
 
   _buildMeter() {
@@ -346,9 +389,6 @@ export default {
     const x = 120 + Math.random() * (1160 - 120)
 
     const view = new Container()
-    const shadow = new Graphics().circle(0, 8, 28).fill({ color: 0x000000, alpha: 0.12 })
-    shadow.eventMode = 'none'
-    view.addChild(shadow)
     const face = makeTreat(emoji)
     view.addChild(face)
     view.eventMode = 'none'
@@ -364,10 +404,17 @@ export default {
     // Kryp VILL iväg, godis ligger still. Krypet får närmaste spricka som mål; det
     // gör fångsten till ett kapplöp i stället för att plocka stillastående saker.
     const bug = emoji === 'larv' || emoji === 'skalbagge'
-    this._items.push({
-      body, view, _caught: false, _onGround: false, _groundAge: 0,
+    const it = {
+      body, view, art: face, _caught: false, _onGround: false, _groundAge: 0,
       _bug: bug, _hole: bug ? (x < 640 ? HOLES[0] : HOLES[1]) : null, _glint: Math.random() * 6, _guld: guld,
-    })
+    }
+    this._items.push(it)
+    // Skuggan på marken: liten och svag högt uppe, växer och mörknar när bytet närmar sig marken.
+    const sk = new Graphics().ellipse(0, 0, 36, 9).fill(0x000000)
+    sk.eventMode = 'none'
+    sk.alpha = 0
+    this._skuggLager.addChild(sk)
+    this._skuggor.push({ g: sk, it })
   },
 
   // --- Tap -> fångst ------------------------------------------------------
@@ -762,6 +809,32 @@ export default {
       n.alpha = 0.3 + 0.7 * Math.max(0, Math.sin(T * e.blink + e.fas))
     }
 
+    // Det stora trädet gungar ett par pixlar i kronan; daggen på nätet glimmar.
+    if (this._trad && !this._trad.destroyed) this._trad.rotation = Math.sin(T * 0.55) * 0.006
+    const dagg = this._web?.dagg
+    if (dagg && !dagg.destroyed) dagg.alpha = 0.55 + 0.35 * Math.sin(T * 1.7)
+
+    // Bytena lever: vingar fladdrar, spiralen snurrar, larven slingrar (lugnare på marken).
+    for (const it of this._items) {
+      if (it._caught) continue
+      it.art?.animera?.(T + it._glint, it._onGround ? (it._bug ? 1 : 0.3) : 0.7)
+    }
+    // Skuggorna följer bytena och städas när ett byte fångats, gått i hålet eller rivits.
+    for (let i = this._skuggor.length - 1; i >= 0; i--) {
+      const { g, it } = this._skuggor[i]
+      const v = it.view
+      if (it._caught || !v || v.destroyed || !this._items.includes(it)) {
+        if (!g.destroyed) g.destroy()
+        this._skuggor.splice(i, 1)
+        continue
+      }
+      const k = clamp(1 - Math.max(0, MARK_Y - v.y) / 520, 0.3, 1)
+      g.x = v.x
+      g.y = MARK_Y + 6
+      g.scale.set(k * 1.05, k)
+      g.alpha = 0.34 * k
+    }
+
     // Levande jägare: luta hjälten mjukt mot närmaste (lägsta) fallande föremål (billig lerp
     // av rotation). Låter honom kännas närvarande — han tittar/vänder sig mot bytet.
     const sp = this._spider
@@ -938,6 +1011,8 @@ export default {
     this._kar?.destroy() // riggens alla tweens (idle, blink, heja, jubel)
     this._kar = null
     this._eldflugor = []
+    this._skuggor = []
+    this._trad = null
 
     this._clearItems()
     this._tweens.forEach((t) => t.kill())
@@ -986,8 +1061,28 @@ function makeWeb() {
     }
   }
   g.stroke({ width: 2.5, color: 0xffffff, alpha: 0.28 })
+  // Daggdroppar i månsken på trådkorsningarna — glimmar i tickern (`g.dagg`).
+  const dagg = new Container()
+  const droppar = new Graphics()
+  const glans = new Graphics()
+  for (const [ri, rr] of [55, 100, 150].entries()) {
+    for (let i = 0; i < spokes; i++) {
+      if ((i + ri * 2) % 3 !== 0) continue
+      const a = (i / spokes) * Math.PI * 2
+      droppar.circle(Math.cos(a) * rr, Math.sin(a) * rr, 4.2)
+      glans.circle(Math.cos(a) * rr - 1.3, Math.sin(a) * rr - 1.5, 1.4)
+    }
+  }
+  droppar.fill({ color: 0xdfe9ff, alpha: 0.8 })
+  glans.fill(0xffffff)
+  dagg.addChild(droppar, glans)
   g.eventMode = 'none'
-  return g
+  const rot = new Container() // Graphics tar inga barn — nätet och daggen bor i en container
+  rot.addChild(g, dagg)
+  rot.dagg = dagg
+  rot.eventMode = 'none'
+  rot.interactiveChildren = false
+  return rot
 }
 
 // En gosig, HELT EGEN liten webb-hjälte (INTE Marvels Spindelmannen): en pytteliten
@@ -1115,75 +1210,4 @@ function makeWebIcon(r = 28) {
   g.stroke({ width: 2.4, color: 0xffffff, alpha: 0.8 })
   g.eventMode = 'none'
   return g
-}
-
-// RITAT byte (P0 ASSETS): karamell, klubba, chokladkaka, larv eller skalbagge.
-function makeTreat(kind) {
-  const c = new Container()
-  const g = new Graphics()
-  if (kind === 'guld') {
-    // Guldgodiset: en gyllene karamell i en mjuk gloria.
-    g.circle(0, 0, 38).fill({ color: 0xffe27a, alpha: 0.18 })
-    g.circle(0, 0, 38).stroke({ width: 3, color: 0xfff3b0, alpha: 0.55 })
-    g.ellipse(0, 0, 22, 17).fill(0xffd24a).stroke({ width: 3, color: 0xe0a92c })
-    g.moveTo(-22, 0).lineTo(-40, -15).lineTo(-36, 15).closePath().fill(0xffe27a)
-    g.moveTo(22, 0).lineTo(40, -15).lineTo(36, 15).closePath().fill(0xffe27a)
-    g.moveTo(-12, -12).quadraticCurveTo(0, 0, -12, 12).stroke({ width: 4, color: 0xfffdf7, alpha: 0.8 })
-    g.circle(-6, -6, 5).fill({ color: 0xffffff, alpha: 0.75 })
-  } else if (kind === 'karamell') {
-    g.ellipse(0, 0, 22, 17).fill(0xff6b9d)
-    g.moveTo(-22, 0).lineTo(-40, -15).lineTo(-36, 15).closePath().fill(0xff9ec4)
-    g.moveTo(22, 0).lineTo(40, -15).lineTo(36, 15).closePath().fill(0xff9ec4)
-    g.moveTo(-12, -12).quadraticCurveTo(0, 0, -12, 12).stroke({ width: 4, color: 0xfffdf7, alpha: 0.75 })
-    g.circle(-6, -6, 5).fill({ color: 0xffffff, alpha: 0.6 })
-  } else if (kind === 'klubba') {
-    g.moveTo(0, 18).lineTo(0, 44).stroke({ width: 7, color: 0xfffdf7, cap: 'round' })
-    g.circle(0, 0, 24).fill(0xffd35c)
-    for (let i = 0; i < 3; i++) {
-      const a0 = i * 2.1
-      g.moveTo(0, 0)
-      for (let t = 0; t < 22; t++) {
-        const a = a0 + t * 0.22
-        const r = t * 1.05
-        g.lineTo(Math.cos(a) * r, Math.sin(a) * r)
-      }
-      g.stroke({ width: 5, color: [0xff6b9d, 0x57c8c3, 0xa78bfa][i], alpha: 0.95 })
-    }
-    g.circle(0, 0, 24).stroke({ width: 3, color: 0xe0a92c })
-  } else if (kind === 'choklad') {
-    g.roundRect(-26, -20, 52, 40, 6).fill(0x6f452c)
-    for (let r = 0; r < 2; r++) {
-      for (let k = 0; k < 3; k++) {
-        g.roundRect(-23 + k * 16, -17 + r * 18, 13, 15, 3).fill({ color: 0x8a5a3b, alpha: 0.95 })
-      }
-    }
-    g.roundRect(-30, -24, 26, 48, 6).fill(0xff6b6b)
-    g.roundRect(-30, -24, 26, 10, 5).fill({ color: 0xff9e9e, alpha: 0.9 })
-  } else if (kind === 'larv') {
-    for (let i = 0; i < 4; i++) {
-      g.circle(-24 + i * 16, i % 2 ? -3 : 3, 13).fill(i % 2 ? 0x6ac96a : 0x8fd67a)
-    }
-    g.circle(28, 0, 15).fill(0x5bbf6a)
-    g.circle(33, -4, 4).fill(0x33291f)
-    g.circle(24, -4, 4).fill(0x33291f)
-    g.moveTo(24, -14).lineTo(20, -24).moveTo(33, -14).lineTo(37, -24)
-      .stroke({ width: 2.6, color: 0x3f8f43, cap: 'round' })
-    g.circle(20, -24, 3).fill(0x3f8f43)
-    g.circle(37, -24, 3).fill(0x3f8f43)
-  } else {
-    // skalbagge
-    g.ellipse(0, 2, 24, 20).fill(0x57c8c3)
-    g.moveTo(0, -16).lineTo(0, 20).stroke({ width: 3, color: 0x2f7c78 })
-    for (const [dx, dy] of [[-12, -2], [12, -2], [-8, 11], [8, 11]]) g.circle(dx, dy, 4.5).fill(0x2f7c78)
-    g.circle(0, -18, 12).fill(0x33291f)
-    g.circle(-5, -22, 2.4).fill(0xffd35c)
-    g.circle(5, -22, 2.4).fill(0xffd35c)
-    g.moveTo(-6, -28).lineTo(-11, -36).moveTo(6, -28).lineTo(11, -36)
-      .stroke({ width: 2.6, color: 0x33291f, cap: 'round' })
-  }
-  g.eventMode = 'none'
-  c.addChild(g)
-  c.eventMode = 'none'
-  c.interactiveChildren = false
-  return c
 }

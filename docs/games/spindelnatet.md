@@ -1,9 +1,11 @@
 # Spindelnätet (`spindelnatet`)
-> ⚙️ motorik · tap · 2–4 år · status: 🔧 förbättringar pågår
+> ⚙️ motorik · tap · 2–4 år · status: ✅
 
 ## 1. Nuläge (sett som spelare)
 
-En stjärnhimmel med en mörk markremsa nederst. Mitt i bilden sitter en gosig, helt egen liten
+En stjärnhimmel över en månbelyst **trädgårdsmur** (stenar, murgröna, två små hål i foten) med ett
+stort träd framför som byter sida varje runda, avlägsna trädkronor bakom muren och mörka strån längst
+fram. Mitt i bilden sitter en gosig, helt egen liten
 **webb-hjälte** (pytteliten figur i röd dräkt med svarta nät-linjer och stora vita ögon — INTE
 Marvels Spindelmannen) i sitt vita spindelnät. Godis och krypljus (🍬🍭🍫🐛🪲) regnar ner som
 riktiga matter.js-kroppar under mjuk gravitation. Jag trycker nära ett fallande föremål → en vit
@@ -109,6 +111,19 @@ fångar försvinner in i abstrakta prickar.
 
 ## 5. Status / loggar
 
+- 2026-10-02 ✅ **L2: ett eget rum — trädgårdsmuren i månsken** (nattkörning F5 B4). Himlen med en
+  mörk remsa var scenen. Nu: en stenmur (`kulisser.js:ritaVagg`, tre stentoner, kappa med månljus,
+  murgröna) som nätet sitter mot, med de två hålen (`HOLES`) som valv i foten — krypen kryper till
+  något synligt i stället för en osynlig spricka; ett stort träd i förgrunden (`ritaNaraTrad`, månljus
+  på kanten som vetter mot månen, kronan gungar ±0,006 rad) som **byter sida varje runda**
+  (`nastaVariant`, `g._tradSida`) och avlägsna trädkronor bakom muren på nya platser per runda;
+  mörka strån och klockblommor längst fram; dagg som glimmar på nätets trådkorsningar. **Bytena
+  (`byten.js`) är 20–35 % större och lever:** karamellens pappersvingar fladdrar, klubbans spiral
+  snurrar och rosetten vajar, chokladens omslag vajar och ett glansstråk glider, larven slingrar och
+  blinkar, skalbaggen viftar med ben och antenner; en riktig skugga på marken (liten och svag högt
+  upp, växer mot marken) ersätter den roterande cirkeln i varje byte. Bildlager bakom spelytan:
+  fysik, träffytor, fångstradie (90/200), kontroller och nivåer är orörda. Bytet som tweenas in
+  (G1) är inte rört. Noll gradienter och noll texturbakningar (bara fyllda Graphics).
 - 2026-10-02 ✅ **T3: fast 60 Hz-steg via lib/takt.js — 57 fps-fysiken blir 60 Hz-fysik** (Ä10). Nättrådens `Rep` stegades med variabelt `dtF = min(2, dt*60)` per bildruta (`damp`/styvhet per steg men kraft per `dtF²` ⇒ olika hängning vid olika fps); nu `s.rep.uppdatera(t.deltaMS)` = exakt 1 per fast steg, 0 vid >60 Hz. Bara stegraden rörd (matter-världen, jägaren, spawn och ritning orörda). Båghöjd mäts med `_tradprobe` (13,4–14,1 % ut, 2,7–6,2 % in) — formen flyttar sig lite från 57 fps-varianten, avsiktligt.
 - 2026-09-30 🧑 **Ägarbeslut: hjälten får vara kvar som den är.** Nattkörningen flaggade att
   figuren (röd dräkt, nätmönster, stora vita ögon) liknar Spindelmannen på en publik sajt; ägaren

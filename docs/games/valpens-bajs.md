@@ -77,6 +77,8 @@ Allt programmatiskt, flugor flyttas i tickern (ingen GSAP → exit-säkra), depo
   lättar när den släpps (`_tyngd` :1043); högen följer den sjunkna skopan varje bildruta. Den
   dragna noden med träffytan rörs aldrig.
 
+- ✅ ~~**[Quick] Kast ur skyffeln mot tunnan (bonus, FYSIKPLAN G2).**~~ Klar 2026-10-02 — se §5.
+
 ### Variation & överraskning
 - ✅ ~~**[Quick] Variera bajs & fynd.**~~ Klar 2026-09-23 (v1.251.0): högens ritning skalas
   0,8–1,25 kring foten (inre `g` :568 — högen och dess 60 px-träffyta är orörda), och var femte hög
@@ -118,6 +120,18 @@ Allt programmatiskt, flugor flyttas i tickern (ingen GSAP → exit-säkra), depo
 
 ## 5. Status / loggar
 
+- 2026-10-02 🎯 **D9/G2: kast ur skyffeln (bonus)** (`lib/pekspar.js`). Släpps skyffeln MED FART medan den bär en
+  hög (≥ 11 px/steg ≈ 660 px/s, tak 22) flyger högen i en båge (`_kasta` → `_stegFlyg` i tickern,
+  tyngdkraft 0,22 px/steg², ritningen snurrar) i stället för att tappas där den är. Går bågen in i
+  tunnans mun (`DROP`, r 120) räknas den som vanligt via `_deposit(ctx, pile, true)` — plus en liten
+  extra: uppåtgående treklang, mer glitter, Lova hejar stort, och "Mitt i prick!" (om rösten är fri).
+  Missar den landar den på gräset (`_landa`: studs, puff, "Hihi!", flugor igen) och går att skyffla
+  igen — inget går förlorat, ingen straffas. **Draget till tunnan är oförändrat** (släppt över munnen =
+  ramlar i; långsamt släpp = tappas tillbaka). Fingrets spår (`Pekspar`) läggs vid nedtryck och varje
+  rörelse; ett finger som står stilla före släppet ger `null` = inget kast. Flygande högar rivs vid
+  rundslut/rundbyte (`_rensaFlyg`) och i `destroy`. Uppmätt i Node (bana, ingen sond än): rakt mot munnen
+  från (800,500) träffar vid alla tre farter; från långt håll krävs en lob. Skyffel (hem 200,650 · greppar
+  upp till 1180,670), tunna (munnen 1140,470).
 - 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): `_finish` spelade själv vinstljud och
   konfettiregn i samma tick som `complete()` — strukna ("Hurra! Parken är ren!" sägs före och står
   kvar). Nytt: skyffeln har tyngd och skrap, högarna varierar i storlek och ibland gömmer de ett

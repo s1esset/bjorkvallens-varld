@@ -16,6 +16,7 @@ import { makeElvira } from '../../lib/figurer.js'
 import { drawIcon } from '../../lib/artikoner.js'
 import { COLORS } from '../../lib/theme.js'
 import { groundFill } from '../../lib/form.js'
+import { Pekspar, kastSteg } from '../../lib/pekspar.js'
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
 
@@ -36,6 +37,15 @@ const BAJS_SKALA = [0.8, 1.25]
 const FYND_CHANS = 0.2
 // Skyffelns tyngd: skopans RITNING (inre barn) sjunker så här många px med en hög på.
 const SKOPA_SJUNK = 7
+// KAST ur skyffeln (G2, BONUS): släpps skyffeln med fart medan den bär en hög flyger högen i en
+// båge (px/steg, som pekspar.js) — går den in i tunnans mun räknas den som vanligt, annars landar
+// den på gräset och går att skyffla igen. Draget till tunnan fungerar exakt som förut.
+const KAST_MIN = 11 // px/steg (~660 px/s): under detta är släppet ett vanligt tappa-tillbaka
+const KAST_MAX = 22 // px/steg: tak så högen aldrig tunnlar förbi munnen
+const KAST_GRAV = 0.22 // px/steg²: mjuk båge
+const KAST_UPP = 14 // högsta uppåtfart (px/steg): en lob når munnen men lämnar aldrig bild
+const KAST_VAGG = [100, 1180] // sidoväggar: högen studsar mjukt tillbaka, lämnar aldrig bild
+const KAST_MAX_STEG = 100 // flygtidens tak (steg): landar alltid
 // Surret blir enträget: en andra våg flugor efter så här många sekunder (tak per hög).
 const SURR_VAG2_S = 10
 const FLUGOR_MAX = 4
@@ -62,6 +72,8 @@ export default {
     this._autoBusy = false
     this._walking = false
     this._carry = null
+    this._spar = new Pekspar() // fingrets spår → kastet (G2)
+    this._flyg = [] // högar i kastbåge: { pile, vx, vy, t, landY }
     this._poops = []
     this._loose = [] // lösa {}-proxy-tweens (deposit) att döda vid exit
     this._finTw = [] // finishens och fyndens tweens: överlever rundbytet, dör i destroy
@@ -567,6 +579,7 @@ export default {
     g.y = 18
     g.scale.set(storlek)
     pile.addChild(g)
+    pile._art = g // ritningen snurrar i en kastbåge; träffytan (pile) rör sig bara
     pile._fynd = Math.random() < FYND_CHANS ? (Math.random() < 0.5 ? 'ben' : 'stjarna') : null
 
     pile.eventMode = 'static'
@@ -668,6 +681,9 @@ export default {
     this._returnTween?.kill()
     gsap.killTweensOf(this._scooper.scale)
     this._scooper.scale.set(1.08)
+    const p = this._root.toLocal(e.global)
+    this._spar.rensa()
+    this._spar.lagg(performance.now(), p.x, p.y)
     ctx.services.audio.sfx('tap')
     this._scooper.on('globalpointermove', this._scoopMoveH)
     this._scooper.on('pointerup', this._scoopUpH)
@@ -677,6 +693,7 @@ export default {
   _scoopMove(ctx, e) {
     if (!this._scooping || !this._alive) return
     const p = this._root.toLocal(e.global)
+    this._spar.lagg(performance.now(), p.x, p.y) // FINGRETS läge, inte skyffelns (som är klämd)
     const x = clamp(p.x, 120, 1180)
     const y = clamp(p.y, 200, 670)
     this._scooper.position.set(x, y)
@@ -724,11 +741,18 @@ export default {
     gsap.killTweensOf(this._scooper.scale)
     this._scooper.scale.set(1)
 
-    // Bär hög men inte över tunnan → tappa mjukt tillbaka (aldrig straff).
+    // Bär hög men inte över tunnan → tappa mjukt tillbaka (aldrig straff) — eller, släpps skyffeln
+    // med fart, KASTA högen (bonus: går den in i munnen räknas den som vanligt).
     if (this._carry) {
       const pile = this._carry
       this._carry = null
       this._tyngd(false)
+      const k = this._resolving ? null : kastSteg(this._spar.fart(), KAST_MAX)
+      if (k && k.fart >= KAST_MIN && pile && !pile.destroyed) {
+        this._kasta(ctx, pile, k)
+        this._returnScooper()
+        return
+      }
       if (pile && !pile.destroyed) {
         const gx = clamp(this._scooper.x, 140, 1040)
         const gy = clamp(this._scooper.y, 320, WALK.y1)
@@ -743,6 +767,79 @@ export default {
       }
     }
     this._returnScooper()
+  },
+
+  // ---- Kast (G2, bonus): skyffeln släpps med fart medan den bär en hög -----
+
+  // Högen lämnar skyffeln i en båge. Den integreras i tickern (`_stegFlyg`, px/steg) — inga tweens
+  // att riva. Under flygning är den varken buren eller en hög på marken (`_taken` står kvar).
+  _kasta(ctx, pile, k) {
+    gsap.killTweensOf(pile)
+    gsap.killTweensOf(pile.scale)
+    pile.scale.set(1)
+    pile.eventMode = 'none' // kan inte tas mitt i luften
+    this._flyg.push({ pile, vx: k.vx, vy: Math.max(k.vy, -KAST_UPP), t: 0, landY: clamp(pile.y + 110, 330, 660) })
+    ctx.services.audio.sfx('whoosh')
+    ctx.services.audio.tone({ freq: 392, slideTo: 523.25, dur: 0.14, type: 'triangle', vol: 0.12 })
+  },
+
+  _stegFlyg(ctx, dt) {
+    const l = this._flyg
+    for (let i = l.length - 1; i >= 0; i--) {
+      const f = l[i]
+      const pile = f.pile
+      if (!pile || pile.destroyed) {
+        l.splice(i, 1)
+        continue
+      }
+      f.vy += KAST_GRAV * dt
+      pile.x += f.vx * dt
+      pile.y += f.vy * dt
+      f.t += dt
+      if (pile.x < KAST_VAGG[0] || pile.x > KAST_VAGG[1]) {
+        pile.x = clamp(pile.x, KAST_VAGG[0], KAST_VAGG[1])
+        f.vx *= -0.5
+      }
+      if (pile._art && !pile._art.destroyed) pile._art.rotation += 0.22 * dt // snurrar i luften
+      if (Math.hypot(pile.x - DROP.x, pile.y - DROP.y) < DROP.r) {
+        l.splice(i, 1)
+        this._deposit(ctx, pile, true)
+      } else if ((f.vy > 0 && pile.y >= f.landY) || f.t > KAST_MAX_STEG) {
+        l.splice(i, 1)
+        this._landa(ctx, pile)
+      }
+    }
+  },
+
+  // Ett kast som missade munnen: högen landar mjukt på gräset och går att skyffla igen.
+  _landa(ctx, pile) {
+    if (pile.destroyed) return
+    pile.eventMode = 'static'
+    if (pile._art && !pile._art.destroyed) pile._art.rotation = 0
+    const gx = clamp(pile.x, 140, 1040)
+    const gy = clamp(pile.y, 320, WALK.y1)
+    pile.position.set(gx, gy)
+    pile.scale.set(1)
+    pile._taken = false
+    this._poops.push(pile)
+    bounceIn(pile)
+    ctx.services.audio.sfx('soft')
+    puff(ctx.fxLayer, gx, gy, { count: 4 })
+    floatText(ctx.fxLayer, gx, gy - 40, 'Hihi!')
+    this._scheduleFlies(ctx, pile)
+  },
+
+  // Rundan tar slut eller byts: högar i luften rivs (de ligger i _poopLayer och är inte med i _poops).
+  _rensaFlyg() {
+    for (const f of this._flyg || []) {
+      const pile = f.pile
+      if (pile && !pile.destroyed) {
+        gsap.killTweensOf(pile)
+        gsap.killTweensOf(pile.scale)
+        pile.destroy({ children: true })
+      }
+    }
+    this._flyg = []
   },
 
   // Tap-fallback: tappa en hög → skyffeln flyger dit och skyfflar upp den själv.
@@ -799,15 +896,16 @@ export default {
     })
   },
 
-  _deposit(ctx) {
+  // `hent` = en hög som kommer flygande (kast); annars den som bärs. `kast` = bonusvägen.
+  _deposit(ctx, hent = null, kast = false) {
     if (!this._alive || this._resolving) return
-    const pile = this._carry
+    const pile = hent || this._carry
     if (!pile) return
-    this._carry = null
+    if (pile === this._carry) this._carry = null
     const idx = this._poops.indexOf(pile)
     if (idx >= 0) this._poops.splice(idx, 1)
 
-    this._tyngd(false) // skopan lättar när högen är i tunnan
+    if (!kast) this._tyngd(false) // skopan lättar när högen är i tunnan (ett kast lättade den redan)
     // Hög faller i tunnan: tweena en {}-proxy och rör Pixi-objektet bara om det lever.
     if (!pile.destroyed) {
       const st = { x: pile.x, y: pile.y, s: pile.scale.x || 1 }
@@ -854,7 +952,13 @@ export default {
     if (this._bin && !this._bin.destroyed) pop(this._bin)
     if (this._binLid && !this._binLid.destroyed) pop(this._binLid) // locket "glufsar"
 
-    this._lovaCheer(ctx)
+    this._lovaCheer(ctx, kast)
+    if (kast) {
+      // Bonus: ett kast rakt i munnen får lite extra — en uppåtgående treklang (C5-E5-G5) och mer glitter.
+      ;[523.25, 659.25, 783.99].forEach((freq, i) => ctx.services.audio.tone({ freq, dur: 0.12, type: 'triangle', vol: 0.14, delay: 0.1 + i * 0.08 }))
+      sparkle(ctx.fxLayer, DROP.x, DROP.y - 20, { count: 10 })
+      if (this._collected < this._needed && !ctx.services.voice.talar) ctx.services.voice.say('Mitt i prick!')
+    }
     if (this._collected >= this._needed) this._finish(ctx)
   },
 
@@ -887,6 +991,9 @@ export default {
     if (this._carry && !this._carry.destroyed && this._scooper && !this._scooper.destroyed) {
       this._carry.position.set(this._scooper.x, this._scooper.y + (this._scoopArt?.y || 0))
     }
+
+    // Högar i kastbåge (bonus) — före `_resolving`-spärren så en flygande hög alltid hinner landa.
+    if (this._flyg.length) this._stegFlyg(ctx, dt)
 
     // Levande tunna: locket gläntar upp när skyffeln (eller en buren hög) närmar sig munnen.
     if (this._scooper && !this._scooper.destroyed) {
@@ -1004,6 +1111,7 @@ export default {
     if (this._resolving) return
     this._resolving = true
     this._scooping = false
+    this._rensaFlyg() // ett kast i luften medan rundan firas rivs i stället för att hänga kvar
 
     // Vinstljud och konfettiregn kommer från complete() nedan. Vinstrepliken sägs FÖRE
     // complete() i samma tick — då står den kvar och skalets beröm utgår.
@@ -1177,6 +1285,8 @@ export default {
     this._loose.forEach((t) => t?.kill?.())
     this._loose = []
 
+    this._rensaFlyg()
+
     // Töm högar + flugor.
     for (const pile of this._poops) {
       if (!pile) continue
@@ -1290,6 +1400,13 @@ export default {
       gsap.killTweensOf(this._carry)
       gsap.killTweensOf(this._carry.scale)
     }
+    for (const f of this._flyg || []) {
+      if (f.pile && !f.pile.destroyed) {
+        gsap.killTweensOf(f.pile)
+        gsap.killTweensOf(f.pile.scale)
+      }
+    }
+    this._flyg = []
 
     if (this._walkArea && !this._walkArea.destroyed) this._walkArea.off('pointertap', this._walkH)
     if (this._scooper && !this._scooper.destroyed) {

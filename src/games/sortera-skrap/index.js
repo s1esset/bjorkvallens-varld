@@ -11,6 +11,10 @@
 //  • Djup: läser progress.highestLevel och växer — börjar med 2 tunnor/få saker och
 //    ökar upp till 4 tunnor (papper, mat, plast, glas/metall) och fler saker per runda.
 //    VARIERAR vilka exakta saker som dyker upp varje runda; slängd/klustrad hög. FELFRITT.
+//  • LANDA-INTRO (P4): varje runda släpps sakerna från ovankanten och LANDAR på gräset med tyngd
+//    (glas/metall/mat = duns + dammpuff, papper/plast = studs) via lib/landa.js. Fallet går i ett
+//    INRE barn (`_fall`) — c står still på sin plats, så DragController mäter mot ett stilla mål;
+//    ett grepp mitt i fallet lägger saken på marken direkt (`avbryt`).
 //  • All transient-effekt går via lib/feedback.js (exit-säkert). Drag via DragController.
 import { Container, Graphics } from 'pixi.js'
 import { gsap } from 'gsap'
@@ -19,6 +23,7 @@ import { shuffle, randomFrom } from '../../lib/swedish.js'
 import { createScene, lerpColor } from '../../lib/scene.js'
 import { bounceIn, sparkle, ripple, pop, wiggle, breathe, shake, floatText, puff, burst } from '../../lib/feedback.js'
 import { bage } from '../../lib/form.js'
+import { landa as landaIntro } from '../../lib/landa.js'
 
 // Talade svenska fraser (TTS). Korta, varma, alltid positiva.
 const VOICE = {
@@ -50,6 +55,19 @@ const LEVELS = [
 ]
 
 const ITEM_R = 58 // föremålets skivradie (designkoordinater)
+
+// TYNGD vid landningen: tunga saker dunsar (en enda tung studs + dammpuff), lätta studsar.
+// Glas/metall och mat är tunga (löv undantaget); papper och plast är lätta.
+const TUNG_KAT = { glasmetall: 'stor', mat: 'stor', papper: 'liten', plast: 'liten' }
+const LATT_SAKER = new Set(['🍂'])
+const LAND_TON = [660, 523, 440] // lätta saker: tre avtagande plopp
+// Varje sak får sin egen ton (pentatonisk skala efter plats i högen) — tio saker i rad blir en melodi, inte en kulspruta.
+const SKALA = [1, 9 / 8, 5 / 4, 3 / 2, 5 / 3, 2]
+const DAMM = 0xc9b48a
+function tyngdFor(data) {
+  if (LATT_SAKER.has(data.emoji)) return 'liten'
+  return TUNG_KAT[data.category] || 'liten'
+}
 
 // SÄLLSYNT GULDSKRÄP. Ungefär var fjärde runda bär EN sak ett guldsken och glittrar.
 // Saken själv är oförändrad (samma form, samma tunna) — bara skenet är nytt — så ingen
@@ -299,10 +317,10 @@ export default {
     this._drag.clear() // tömmer items + targets, dödar item-tweens (ej redan förstörda)
     this._bins?.forEach((b) => killBinTweens(b))
     this._items?.forEach((it) => {
+      it.land?.destroy() // lossar tickern innan noden rivs (ett halvfärdigt fall får inte skriva på en död nod)
       const c = it.container
       if (c && !c.destroyed) {
-        gsap.killTweensOf(c)
-        gsap.killTweensOf(c.scale)
+        killItemTweens(c)
         c.destroy({ children: true })
       }
     })
@@ -348,7 +366,7 @@ export default {
       c.x = spots[i].x
       c.y = spots[i].y
       this._play.addChild(c)
-      const it = { container: c, data, sorted: false, lift: 0 }
+      const it = { container: c, data, sorted: false, lift: 0, land: null, idx: i }
       c._it = it
       this._items.push(it)
 
@@ -357,6 +375,7 @@ export default {
           if (!this._alive) return
           this._idle = 0
           this._clearHint()
+          this._stoppaFall(it)
         },
         onCorrect: (_rec, target) => this._onCorrect(ctx, it, target),
         onWrong: (_rec, target) => this._onWrong(ctx, it, target),
@@ -366,8 +385,22 @@ export default {
         if (!this._alive) return
         this._idle = 0
         this._clearHint()
+        this._stoppaFall(it) // grepp mitt i fallet: saken ligger på marken NU och följer fingret
       })
-      bounceIn(c, { delay: Math.min(i * 0.06, 0.6), duration: 0.32 })
+      // Landa-intro i stället för bounceIn: saken släpps från ovankanten (i det inre barnet `_fall`),
+      // staplat över ~0,7 s. c.x/c.y står still → träffytan och DragControllers `home` är orörda.
+      const toppY = Math.min(0, ctx.view?.top ?? 0)
+      it.land = landaIntro(c._fall, {
+        ticker: ctx.ticker,
+        fran: toppY - c.y - 130,
+        markY: 0,
+        tyngd: tyngdFor(data),
+        fordrojning: i * Math.min(90, 700 / batch.length),
+        onLand: (ty, slag) => this._onItemLand(ctx, it, ty, slag),
+      })
+      it.land.klar.then(() => {
+        if (c._fall && !c._fall.destroyed) c._fall.x = 0 // x-kompensationen (se _update) nollas
+      })
     })
 
     this._cue = VOICE.cue
@@ -378,6 +411,48 @@ export default {
       ctx.narTyst(() => {
         if (this._alive && !this._roundDone) ctx.services.voice.say(this._cue)
       })
+    }
+  },
+
+  // Grepp (eller tap) mitt i fallet: saken läggs på marken omedelbart och squashen släcks, så draget
+  // börjar från ett stilla, normalt föremål. Idempotent; gör inget om fallet redan är slut.
+  _stoppaFall(it) {
+    const c = it?.container
+    if (!c || c.destroyed) return
+    if (it.land?.ar) it.land.avbryt()
+    if (c._fall && !c._fall.destroyed) c._fall.x = 0
+    if (c._squash && !c._squash.destroyed) {
+      gsap.killTweensOf(c._squash.scale)
+      c._squash.scale.set(1)
+    }
+  },
+
+  // Ett nedslag. Tungt = duns (låg ton, dammpuff, en squash, en liten skakning av scenen),
+  // lätt = plopp som avtar med hoppen. Squashen sitter i det inre barnet `_squash`.
+  _onItemLand(ctx, it, tyngd, slag) {
+    if (!this._alive) return
+    const c = it.container
+    if (!c || c.destroyed || it.sorted) return
+    const k = Math.min(1, slag.fart / 1500)
+    const a = ctx.services.audio
+    const sq = c._squash
+    const stor = tyngd === 'stor'
+    if (sq && !sq.destroyed) {
+      const sx = 1 + (stor ? 0.22 : 0.12) * k
+      gsap.killTweensOf(sq.scale)
+      gsap.fromTo(sq.scale, { x: sx, y: 1 - (sx - 1) * 1.1 }, { x: 1, y: 1, duration: stor ? 0.26 : 0.2, ease: 'elastic.out(1,0.45)' })
+    }
+    const ton = SKALA[(it.idx || 0) % SKALA.length]
+    if (stor) {
+      // Bara första nedslaget låter, puffar och skakar; en eventuell andra studs är bara bild (squash).
+      if (slag.nr > 0) return
+      a.tone({ freq: 150 * ton, dur: 0.14, type: 'sine', vol: 0.06 + 0.14 * k, slideTo: 75 * ton })
+      puff(this._fx, c.x, c.y + (c._foot || ITEM_R * 0.6), { count: 4, color: DAMM })
+      // Skakningen får aldrig dra i scenen under ett finger som håller något.
+      if (!this._drag?.active && !this._roundDone && k > 0.6) shake(this._root, { intensity: 2.5, duration: 0.16 })
+    } else if (slag.nr < LAND_TON.length) {
+      const f = LAND_TON[slag.nr] * ton
+      a.tone({ freq: f, dur: 0.08, type: 'sine', vol: (0.05 + 0.08 * k) / (1 + slag.nr), slideTo: f * 1.12 })
     }
   },
 
@@ -665,18 +740,32 @@ export default {
       const lifted = this._drag.active?.view === c || this._drag.selected?.view === c
       it.lift += ((lifted ? 1 : 0) - it.lift) * k
       if (c._content && !c._content.destroyed) c._content.y = -22 * it.lift
+      // Landa-intro: medan saken faller drivs det inre barnet `_fall` (y) av lib/landa. c är roterad,
+      // så x kompenseras (y·tan) → saken faller rakt ned i bild, inte längs den lutade axeln.
+      const fall = c._fall
+      let prox = 1
+      if (fall && !fall.destroyed) {
+        if (it.land && it.land.ar) fall.x = fall.y * Math.tan(c.rotation)
+        prox = 1 - Math.min(1, Math.max(0, -fall.y) / 300) // 0 högt upp, 1 på marken
+      }
       // Guldskräpet tindrar och strör då och då ett par gnistor (strypt: en gång per 0,8 s).
       if (c._glitter && !c._glitter.destroyed) {
         c._glitter.alpha = 0.55 + 0.45 * Math.sin(this._tid * 5)
         if (this._tid - this._guldGnista > 0.8) {
           this._guldGnista = this._tid
-          sparkle(this._fx, c.x + (Math.random() * 2 - 1) * 40, c.y - 22 * it.lift + (Math.random() * 2 - 1) * 40, { count: 2 })
+          sparkle(this._fx, c.x + (Math.random() * 2 - 1) * 40, c.y + (fall ? fall.y : 0) - 22 * it.lift + (Math.random() * 2 - 1) * 40, { count: 2 })
         }
       }
       if (c._shadow && !c._shadow.destroyed) {
-        const s = 1 + 0.5 * it.lift
+        // Skuggan på gräset tonar in och växer när saken närmar sig marken (prox = 1 när den landat).
+        const s = (1 + 0.5 * it.lift) * (0.55 + 0.45 * prox)
+        // Skuggan ligger rakt under foten I BILD: c är lutad θ, så barnets plats är (foot·sinθ, foot·cosθ)
+        // och den motroteras — annars hamnar den upp till ~12 px i sidled och lutar med saken.
+        const th = c.rotation
+        c._shadow.position.set(c._foot * Math.sin(th), c._foot * Math.cos(th))
+        c._shadow.rotation = -th
         c._shadow.scale.set(s)
-        c._shadow.alpha = 0.26 - 0.1 * it.lift
+        c._shadow.alpha = (0.26 - 0.1 * it.lift) * prox
       }
     }
 
@@ -866,9 +955,17 @@ export default {
   _makeItem(data, r) {
     const c = new Container()
     c._data = data
-    // Mjuk skugga (växer när föremålet lyfts — se _update).
-    const shadow = new Graphics().ellipse(0, r * 0.98, r * 0.84, r * 0.3).fill({ color: 0x2a1c10, alpha: 0.26 })
+    // Mjuk skugga (växer när föremålet lyfts — se _update). Ellipsen är bakad i origo i en hållare som
+    // `_update` lägger rakt under FOTEN (se `foot` nedan) — geometrin är centrerad, ingen stor .position.
+    const shadow = new Container()
+    shadow.addChild(new Graphics().ellipse(0, 0, r * 0.84, r * 0.3).fill({ color: 0x2a1c10, alpha: 0.26 }))
     shadow.eventMode = 'none'
+    shadow.interactiveChildren = false
+    // Landa-intro: `fall` är det INRE barn lib/landa skriver y på (släpps från ovankanten); under det
+    // `squash` med pivot i marknivå (klämmer vid nedslag). c självt, hitArea och skuggan står still.
+    const fall = new Container()
+    const squash = new Container()
+    fall.addChild(squash)
     // Innehåll (lyfts uppåt vid grepp).
     const content = new Container()
     // P0 ASSETS: föremålet står FRITT på gräset — ingen skiva, ring eller bricka bakom,
@@ -876,6 +973,12 @@ export default {
     const emoji = drawTrash(data.emoji)
     emoji.scale.set(r / 50)
     content.addChild(emoji)
+    // FOTPUNKT: sakens nederkant ur den RITADE bilden (inte ett schablon-tal) — skuggan, squash-pivoten
+    // och dammpuffen utgår härifrån, så saken står på sin skugga i stället för att sväva över den.
+    const foot = emoji.getLocalBounds().maxY * (r / 50)
+    squash.pivot.set(0, foot)
+    squash.position.set(0, foot)
+    c._foot = foot
     if (data.guld) {
       // Guldskräp: ett mjukt varmt sken (tre avtagande ljusfläckar, ingen kant eller ring)
       // bakom saken och fyra ritade glitterstjärnor runt den. Stjärnorna tindrar via
@@ -898,10 +1001,17 @@ export default {
       c._glitter = glitter
     }
 
-    c.addChild(shadow, content)
+    squash.addChild(content)
+    c.addChild(shadow, fall)
     c._shadow = shadow
     c._content = content
+    c._fall = fall
+    c._squash = squash
     c.rotation = (Math.random() * 2 - 1) * 0.22 // slängd hög → tydligare lutning
+    // Skuggan börjar osynlig på rätt plats (annars syns den en bildruta i mitten innan första _update).
+    shadow.alpha = 0
+    shadow.position.set(foot * Math.sin(c.rotation), foot * Math.cos(c.rotation))
+    shadow.rotation = -c.rotation
     // Stor, stabil träffyta (oberoende av lyft-offset).
     c.hitArea = { contains: (px, py) => px * px + py * py <= (r + 18) * (r + 18) }
     return c
@@ -916,11 +1026,9 @@ export default {
     this._drag = null
     this._bins?.forEach((b) => killBinTweens(b))
     this._items?.forEach((it) => {
+      it.land?.destroy() // lossar tickern, klar resolvas
       const c = it.container
-      if (c && !c.destroyed) {
-        gsap.killTweensOf(c)
-        gsap.killTweensOf(c.scale)
-      }
+      if (c && !c.destroyed) killItemTweens(c)
     })
     gsap.killTweensOf(this._root)
     gsap.killTweensOf(this._play)
@@ -939,6 +1047,19 @@ export default {
 }
 
 // --- hjälpare ---
+
+// Dödar ALLA tweens på en sak: roten, dess skala och de inre barnen (killTweensOf(roten) når bara roten).
+function killItemTweens(c) {
+  if (!c || c.destroyed) return
+  gsap.killTweensOf(c)
+  gsap.killTweensOf(c.scale)
+  for (const n of [c._fall, c._squash, c._content]) {
+    if (n && !n.destroyed) {
+      gsap.killTweensOf(n)
+      gsap.killTweensOf(n.scale)
+    }
+  }
+}
 
 function killBinTweens(b) {
   if (!b || b.destroyed) return

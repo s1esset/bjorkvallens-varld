@@ -105,9 +105,23 @@ kategorierna är medvetet lätta att skilja (papper vs mat). Strikt felfritt.
   spelar `sfx('celebrate')` → `AudioService._celebrate` (:166) med slumpad tonhöjd/tempo och
   variant. Kvar är ambienten, som kräver ett SFX-klipp — blockerad så länge MOSS är nere.*
 - [Polish] Gröna tunnan har låg kontrast mot gräset (läses bara tack vare glaskanten) — mörkare kant eller en ljus markplätt under tunnorna. (F3-kritik 2026-10-02)
+- **[Quick] Dunsen skiljer inte mat från glas (kritiken 2026-10-02, P4).** `TUNG_KAT` ger äpple och glasburk samma duns; ett eget ljud per kategori kunde bli en ledtråd för sorteringen.
+
 
 ## 5. Status / loggar
 
+- 2026-10-02 ✅ **Landa-intro: sakerna faller in och landar på gräset** (FYSIKPLAN P4 · B2):
+  - **Fallet:** varje runda släpps sakerna från ovankanten (`lib/landa.js`, `tyngd` per sak) och landar på sin
+    plats i högen, staplade över ≈0,7 s. Glas/metall och mat DUNSAR (en tung studs, låg ton, dammpuff, liten
+    skakning av scenen); papper, plast och löv STUDSAR (tre avtagande plopp). `bounceIn` på sakerna är borta.
+  - **Ett stilla mål:** animationen går i det inre barnet `_fall` (y skrivs bara av landa) och `_squash`
+    (pivot i marknivå, klämmer vid nedslag). `c` — som `DragController` mäter mot och bär `hitArea` — rörs aldrig.
+    Eftersom `c` är lutad (±0,22 rad) kompenserar `_update` `_fall.x = y·tan(rotation)` så saken faller rakt ned.
+    Skuggan på gräset tonar in och växer när saken närmar sig (`prox` = 1 landad → identisk med förr).
+  - **Otåliga grepp:** `pointerdown`/`onSelect` anropar `_stoppaFall` → `landa.avbryt()` lägger saken på marken
+    SAMMA bildruta, släcker squashen och nollar x; draget börjar från ett normalt föremål. Rundbyte och `destroy()`
+    kör `land.destroy()` + `killItemTweens` (roten, `_fall`, `_squash`, `_content`) före rivning.
+  - Grind: `check --game sortera-skrap` 0/0 · `_landaprobe` grön. Ej webbläsartestad av byggaren.
 - 2026-10-02 ✅ **Skräphögen ligger på gräset, skivan borta** (natt F3 · B3 · U2/L1/P0 ASSETS):
   - **Skivan bort:** `_makeItem` ritade en vit skiva (alfa 0,25) bakom varje sak — den bricka P0
     ASSETS förbjuder. Nu står sakerna fria med bara markskuggan under. Guldskräpets guldring

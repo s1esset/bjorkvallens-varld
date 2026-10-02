@@ -177,6 +177,15 @@ m.path(g.clear()).fill(col).stroke({ width: 3, color: edge })
 - `fast()`/`dra()`/`skjut()` sätts per bildruta FÖRE `uppdatera` — noll steg (> 60 Hz) eller flera (< 60 Hz) körs.
   Mät: `node scripts/_taktlib.mjs` (Pixis Ticker vid 30–90 Hz, kontrollarm = dagens `steg(dtF)`).
 
+## Vippa (`src/lib/vippa.js`, P2)
+
+- `vippa(innerBarn, { axel: 'rot'|'y'|'skev', max, k, damp, ticker })` → `{ stot(−1..1), destroy() }` — en detalj som
+  fjädrar efter en stöt (`fjader1d` på en `Takt`: samma kurva vid 30/60 Hz). `max` = utslaget vid full stöt OCH taket
+  (rot 0,3 rad · y 14 px · skev 0,35). `ticker` = `ctx.ticker` (utelämnad → `Ticker.shared`; `null` → driv med `v.steg(deltaMS)`).
+- **Vippa ALDRIG noden som bär `hitArea` eller är `addTarget`-mål** — lägg bilden i ett inre barn (dev-varning vid `hitArea`).
+  Sätt noden på plats FÖRE `vippa()` (startvärdet läses då). I vila skrivs inget; `destroy()` i spelets `destroy()`.
+- Mät: `node scripts/_vippaprobe.mjs` (kontrollarm `damp 0` går aldrig till vila).
+
 ## Fjäderbräda (`src/lib/fjader.js`)
 
 En planka som LAGRAR ett anslag och ger tillbaka det. Fjäder med eget tillstånd (`komp`,

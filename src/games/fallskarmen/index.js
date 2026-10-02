@@ -2,8 +2,9 @@
 // vill knuffa dem åt sidan. Barnet styr i sidled (håll/dra vänster–höger om
 // fallskärmen) KONTRA vinden, mot en studsmatta på marken. Två kontroller som
 // ändrar utfallet: (1) kontinuerlig sid-styrning, (2) en tyngd-knapp (🪶 Lätt /
-// 🪨 Tung) som byter fallfart + hur mycket vinden biter. Vindbyar växlar riktning
-// och visas med lövpartiklar 🍃. Landningen är ALLTID mjuk: mitt på mattan = jubel,
+// 🪨 Tung) som byter fallfart + hur mycket vinden biter. Vinden ligger i HÖJDSKIKT
+// (vindskikt.js, lib/vind.js): luften har olika håll på olika höjd och fallskärmen sjunker
+// genom dem — remsor, luftdrag och lövpartiklar 🍃 visar var den blåser vart. Landningen är ALLTID mjuk: mitt på mattan = jubel,
 // bredvid = snäll auto-glid in, långt bort = glad gräslandning + ny runda. Aldrig
 // en krasch, aldrig game over, ingen synlig poäng eller timer. Allt ritas
 // programmatiskt (Pixi Graphics + emoji) och städas exit-säkert.
@@ -17,7 +18,10 @@ import { makeKaraktar } from '../../lib/karaktarer.js'
 import { Motstandsvolym } from '../../lib/luftmotstand.js'
 import { Mjukkropp } from '../../lib/mjukkropp.js'
 import { Takt } from '../../lib/takt.js'
+import { nastaVariant } from '../../lib/variation.js'
 import { Gras, START_Y, GROUND_Y, GRAV, V_LATT, MASSA_TUNG } from './gras.js'
+import { nyttSkikt, stallSkikt, stegaSkikt, luftHos, luftForFot, skiktVid, MONSTER, SKIKT_Y, ANTAL_SKIKT } from './vindskikt.js'
+import { Skiktbild } from './skiktbild.js'
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
 
@@ -44,6 +48,10 @@ const X_MAX = 1140
 // uppmätta kvot mellan Tung och Lätt (142/85). Talet är alltså mätt, inte valt.
 // MASSA_TUNG = 2,79 (i ./gras.js)
 const VIND_FART = 11.8 // vindtal → luftens fart i px/bildruta (kalibrerad mot HEADs drift)
+// Vindens STYRKA per nivå (vindtal; × VIND_FART = luftens fart i det starkaste skiktet). Nivå 0–3 = HEADs tal; nivå 4+
+// 0,30/0,34 (HEAD 0,28/0,30): det starkaste skiktet ligger precis under styrningens gränsfart (≈ 4,05 px/bildruta),
+// så det går att hålla emot men man blir buren en bit — ett TAK på motgången. Mätt i scripts/_skiktprobe.mjs.
+const SKIKT_AMP = [0.12, 0.2, 0.3, 0.34] // nivå ≤ 1 · ≤ 3 · ≤ 5 · 6+
 const STEER_KRAFT = 0.7 // barnets drag i linan: en KRAFT (delas med massan → Tung är trögare)
 const ASSIST_ACC = 0.05 // no-fail-assisten: en ACCELERATION (massoberoende — hjälpen ska
 // kännas lika snäll i båda tyngdlägena, annars blir Tung svårare att bli hjälpt i)
@@ -84,10 +92,13 @@ export default {
     // Vind-state.
     this._heavy = false
     this._vx = 0
-    this._wind = 0
+    this._wind = 0 // luftens vindtal just nu, vid fallskärmen (skiktets) — ±, samma enhet som förr
     this._windAmp = 0.12
-    this._windPeriod = 6
-    this._windTimer = 0
+    this._skikt = nyttSkikt() // tre luftskikt (Vindfalt `band`) — håll och styrka per skikt
+    this._skiktbild = null
+    this._monster = null // förra rundans mönster (nastaVariant undviker att upprepa det)
+    this._lager = -1 // skiktet fallskärmen är i
+    this._bannerKey = 0 // senast ritade bannerpil (grindar omritningen)
     this._leafTimer = 0
     this._leaves = []
     this._susTimer = 0 // stigande vind-sus (mjuk luft-svallning vars volym följer byn)
@@ -135,6 +146,9 @@ export default {
     this._steerPad.on('pointerup', this._onUp)
     this._steerPad.on('pointerupoutside', this._onUp)
     this._root.addChild(this._steerPad)
+
+    // Vindens höjdskikt: remsor och luftdrag bakom allt spel (målet, fallskärmen) — se skiktbild.js.
+    this._skiktbild = new Skiktbild(this._root)
 
     // Mål (studsmatta + glödring + 🎯).
     this._makeTarget(ctx)
@@ -490,25 +504,23 @@ export default {
 
   _loadLevel(ctx, level) {
     if (!this._alive) return
-    // Nivåparametrar: vindstyrka, bytestakt, målstorlek/-läge.
-    let amp, period, r, tx
+    // Nivåparametrar: vindstyrka, målstorlek/-läge.
+    let amp, r, tx
     if (level <= 1) {
-      amp = 0.12; period = 6; r = 150; tx = 700
+      amp = SKIKT_AMP[0]; r = 150; tx = 700
     } else if (level <= 3) {
-      amp = 0.2; period = 4.5; r = 120; tx = randomFrom([840, 460])
+      amp = SKIKT_AMP[1]; r = 120; tx = randomFrom([840, 460])
     } else if (level <= 5) {
-      amp = 0.28; period = 3.5; r = 100; tx = randomFrom([980, 300])
+      amp = SKIKT_AMP[2]; r = 100; tx = randomFrom([980, 300])
     } else {
-      amp = 0.3; period = 3; r = 90; tx = 200 + Math.random() * 880
+      amp = SKIKT_AMP[3]; r = 90; tx = 200 + Math.random() * 880
     }
     if (level >= 2) tx += (Math.random() - 0.5) * 60
     tx = clamp(tx, r + 60, ctx.width - r - 60)
 
     this._windAmp = amp
-    this._windPeriod = period
     this._targetR = r
     this._targetX = tx
-    this._windTimer = 0
     this._leafTimer = 0
     this._tapTimer = 0
     this._vx = 0
@@ -531,8 +543,15 @@ export default {
       bounceIn(chute)
     }
 
-    // Första vindbyn + lövsvärm.
-    this._setWind(ctx, (Math.random() < 0.5 ? -1 : 1) * amp, true)
+    // Rundans luftskikt: ett mönster ur MONSTER (aldrig samma som förra rundan), spegelvänt på måfå — så en
+    // ny runda blåser åt andra håll på andra höjder. Landningen ligger i det lägsta skiktet (aldrig det starkaste).
+    this._monster = nastaVariant(MONSTER, this._monster)
+    stallSkikt(this._skikt, { farPx: amp * VIND_FART, monster: this._monster, tecken: Math.random() < 0.5 ? -1 : 1 })
+    this._lager = skiktVid(START_Y)
+    this._wind = luftForFot(this._skikt, chute?.x ?? 640, START_Y) / VIND_FART
+    this._bannerKey = 0
+    // Första vindbyn: alla tre skiktens löv syns, så barnet ser hur luften ligger innan hen börjat falla.
+    this._nyttSkikt(ctx, this._lager, true)
   },
 
   // ---- Ticker --------------------------------------------------------------
@@ -543,8 +562,9 @@ export default {
     const dt = Math.min(2, dms / 16.67) // fysik-frames (clamp mot lagg-hopp)
     const ds = Math.min(0.05, dms / 1000) // sekunder för timers
 
-    // Lövpartiklar drivs alltid (så de hinner lämna skärmen även vid landning).
+    // Lövpartiklar och skiktens remsor drivs alltid (så de hinner lämna skärmen även vid landning).
     this._driveLeaves(dt)
+    this._skiktbild?.uppdatera(ds, this._skikt, this._lager)
 
     // Landningens fjäder lever medan rundan är avgjord (_resolving) — stegas före utgången nedan.
     if (this._gras) this._stegaStuds(ctx, dms)
@@ -581,7 +601,10 @@ export default {
       // (luften nollar dem efter varje steg): två steg på en lagg-bildruta ger dubbel
       // påverkan, noll steg vid >60 Hz ingen alls — aldrig en ackumulerad kraft.
       this._takt.kor(dms, () => {
-        this._luft.setVind(this._wind * VIND_FART, 0) // vinden ÄR luftens fart, inte en kraft
+        // Vinden ÄR luftens fart, inte en kraft — och den är olika på olika höjd: luften provas vid
+        // fallskärmens egen höjd i varje fast steg (vindskikt.js), skikten sväller och lägger sig på egen tid.
+        stegaSkikt(this._skikt, 1 / 60)
+        this._luft.setVind(luftForFot(this._skikt, chute.x, chute.y), 0)
         if (dir) this._luft.kraft(rec, dir * STEER_KRAFT, 0)
         // Snäll styr-assist som växer efter mjuka omstarter (no-fail-garanti). 0 vid
         // 0 missar -> barnet styr helt själv; starkare efteråt -> når alltid målet.
@@ -606,6 +629,13 @@ export default {
         }
       })
       this._vx = rec.vx // resten av spelet (ben, lutning, landning) läser den här
+      // Vindtalet vid fallskärmen (ben, ljud, banner, löv läser det) och skiktbyte: ett nytt skikt = en ny luft.
+      this._wind = this._luft.vind.x / VIND_FART
+      const lager = skiktVid(chute.y)
+      if (lager !== this._lager) {
+        this._lager = lager
+        this._nyttSkikt(ctx, lager, false)
+      } else this._ritaBannerOmBehov()
     }
 
     // Mjuk lutning: styrningen lutar åt sitt håll OCH vinden drar kupolen åt sitt
@@ -645,19 +675,12 @@ export default {
     this._shadow.scale.set(0.55 + tprog * 0.7)
     this._shadow.alpha = 0.1 + tprog * 0.1
 
-    // 4. Vind-byt-timer (ackumulator, ej setInterval).
-    this._windTimer += ds
-    if (this._windTimer >= this._windPeriod) {
-      this._windTimer = 0
-      this._setWind(ctx, (Math.random() < 0.5 ? -1 : 1) * this._windAmp, true)
-    }
-
     // Driv-löv löpande (tätare när det blåser hårt).
     this._leafTimer += ds
     const leafEvery = this._windAmp > 0.2 ? 0.25 : 0.4
     if (this._leafTimer >= leafEvery) {
       this._leafTimer = 0
-      this._spawnLeaf(ctx)
+      this._spawnLeaf(ctx) // skiktet lottas; ett lugnt skikt ger inget löv
     }
 
     // Stigande vind-sus: en mjuk luft-svallning vars volym OCH täthet följer hur
@@ -692,15 +715,25 @@ export default {
 
   // ---- Vind + löv ----------------------------------------------------------
 
-  _setWind(ctx, w, swarm) {
-    this._wind = w
+  // Fallskärmen kom in i ett nytt luftskikt (eller rundan började): bannerns pil byter håll/längd, ett vindljud
+  // och en lövsvärm i det skiktet — så barnet SER och HÖR att luften ändrade sig. `alla` = rundstart: löv i varje skikt.
+  _nyttSkikt(ctx, lager, alla) {
     this._drawWindBanner()
     if (this._windUi && !this._windUi.destroyed) pop(this._windUi, { scale: 1.07 })
-    if (swarm) {
-      ctx.services.audio.sfx('whoosh')
-      const n = 5 + ((Math.random() * 3) | 0)
-      for (let i = 0; i < n; i++) this._spawnLeaf(ctx)
-    }
+    if (!ctx?.services) return
+    ctx.services.audio.sfx('whoosh')
+    const n = alla ? 2 : 4 + ((Math.random() * 3) | 0)
+    if (alla) {
+      for (let l = 0; l < ANTAL_SKIKT; l++) for (let i = 0; i < n; i++) this._spawnLeaf(ctx, l)
+    } else for (let i = 0; i < n; i++) this._spawnLeaf(ctx, lager)
+  },
+
+  // Pilen i bannern följer luften där fallskärmen är nu; ritas om bara när den syns ändrad.
+  _ritaBannerOmBehov() {
+    const key = Math.round(this._wind * 40)
+    if (key === this._bannerKey) return
+    this._bannerKey = key
+    this._drawWindBanner()
   },
 
   _drawWindBanner() {
@@ -720,17 +753,20 @@ export default {
     g.stroke({ width: 6, color: COLORS.green, alpha: a, cap: 'round' })
   },
 
-  _spawnLeaf(ctx) {
-    if (!this._alive) return
-    const dir = Math.sign(this._wind) || 1
-    const strong = Math.abs(this._wind) > 0.2
+  // Ett löv föds i ett skikt, vid kanten luften kommer ifrån, och följer sedan skiktets luft (_driveLeaves) —
+  // så löven DELAR UPP himlen: några blåser åt höger, några åt vänster, beroende på höjd.
+  _spawnLeaf(ctx, lager = (Math.random() * ANTAL_SKIKT) | 0) {
+    if (!this._alive || !this._skikt) return
+    const v = this._skikt.farstark[lager]
+    if (Math.abs(v) < 0.3) return // ett lugnt skikt har inga löv i luften
+    const dir = Math.sign(v)
     const leaf = makeLeaf(0.7 + Math.random() * 0.5)
     leaf.x = dir > 0 ? -30 - Math.random() * 60 : 1310 + Math.random() * 60
-    leaf.y = 140 + Math.random() * 360
+    leaf.y = SKIKT_Y[lager] + (Math.random() - 0.5) * 100
     leaf.alpha = 0.9
     leaf.eventMode = 'none'
-    leaf._vx = dir * (3 + Math.random() * 3) * (strong ? 1.6 : 1)
-    leaf._vy = 0.4 + Math.random() * 0.8
+    leaf._vx = v * 1.3
+    leaf._vy = 0.25 + Math.random() * 0.45
     leaf._spin = (Math.random() - 0.5) * 0.14
     leaf._phase = Math.random() * Math.PI * 2
     ctx.fxLayer.addChild(leaf)
@@ -744,6 +780,9 @@ export default {
         this._leaves.splice(i, 1)
         continue
       }
+      // Löven följer luften där de är (skikten), med en liten tröghet — ett löv som sjunker in i ett annat
+      // skikt vänder alltså av sig självt.
+      if (this._skikt) lf._vx += (luftHos(this._skikt, lf.x, lf.y) * 1.3 - lf._vx) * Math.min(1, 0.06 * dt)
       lf._phase += 0.15 * dt
       lf.x += lf._vx * dt
       lf.y += lf._vy * dt + Math.sin(lf._phase) * 0.6
@@ -1020,6 +1059,10 @@ export default {
     if (this._tick) ctx?.ticker?.remove(this._tick)
     this._luft?.destroy() // steg() efter detta gör ingenting
     this._luft = null
+    this._skiktbild?.destroy()
+    this._skiktbild = null
+    for (const f of this._skikt?.falt || []) f.destroy()
+    this._skikt = null
     this._luftRec = null
     this._kupol?.destroy() // tyget: punkter, villkor och fästen släpps
     this._kupol = null

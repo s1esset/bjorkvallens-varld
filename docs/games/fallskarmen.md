@@ -12,7 +12,9 @@ chevron-pilar ◀▶ som tänds åt det håll jag styr, och tap-fallback för de
 **tyngd-knapp** nere till vänster (🪶 Lätt / 🪨 Tung) som byter fallfart och hur mycket vinden
 biter. Landningen är ALLTID mjuk: mitt på mattan → studsande jubel + firande; bredvid → snäll
 auto-glid in som firas som träff; långt bort → glad gräslandning + ny runda (ingen krasch).
-Vindbyar växlar riktning på en timer, och en styr-assist växer efter missar så målet alltid nås.
+Vinden ligger i **tre höjdskikt** (F4): luften har olika håll på olika höjd, fallskärmen sjunker genom
+dem, och remsor + vita luftdrag + löv visar var den blåser vart; bannerns pil följer luften där fallskärmen är.
+En styr-assist växer efter missar så målet alltid nås.
 
 **Funkar bra:** styr-kontra-vind-kärnan är begriplig och taktil, chevronerna + vindbannern +
 löven gör krafterna *synliga*, tyngd-knappen är en äkta avvägning (Tung faller snabbare men biter
@@ -112,6 +114,27 @@ styrs hem, men det berättas ingen liten resa.
   `boing`-klippet (2026-09-23), och röst-halvan är klar: alla fyra repliker har klipp.
 
 ## 5. Status / loggar
+
+- 2026-10-02 · **Vinden i höjdskikt (FYSIKPLAN F4, kluster B4)** — vind-halvan; kupolen (`Mjukkropp`) och gräsmattan
+  (`gras.js`, D7) är orörda. Förut var vinden ETT tal för hela luftrummet (`_wind`) som bytte håll på en timer
+  (`_windPeriod` 3–6 s mot ett 2,9–4,8 s långt fall: på nivå 0 blåste det åt ETT håll hela vägen ner) och som
+  barnet kunde trycka mot de osynliga väggarna vid x 140/1140 (HEAD: 25–63 % av passiva fall på nivå 2–6).
+  Nu `vindskikt.js`: tre `Vindfalt` (`band`, vågräta över hela luftrummet, y 190/320/450, halvhöjd 130 så de
+  överlappar och farten byter mjukt) med eget håll och egen styrka per skikt (4 mönster ur `MONSTER` × spegling,
+  `nastaVariant` så ingen runda liknar förra; alla har skikt åt båda hållen och det lägsta skiktet är aldrig det
+  starkaste). Luften provas på fötternas y − 60 i varje FAST steg (`setVind(luftForFot(...))` inne i `Takt`-steget),
+  klämd till översta/understa skiktet; skikten sväller och lägger sig på egen tid (`BY_PERIOD`, djup 0,4). Bilden
+  (`skiktbild.js`): en ljus remsa per skikt (skiktet fallskärmen är i lite tydligare) + vita luftdrag med krok som
+  blåser åt skiktets håll, tätare och snabbare ju starkare det blåser; löven föds i ett skikt och följer luften där de
+  är (ett löv som sjunker in i ett annat skikt vänder av sig självt); bannerns pil följer luften vid fallskärmen; ett
+  skiktbyte ger `whoosh` + banner-pop + lövsvärm; kupolen buktar av luftkraften som förut (orörd) och benen/lutningen
+  läser `this._wind` = luftens vindtal vid fallskärmen. Styrkan: HEADs tal för nivå 0–3 (0,12/0,20), 0,30/0,34 för
+  nivå 4/6+ (HEAD 0,28/0,30) — det starkaste skiktet ligger precis under styrningens gränsfart (4,05 px/bildruta).
+  **MÄTT** (`node scripts/_skiktprobe.mjs`, spelets `Motstandsvolym` + last + styrkraft + assist, 240 fall per cell,
+  nivå 0/2/4/6 × Lätt/Tung): utan vind driver skärmen 0,0 px; passiv drift HEAD 247–495 px (väggkontakt 25–63 % på
+  nivå 2–6) → NY 52–224 px (väggkontakt 0 %); Tung driver mindre än Lätt (158 mot 224 px, nivå 6); en greedy-styrare
+  träffar mattan HEAD 73–100 % → NY 100 %; hjälpt landning (assist 3 missar) 100 % → 100 %; landningens x ligger
+  alltid i 140–1140 (inget lämnar bild). Ingen ny replik.
 
 - 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): `_celebrate` spelade eget
   vinstljud + PRAISE + konfettiregn i samma tick som `complete()` — strukna (värdet firar;

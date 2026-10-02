@@ -243,6 +243,10 @@ export default {
       blur: 9,
       quality: 2,
       resolution: 0.5,
+      // Filtret behöver bara den yta saften når: ett lyft glas står som högst på y 300
+      // (kanten 64) och dras x 120–1160 ± 84; +30 px för metabollens svällning. Under
+      // gallret (GRATE_Y - 6) ritas barens framsida ogenomskinlig över saften.
+      area: new Rectangle(-40, 20, DESIGN_W + 80, GRATE_Y + 10),
     })
     this._view.layer.eventMode = 'none'
     this._view.layer.interactiveChildren = false

@@ -27,6 +27,7 @@ import { puff, sparkle, pop, breathe, ripple, squash, floatText } from '../../li
 import { COLORS, FONT, DESIGN_W } from '../../lib/theme.js'
 import { groundFill } from '../../lib/form.js'
 import { slumpIBand } from '../../lib/variation.js'
+import { Moln, molnTraff, MAX_BOUNCES } from './moln.js'
 
 // --- Layout (designkoordinater 1280×720) ---------------------------------
 const START = { x: 185, y: 165 } // Elviras starthörn (uppe till vänster)
@@ -41,9 +42,8 @@ const GOAL_R = 96 // når-radie för regnbågen
 const NEAR_R = 250 // härifrån och in vaknar regnbågen ("nästan framme!")
 const TRAIL_N = 30 // punkter i glitterspåret — ~1 s bana vid full fart
 const MAXV = 22 // hastighetstak (aldrig flyga vilt ur bild)
-const CLOUD_REST = 0.6 // molnens studsighet — MÅTTLIG, så studsar dör ut (inga evighetsloopar)
-const BOUNCE_UP_BASE = 6.5 // garanterad min-studs uppåt vid FÖRSTA molnträffen (avtar mot 0)
-const MAX_BOUNCES = 5 // tak på molnstudsar; därefter dämpas hon och landar lugnt (no infinite loop)
+const CLOUD_REST = 0.6 // studsighet i sikt-kontrollens PRICKBANA (golv/väggar). Molnstudsen själv är molnets fjäder (./moln.js)
+// MAX_BOUNCES (./moln.js): tak på molnstudsar med garanterat lyft; därefter dämpas hon och landar lugnt (no infinite loop)
 const SETTLE_SPEED = 1.1 // px/steg under detta räknas som "nästan stilla"
 const SETTLE_HOLD = 0.6 // s nära-stilla innan "landat"
 const MAX_FLIGHT = 7 // s i luften innan vi tvingar fram en landning (säkerhetsnät)
@@ -110,7 +110,6 @@ export default {
     this._tweens = []
     this._lastBounceSfx = -1
     this._bounces = 0
-    this._cloudBoost = 0 // mål-uppåtfart vid nästa molnstuds (0 = ingen)
     this._elviraBody = null
     this._goalPos = { x: 1040, y: 470 }
 
@@ -375,7 +374,6 @@ export default {
     this._flyT = 0
     this._settleT = 0
     this._bounces = 0
-    this._cloudBoost = 0
 
     this._removeElviraBody()
     this._killElviraTweens()
@@ -442,10 +440,7 @@ export default {
   _resetClouds(count) {
     for (let i = 0; i < this._clouds.length; i++) {
       const cloud = this._clouds[i]
-      if (cloud.body) {
-        this._phys.removeBody(cloud.body)
-        cloud.body = null
-      }
+      this._dropCloudBody(cloud)
       cloud.placed = false
       gsap.killTweensOf(cloud.view)
       gsap.killTweensOf(cloud.view.scale)
@@ -470,7 +465,6 @@ export default {
     this._idle = 0
     this._settleT = 0
     this._bounces = 0
-    this._cloudBoost = 0
     this._elvira.rotation = 0
     this._elvira.scale.set(1)
     this._hoppa.setEnabled(true)
@@ -565,10 +559,7 @@ export default {
     this._idle = 0
     this._dragCloud = cloud
     // Lyft molnet ur fysiken medan det hålls.
-    if (cloud.body) {
-      this._phys.removeBody(cloud.body)
-      cloud.body = null
-    }
+    this._dropCloudBody(cloud)
     cloud.placed = false
     const p = this._root.toLocal(e.global)
     this._dragOffset = { x: cloud.view.x - p.x, y: cloud.view.y - p.y }
@@ -605,9 +596,7 @@ export default {
       const py = clamp(cloud.view.y, 190, PLACE_LINE_Y - 4)
       gsap.to(cloud.view, { x: px, y: py, duration: 0.16, ease: 'power2.out' })
       gsap.to(cloud.view.scale, { x: 1, y: 1, duration: 0.2, ease: 'back.out(2)' })
-      cloud.body = this._phys.rectangle(px, py, CLOUD_W - 18, CLOUD_H - 8, {
-        isStatic: true, restitution: CLOUD_REST, friction: 0.1, label: 'cloud',
-      })
+      this._makeCloudBody(cloud, px, py)
       cloud.placed = true
       ctx.services.audio.sfx('pling')
       sparkle(ctx.fxLayer, px, py, { count: 5 })
@@ -632,7 +621,6 @@ export default {
     this._settleT = 0
     this._idle = 0
     this._bounces = 0
-    this._cloudBoost = 0
     this._hoppa.setEnabled(false)
     this._launcher?.setEnabled(false)
     this._lockToggles(true)
@@ -656,6 +644,7 @@ export default {
       restitution: 0.4, friction: 0.05, frictionAir: w.frictionAir, density: w.density, label: 'elvira',
     })
     Body.setInertia(body, Infinity) // håll henne upprätt (ingen tumling)
+    this._phys.fartTak(body, MAXV) // ett moln som kastar får aldrig ge ett skott ur bild (tak även INNE i steget)
     this._elviraBody = body
     this._phys.link(body, this._elvira, (view, b) => {
       view.rotation = clamp(b.velocity.x * 0.012, -0.28, 0.28) // liten lutning åt färdriktningen
@@ -670,6 +659,7 @@ export default {
     const dtSec = ticker.deltaMS / 1000
     this._t += dtSec
     this._phys.update(ticker.deltaMS)
+    this._syncClouds()
 
     // "Nästan framme!" — regnbågen svarar på hur nära hon är. Ligger FÖRE tillstånds-
     // grenen så vilotillståndet också drivs härifrån: annars står regnbågen kvar och
@@ -688,13 +678,7 @@ export default {
         const k = MAXV / sp
         Body.setVelocity(b, { x: b.velocity.x * k, y: b.velocity.y * k })
       }
-      // Garanterad MEN AVTAGANDE studs efter molnträff -> livfullt men strikt avtagande
-      // energi (aldrig en evighetsloop). _cloudBoost sätts i _onCollision.
-      if (this._cloudBoost > 0) {
-        const up = this._cloudBoost
-        this._cloudBoost = 0
-        if (b.velocity.y > -up) Body.setVelocity(b, { x: b.velocity.x, y: -up })
-      }
+      // (Molnstudsen — avtagande, aldrig en evighetsloop — är molnens egen fjäder, se ./moln.js.)
 
       this._pushTrail(b.position.x, b.position.y)
       this._checkGems(ctx, b.position.x, b.position.y)
@@ -844,18 +828,20 @@ export default {
       const other = a === body ? b : a
       const speed = Math.hypot(body.velocity.x, body.velocity.y)
       if (other.label === 'cloud') {
-        this._bounces++
         const cloud = this._clouds.find((c) => c.body === other)
-        if (this._bounces <= MAX_BOUNCES) {
-          // Avtagande garanterad studs (full vid 1:a träffen, 0 vid taket).
-          const frac = 1 - (this._bounces - 1) / MAX_BOUNCES
-          this._cloudBoost = Math.max(0, BOUNCE_UP_BASE * frac)
-        } else {
-          // Tak nått: ingen boost + dämpa farten hårt så hon LUGNT landar (aldrig evig loop).
-          this._cloudBoost = 0
-          Body.setVelocity(body, { x: body.velocity.x * 0.45, y: body.velocity.y * 0.45 })
+        // Landar hon OVANPÅ är studsen molnets fjäder (avtagande lyftdel + andel av fallet, tak ur geometrin).
+        // Underifrån/från sidan får hon sin vanliga studs — och efter taket dämpas hon så hon LUGNT landar.
+        const { topp, r } = molnTraff(cloud?.moln, body, pair, this._bounces + 1, this._weight.gravity)
+        // Bara en RIKTIG landning/träff räknas mot studstaket — inte kontakten som återkommer medan molnet dyker
+        // under henne, och inte en nuddande beröring som låter henne vila (det åt upp lyftdelen dubbelt så fort).
+        if (!topp || r) {
+          this._bounces++
+          if (!topp && this._bounces > MAX_BOUNCES) {
+            Body.setVelocity(body, { x: body.velocity.x * 0.45, y: body.velocity.y * 0.45 })
+          }
+          // Lyftet ÄR svaret: en landning som kastar henne ≥ 5 px/steg hörs alltid, hur sakta hon än kom.
+          this._bounceFx(ctx, cloud, Math.max(speed, r ? r.ladd : 0))
         }
-        this._bounceFx(ctx, cloud, speed)
       } else if (other.label === 'ground' || other.label === 'wall') {
         // Väggstuds: hon trycks ihop och blir yr ("oj!") — samma strypning som ljudet, så
         // bara en riktig smäll reagerar. SKALA, inte vingel: fysiklänken skriver hennes
@@ -884,16 +870,46 @@ export default {
       const f = KLATTER_TONER[Math.min(this._bounces, KLATTER_TONER.length) - 1]
       ctx.services.audio.tone({ freq: f, dur: 0.16, type: 'triangle', vol: 0.24 })
     }
+    // Tillplattningen är molnets EGEN nedtryckning (_syncClouds ritar den ur fjädern) — ingen tween.
     if (cloud && cloud.view && !cloud.view.destroyed) {
-      gsap.killTweensOf(cloud.view.scale)
-      gsap.to(cloud.view.scale, {
-        x: 1.16, y: 0.78, duration: 0.08, yoyo: true, repeat: 1, ease: 'power2.out',
-        onComplete: () => {
-          if (cloud.view && !cloud.view.destroyed) cloud.view.scale.set(1)
-        },
-      })
       sparkle(ctx.fxLayer, cloud.view.x, cloud.view.y - 8, { count: 4 })
     }
+  },
+
+  // ---- Molnkroppen: en fjäder per moln (./moln.js) --------------------------
+
+  _makeCloudBody(cloud, px, py) {
+    this._dropCloudBody(cloud)
+    cloud.moln = new Moln(this._phys, px, py)
+    cloud.body = cloud.moln.body
+    cloud._komp = 0
+  },
+
+  _dropCloudBody(cloud) {
+    if (cloud.moln) {
+      cloud.moln.destroy()
+      cloud.moln = null
+    }
+    cloud.body = null
+    this._paintCloud(cloud, 0)
+  },
+
+  // Molnets utseende följer dess fjäder: nedtryckningen plattar det (fästet nertill), uppslaget sträcker det.
+  _syncClouds() {
+    for (const c of this._clouds) {
+      if (!c.moln) continue
+      const k = c.moln.komp
+      if (Math.abs(k - c._komp) < 0.05) continue
+      this._paintCloud(c, k)
+    }
+  },
+
+  _paintCloud(cloud, komp) {
+    cloud._komp = komp
+    const kropp = cloud.view?.destroyed ? null : cloud.view?._kropp
+    if (!kropp || kropp.destroyed) return
+    const sy = clamp(1 - komp * 0.012, 0.66, 1.18)
+    kropp.scale.set(1 + (1 - sy) * 0.55, sy)
   },
 
   // ---- No-fail: tillbaka till start eller mjuk hjälp ----------------------
@@ -930,16 +946,13 @@ export default {
     if (!cloud) return false
     const px = clamp((START.x + this._goalPos.x) / 2, 100, DESIGN_W - 100)
     const py = clamp((START.y + this._goalPos.y) / 2 + 90, 190, PLACE_LINE_Y - 4)
-    if (cloud.body) {
-      this._phys.removeBody(cloud.body)
-      cloud.body = null
-    }
+    this._dropCloudBody(cloud)
     cloud.view.visible = true
     cloud.view.position.set(px, py)
     gsap.killTweensOf(cloud.view.scale)
     cloud.view.scale.set(0.6)
     gsap.to(cloud.view.scale, { x: 1, y: 1, duration: 0.25, ease: 'back.out(2)' })
-    cloud.body = this._phys.rectangle(px, py, CLOUD_W - 18, CLOUD_H - 8, { isStatic: true, restitution: CLOUD_REST, friction: 0.1, label: 'cloud' })
+    this._makeCloudBody(cloud, px, py)
     cloud.placed = true
     sparkle(ctx.fxLayer, px, py, { count: 6 })
     return true
@@ -1228,6 +1241,11 @@ export default {
 
     this._unbindCollision?.()
     this._removeElviraBody()
+    for (const c of this._clouds) {
+      c.moln?.destroy()
+      c.moln = null
+      c.body = null
+    }
     this._phys?.destroy()
     this._launcher?.destroy()
 
@@ -1362,6 +1380,14 @@ function drawUnicorn() {
 // Fluffigt studsmoln (vy).
 function makeCloudView() {
   const c = new Container()
+  // Själva molnet bor i ett INRE BARN (`_kropp`): fjäderns tillplattning skalar det, aldrig noden som bär
+  // hitArea/drag. Fästet (pivot) sitter vid undersidan så toppen sjunker när molnet trycks ihop.
+  const kropp = new Container()
+  kropp.pivot.set(0, 26)
+  kropp.position.set(0, 26)
+  kropp.eventMode = 'none'
+  c.addChild(kropp)
+  c._kropp = kropp
   const g = new Graphics()
   const w = CLOUD_W
   g.roundRect(-w / 2, -2, w, 28, 16).fill(0xd7ecff)
@@ -1370,10 +1396,10 @@ function makeCloudView() {
   g.circle(w * 0.32, 2, 28).fill(0xffffff)
   g.roundRect(-w / 2, -6, w, 26, 14).fill(0xffffff)
   g.eventMode = 'none'
-  c.addChild(g)
+  kropp.addChild(g)
   const sheen = new Graphics().ellipse(-8, -16, 30, 9).fill({ color: 0xffffff, alpha: 0.75 })
   sheen.eventMode = 'none'
-  c.addChild(sheen)
+  kropp.addChild(sheen)
   return c
 }
 

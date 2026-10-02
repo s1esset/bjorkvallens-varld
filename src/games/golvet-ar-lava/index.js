@@ -39,6 +39,7 @@ import { COLORS, FONT, DESIGN_W, DESIGN_H, shade, tint } from '../../lib/theme.j
 import { BLEED_X, BLEED_Y } from '../../lib/view.js'
 import { verticalFill, bage } from '../../lib/form.js'
 import { glod } from '../../lib/glod.js'
+import { figurForOmgang, presentera } from '../../lib/egnafigurer.js'
 
 // --- Geometri (designkoordinater 1280×720) ---
 const SURFACE_Y = 438 // lavans ytlinje
@@ -115,6 +116,8 @@ export default {
     this._slots = []
     this._lavaLeft = 240
     this._lavaRight = 1040
+    this._egen = null // barnets egen figur som hoppar (null = spelets Zacke/Alissa)
+    this._mounted = false
     this._level = Math.max(0, ctx.progress.get().highestLevel | 0)
 
     this._root = new Container()
@@ -270,7 +273,77 @@ export default {
     this._idle = 0
     // Säg rätt namn för aktuell nivå (figuren växlar Zacke/Alissa per nivå) så
     // rösten matchar den visade figuren; idle-recue (replayLast) ärver samma rad.
-    ctx.services.voice.say(`Lägg stenar över lavan så hoppar ${this._heroName || 'Zacke'} till skatten!`)
+    this._sagIntro(ctx)
+    this._egenPresentera(ctx)
+    this._mounted = true
+  },
+
+  // Intro-raden efter vem som hoppar. En LITERAL per variant (annars får den inget klipp).
+  _sagIntro(ctx) {
+    const voice = ctx.services.voice
+    const e = this._egen
+    if (e && e._alive) {
+      if (e.mott) voice.say('Lägg stenar över lavan så hoppar ett knytt till skatten!')
+      else if (e.typ === 'kompis') voice.say('Lägg stenar över lavan så hoppar din kompis till skatten!')
+      else voice.say('Lägg stenar över lavan så hoppar ditt knytt till skatten!')
+    } else if (this._heroName === 'Alissa') voice.say('Lägg stenar över lavan så hoppar Alissa till skatten!')
+    else voice.say('Lägg stenar över lavan så hoppar Zacke till skatten!')
+  },
+
+  _sagStenarForst(ctx) {
+    const voice = ctx.services.voice
+    const e = this._egen
+    if (e && e._alive) {
+      if (e.mott) voice.say('Lägg några stenar först, så hoppar knyttet!')
+      else if (e.typ === 'kompis') voice.say('Lägg några stenar först, så hoppar din kompis!')
+      else voice.say('Lägg några stenar först, så hoppar ditt knytt!')
+    } else if (this._heroName === 'Alissa') voice.say('Lägg några stenar först, så hoppar Alissa!')
+    else voice.say('Lägg några stenar först, så hoppar Zacke!')
+  },
+
+  // Nyss skapad figur presenteras en gång (köas bakom introt).
+  _egenPresentera(ctx) {
+    const e = this._egen
+    if (!e || !e._alive) return
+    presentera(ctx, e, {
+      knytt: 'Titta, ditt nya knytt hoppar över lavan!',
+      kompis: 'Titta, din nya kompis hoppar över lavan!',
+    })
+  },
+
+  // Barnets egen figur, EN per bana (takten räknas av figurForOmgang: nyss skapat först,
+  // sedan varannan bana). Fötterna i y=0 och mitten i x=0 — samma ankare som den ritade
+  // Zacke/Alissa, så hoppets squash och rotation fungerar oförändrat. Utan egna: null.
+  _byggEgenHjalte(ctx) {
+    this._slappEgen()
+    const fig = figurForOmgang(ctx, 'golvet-ar-lava', { hojd: 132, maxBredd: 104, skugga: false, reserv: () => null })
+    if (!fig) return false
+    this._egen = fig
+    this._heroName = null
+    if (this._heroArt && !this._heroArt.destroyed) {
+      gsap.killTweensOf(this._heroArt.scale)
+      this._heroArt.destroy({ children: true })
+    }
+    this._heroArmL = null
+    this._heroArmR = null
+    this._heroArt = fig.view
+    this._hero.addChild(fig.view)
+    return true
+  },
+
+  // Riv figuren i rätt ordning: ut ur trädet först, sedan figurens egen destroy — annars tar
+  // en destroy({children:true}) uppifrån dess view bakom ryggen på dess egen ticker.
+  _slappEgen() {
+    const fig = this._egen
+    if (!fig) return
+    this._egen = null
+    if (this._heroArt === fig.view) this._heroArt = null
+    if (fig.view && !fig.view.destroyed) {
+      gsap.killTweensOf(fig.view)
+      gsap.killTweensOf(fig.view.scale)
+      fig.view.parent?.removeChild(fig.view)
+    }
+    fig.destroy()
   },
 
   // ---- Ritade figurer (P0 ASSETS: egen silhuett, eget liv) ----------------
@@ -279,6 +352,7 @@ export default {
   // Byggs med FÖTTERNA i y=0 och mitten i x=0 — samma ankare som emojin hade,
   // så _updateWalks squash/stretch (scale från fötterna) fungerar oförändrat.
   _buildHeroArt(name) {
+    this._slappEgen()
     if (this._heroArt && !this._heroArt.destroyed) {
       gsap.killTweensOf(this._heroArt.scale)
       this._heroArt.destroy({ children: true })
@@ -579,8 +653,10 @@ export default {
 
     // Figur (jämn nivå = Alissa, udda = Zacke) — ritas om per nivå.
     const even = level % 2 === 0
-    this._heroName = even ? 'Alissa' : 'Zacke'
-    this._buildHeroArt(this._heroName)
+    if (!this._byggEgenHjalte(ctx)) {
+      this._heroName = even ? 'Alissa' : 'Zacke'
+      this._buildHeroArt(this._heroName)
+    }
     gsap.killTweensOf(this._hero)
     gsap.killTweensOf(this._hero.scale)
     this._hero.scale.set(1)
@@ -590,6 +666,7 @@ export default {
     this._heroShadow.alpha = 0.18
     this._clearTrail() // förra banans streck får inte hänga kvar vid den nya starten
     bounceIn(this._hero)
+    if (this._mounted) this._egenPresentera(ctx) // nästa bana, ny figur: presenteras en gång
 
     this._walking = false
     this._resolving = false
@@ -1113,7 +1190,7 @@ export default {
     // starta INTE. Har barnet redan placerat (och ev. tagit bort) → molnet bär hela
     // vägen (no-fail). Aldrig "game over".
     if (placed.length === 0 && !this._hasPlacedEver) {
-      ctx.services.voice.say(`Lägg några stenar först, så hoppar ${this._heroName}!`)
+      this._sagStenarForst(ctx)
       for (const s of this._stones) if (s && !s.destroyed && !s._placed) wiggle(s)
       return
     }
@@ -1265,6 +1342,7 @@ export default {
       gsap.killTweensOf(this._hero.scale)
       pop(this._hero, { scale: 1.25 })
       this._setHeroPose('cheer') // armarna upp
+      this._egen?.react('jubel')
     }
     // Draken firar tillsammans: hoppar högre och blåser en glad rök-puff.
     const d = this._dragon
@@ -1635,6 +1713,7 @@ export default {
     if (this._heroArt && !this._heroArt.destroyed) gsap.killTweensOf(this._heroArt.scale)
     if (this._treasureGlow && !this._treasureGlow.destroyed) gsap.killTweensOf(this._treasureGlow.scale)
 
+    this._slappEgen()
     gsap.killTweensOf(this._root)
     ctx?.services?.voice?.cancel()
     this._root?.destroy({ children: true })

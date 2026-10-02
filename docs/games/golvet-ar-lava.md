@@ -110,6 +110,8 @@ loopen är "töm bricka → bredare flod".**
 
 ## 5. Status / loggar
 
+- 2026-10-02 · **Barnets egen figur hoppar (FYSIKPLAN §5.4, F4/B2).** `_buildLevel` frågar `figurForOmgang(ctx, 'golvet-ar-lava', { hojd: 132, maxBredd: 104, reserv: () => null })` per BANA (nyss skapat först, sedan varannan bana): barnets knytt eller kompis tar Zacke/Alissas plats som hjälte (fötterna i y=0 — samma ankare, så hoppets squash och `rotation` är oförändrade; `_heroArt` pekar på figurens view). Jublar vid vinst (`react('jubel')`). Utan egna figurer: Zacke/Alissa som förut. De fasta layouterna nivå 0–5 är orörda. Rivning: `_slappEgen()` (ur trädet först, sedan `fig.destroy()`) före varje ny hjälte och i `destroy`. Intro- och "lägg stenar först"-raden finns nu i tre röster (knytt/kompis/mött knytt) som LITERALER; en ny figur presenteras av `presentera`. Omätt i webbläsare (byggnatt utan test).
+
 - 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): `_onWin` spelade själv vinstljud,
   beröm och konfettiregn i samma tick som `complete()` — alla tre strukna (dubbelt ljud/regn,
   och berömmet kapade sig självt). Två A-rader byggda: **stenröset** (synlig samlad sträcka, en

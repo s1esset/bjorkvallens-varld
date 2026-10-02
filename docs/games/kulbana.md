@@ -73,7 +73,7 @@ Imponerande system, men en kräsen spelare/förälder ser tunna fläckar:
   inte bara träffen.
 
 ### Variation & överraskning
-- ✅ ~~Propeller~~ *(2026-10-01, se §5)*. **[Medium] Fler banelement kvar:** en kort "loop" och en
+- ✅ ~~Propeller~~ *(2026-10-01, se §5; 2026-10-02 gjord till ett riktigt gångjärn med motor — kulan knuffar den och den knuffar tillbaka)*. **[Medium] Fler banelement kvar:** en kort "loop" och en
   studsmatta-kedja (klockorna och propellern finns).
 - **[Quick] Banbitar med personlighet.** Studsplattan är klar (en riktig fjäderbräda,
   `Fjaderbrada` :663, 2026-08-09). Kvar: rampens "swoosh" när kulan rullar och trattens
@@ -114,6 +114,13 @@ Imponerande system, men en kräsen spelare/förälder ser tunna fläckar:
   ger en anledning att titta upp.
 - **[Quick] `FALL_MAX`-hemfärden är tyst** — en puff + "Hoppsan, hem igen!" gör orsaken tydlig.
 
+### Kvar efter kritiken 2026-10-02 (F1 propellern)
+- **[Quick] Släpp ovanpå en propeller:** dras propellern över kulans släppläge börjar masken gälla
+  mitt i ett överlapp → kraftig utskjutning. Håll `mask = 0` tills kula–nav > `PROP_ARM`.
+- **[Quick] Startsvisch:** svisch-bågen blinkar (alfa ~0,46) när propellern placeras och motorn
+  accelererar 0 → 0,035. Troligen fint, men oavsiktligt — se i bild.
+- **[Quick] `FALL_MAX` 22 s** är långt för en 3-åring om kulan skulle bäras runt (inte sett i
+  `_dag-kulbana`: släpptider 1,5–3,1 s). Överväg ~12 s.
 ## 5. Status / loggar
 
 - 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): `_win` spelade eget vinstljud, eget PRAISE
@@ -226,3 +233,30 @@ Imponerande system, men en kräsen spelare/förälder ser tunna fläckar:
   knappkolumnen (236,590, skala 0,55); den parkerade propellern stod sist på hyllan med bladen intill
   hinken och upp över hyllkanten → parkeras mitt på hyllan, i kryss (45°), utan stativ.
   Kvar omätt: propellerns knuff (PROP_OMEGA 0,035) som balans, och om kulan kan fastna mellan blad och nav.
+  *(Båda mättes 2026-10-02 med den nya propellern — se nedan.)*
+- 2026-10-02 **Propellern blir ett riktigt gångjärn med motor** (dagkörning D10 · FYSIKPLAN F1/G8). Förr var
+  den två STATISKA stavar vars vinkel sattes med fart (`setAngle(…, true)`) — oändligt tung: kulan studsade av
+  den men propellern märkte ingenting. Nu är de två stavarna EN sammansatt kropp (`phys.sammansatt`, tyngdpunkten i
+  navet) på `phys.gangjarn` med `motor({ fart: 0,035, maxMoment: 0,28 })` — den snurrar av sig själv, ett blad som
+  träffas av kulan ändrar farten (snabbare, långsammare, ibland bakåt) och kulan får rörelsemängd tillbaka;
+  motorn vrider sedan tillbaka den mot sin takt på ~0,4 s. Motgång som SAKTAR NER, aldrig stoppar: momenttaket är
+  svagt men aldrig noll, och `PROP_W_MAX` 0,15 rad/steg tar toppen (ingen murbräcka). **Ingen vev** — barnet drar
+  och placerar redan delen (en gest per del för 2–5 år); motorn gör att den snurrar utan att barnet behöver göra
+  något, och en vev på en del som också är en dragyta hade gjort draggreppet tvetydigt.
+  - **Parkerad ≠ placerad** (`_propLage`): på hyllan (y ≥ `PROP_PARK_Y`) är den en STATISK kropp i kryss, utan led;
+    dras den upp i fältet blir den dynamisk och får ett gångjärn, dras den tillbaka ändras det igen — mitt i ett drag.
+    Ankaret (`led.punkt`) flyttas i samma andetag som kroppen (`_syncPartBodies`), `ta()` + `removeBody` vid rivning.
+  - **Kollisionsmasker:** propellern möter BARA kulan (kulan kategori 1+4, propellern kategori 2/mask 4) — annars hade
+    ett blad fastnat i en ramp/pelare den dras över, och motorn stått still. Och bara medan kulan är släppt
+    (`mask = 0` när kulan är frusen vid utsläppet eller glider hem) i `_stepSprings`.
+  - **Svisch:** fyra vita bågar efter bladspetsarna (`bage`, ett barn av `blad`) vars alfa följer |ω − 0,035| —
+    skillnaden mellan "den snurrar" och "kulan fick den att snurra". Ingen tween; `_update` skriver alfa varje bildruta.
+  - **Mätt i Node** (`PhysicsWorld` + de riktiga spelmetoderna, ingen webbläsare): densitet på DELARNA (föräldern
+    ignorerar `density` i `Body.create`) — 0,001 (tröghet 36 410) = kulan märker nästan inget; **0,0004** (14 564, effektiv
+    massa vid ett blad ≈ 4 mot kulans 2,8) = snittändring ±0,067 rad/steg (≈ 2× takten), topp ~0,1, ingen
+    fastnad kula på 60 slumpade träffar, noll drift av navet. Nollfarten på parkerad propeller: exakt 0. Layout
+    på bana 4 med kulan i mål genom propellern: ~10–17 % per släpp (HEAD ~8 %) — banan är kaotisk, inlärningsbanan
+    är oförändrad (samma delar, samma hjälp, släpp nr 8 glider hem).
+  - Sond: `node scripts/_dag-kulbana.mjs` (orkestreraren kör; kontrollarm = samma sond mot HEAD: ω konstant 0,035).
+    Kvar: propellerns ljud (se Ljud), och att en ny vilofas för kulan ovanpå ett blad (kulan "bärs runt") aldrig
+    mätts i webbläsaren — `FALL_MAX` 22 s står kvar som skyddsnät.

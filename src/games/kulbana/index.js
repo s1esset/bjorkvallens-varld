@@ -14,7 +14,8 @@
 // Allt ritas programmatiskt (Pixi Graphics + system-emoji) — inga externa filer.
 import { Container, Graphics, Text, Circle, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
-import { PhysicsWorld, Body, nudge } from '../../lib/physics.js'
+import { PhysicsWorld, Body, Bodies, nudge } from '../../lib/physics.js'
+import { bage } from '../../lib/form.js'
 import { Fjaderbrada } from '../../lib/fjader.js'
 import { createScene } from '../../lib/scene.js'
 import { makeKaraktar } from '../../lib/karaktarer.js'
@@ -78,11 +79,27 @@ function undvik(x, y) {
   return { x, y }
 }
 
-// Propellern snurrar i matters takt (rad/steg) — 0,035 ≈ ett varv på 3 s; bladspetsen far
-// då ~3 px/steg, mjukt nog att knuffa kulan men inte slå den ur banan.
+// Propellern är en riktig DYNAMISK kropp på ett gångjärn (`phys.gangjarn`, FYSIKPLAN F1) med en
+// MOTOR som vill snurra den med PROP_OMEGA rad/steg (0,035 ≈ ett varv på 3 s; bladspetsen far då
+// ~2,6 px/steg). Motorn har ett momenttak: kulan som träffar ett blad får propellern att ändra fart
+// (snabbare, långsammare, ibland bakåt) och får själv rörelsemängd tillbaka — sedan vrider motorn
+// tillbaka den mot sin takt på ~0,7 s. Den kan alltså sakta ner, aldrig stanna för gott. En vev
+// behövs inte: barnet har redan fullt upp med att dra och placera delen, och motorn gör att den
+// snurrar av sig själv (småbarn: en gest per del). Mätt i Node (60 slumpade träffar, fart 3–14):
+// densitet 0,0004 på DELARNA (tröghet 14 564; ≈ 4 mot kulans 2,8 i effektiv massa vid ett blad) ger
+// en snittändring på ±0,067 rad/steg (≈ 2× takten), topp ~0,1, tillbaka på takten på ~0,4 s.
+// Tyngre (0,001) = nästan samma som förr: kulan märker ingenting.
 const PROP_OMEGA = 0.035
+const PROP_MOMENT = 0.28 // motorns momenttak (matters enhet; ≈ 0,0054 rad/steg² på den olastade propellern)
+const PROP_DENS = 0.0004 // på DELARNA (Body.create räknar massan ur delarna, inte ur föräldern)
+const PROP_W_MAX = 0.15 // rad/steg: tak på snurrfarten (bladspets ≈ 11 px/steg) — ingen murbräcka
 const PROP_PARK_Y = 600 // under detta y står propellern på hyllan och snurrar inte
 const PROP_ARM = 75 // halva bladlängden (px)
+// Kollisionsmasker: propellern kolliderar BARA med kulan (inte med ramper, hinder, hink — då hade
+// ett blad fastnat i en ramp och motorn stått still). Kulan bär kategori 1 + 4.
+const KAT_KULA = 0x0005
+const KAT_PROP = 0x0002
+const MASK_PROP = 0x0004
 const FALL_MAX = 22 // s: längsta ett enda släpp får pågå innan kulan går hem (ingen fastna-för-alltid)
 
 export default {
@@ -184,6 +201,7 @@ export default {
       density: 0.0013,
       label: 'ball',
       isStatic: true,
+      collisionFilter: { category: KAT_KULA, mask: 0xffffffff, group: 0 },
     })
     this._phys.link(this._ballBody, this._ball) // synkar position + rull-rotation
 
@@ -869,11 +887,11 @@ export default {
       hitH = 120
       this._addKnob(ctx, part, 96)
     } else if (kind === 'propeller') {
-      // PROPELLER: fyra blad i kors som snurrar i matters takt (`_stepSprings`). Kulan som
-      // träffar ett blad knuffas åt det håll bladet far — timingen är pusslet. De två
-      // korsade stavarna är STATISKA kroppar vars vinkel sätts MED fart (`setAngle(…, true)`,
-      // matters lösare läser `angle − anglePrev` även på statiska kroppar). Ingen vrid-knapp:
-      // den snurrar redan, och är den ritad rund behöver den ingen riktning.
+      // PROPELLER: fyra blad i kors på ett GÅNGJÄRN med motor (se PROP_*). Ute i fältet är den en
+      // dynamisk kropp som kulan knuffar och som knuffar tillbaka; på hyllan (parkerad) är den en
+      // STATISK kropp i kryss utan led (`_propLage`). Ingen vrid-knapp: den snurrar redan, och är den
+      // ritad rund behöver den ingen riktning. Delen (Container) rörs aldrig av fysiken — bara
+      // `blad`, ett inre barn, vrids efter kroppen.
       const stativ = new Graphics()
       stativ.roundRect(-7, 8, 14, 52, 5).fill(0x9a6a43).stroke({ width: 3, color: 0x6e4429 })
       stativ.roundRect(-36, 54, 72, 14, 7).fill(0x2f7f7c)
@@ -896,14 +914,32 @@ export default {
       part._blad = blad
       part._hub = nav
       part._stativ = stativ
-      part._spin = Math.PI / 4 // parkerad i kryss tills den dras upp i fältet
-      blad.rotation = part._spin
-      // Två korsade stavar (150×16) = fyra blad. Båda roterar kring navet (= delens mitt).
-      const sa = this._phys.rectangle(x, y, PROP_ARM * 2, 16, { isStatic: true, friction: 0.1, label: 'propeller' })
-      const sb = this._phys.rectangle(x, y, 16, PROP_ARM * 2, { isStatic: true, friction: 0.1, label: 'propeller' })
-      Body.setAngle(sa, part._spin)
-      Body.setAngle(sb, part._spin)
-      part._props = [sa, sb]
+      // Svisch: fyra släpande bågar efter bladspetsarna som tonas in när farten ändras av en träff —
+      // skillnaden mellan "den snurrar" och "kulan fick den att snurra". Ett barn av `blad`, så de
+      // följer rotationen; `scale.y = ±1` vänder dem när propellern går bakåt. Ingen tween: `alpha`
+      // skrivs av `_update` varje bildruta.
+      const svisch = new Graphics()
+      for (let i = 0; i < 4; i++) {
+        const a = (i * Math.PI) / 2
+        bage(svisch, 0, 0, PROP_ARM - 14, a - 0.7, a - 0.12).stroke({ width: 7, color: 0xffffff, alpha: 0.55, cap: 'round' })
+      }
+      svisch.eventMode = 'none'
+      svisch.alpha = 0
+      blad.addChild(svisch)
+      part._svisch = svisch
+      // Två korsade stavar (150×16) = fyra blad, EN sammansatt kropp med tyngdpunkten i navet.
+      // Etiketten sitter på delarna OCH föräldern (kontakten bär DELEN, `_onCollision` läser `parent`).
+      const sa = Bodies.rectangle(x, y, PROP_ARM * 2, 16, { label: 'propeller', density: PROP_DENS, friction: 0.1, restitution: 0.3 })
+      const sb = Bodies.rectangle(x, y, 16, PROP_ARM * 2, { label: 'propeller', density: PROP_DENS, friction: 0.1, restitution: 0.3 })
+      part._prop = this._phys.sammansatt([sa, sb], {
+        isStatic: true,
+        label: 'propeller',
+        frictionAir: 0.015,
+        collisionFilter: { category: KAT_PROP, mask: MASK_PROP, group: 0 },
+      })
+      Body.setAngle(part._prop, Math.PI / 4) // parkerad i kryss tills den dras upp i fältet
+      blad.rotation = part._prop.angle
+      part._led = null
       hitW = 180
       hitH = 170
     } else {
@@ -1013,15 +1049,41 @@ export default {
         Body.setPosition(s.body, { x: part.x + s.ox, y: part.y + s.oy })
         Body.setAngle(s.body, s.ang)
       }
-    } else if (part._props) {
-      // Propellern: bara läget flyttas (utan fart) — vinkeln äger `_stepSprings`.
-      for (const b of part._props) Body.setPosition(b, { x: part.x, y: part.y })
+    } else if (part._prop) {
+      // Propellern: läget flyttas UTAN fart, gångjärnets ankare följer med. Vinkeln och farten
+      // äger motorn och kulan (`_stepSprings`).
+      Body.setPosition(part._prop, { x: part.x, y: part.y })
+      this._propLage(part)
+      if (part._led) {
+        part._led.punkt.x = part.x
+        part._led.punkt.y = part.y
+      }
     } else if (part._body) {
       Body.setAngle(part._body, part.rotation)
       // En fjäderbräda som flyttas behåller sin inpressning (viloläget är delens läge,
       // kroppen sitter `komp` px in längs normalen) — men får INGEN fart av draget.
       if (part._fjader) part._fjader.flytta(part._body, part.x, part.y, part.rotation)
       else Body.setPosition(part._body, { x: part.x, y: part.y })
+    }
+  },
+
+  // Propellern ute i fältet = dynamisk kropp på ett gångjärn med motor; parkerad på hyllan = statisk
+  // i kryss, utan led (bladen skulle annars svepa in i hinken, och en parkerad propeller ska aldrig
+  // ge efter för en kula). Anropas vid varje flytt, så gränsen PROP_PARK_Y byter läge mitt i ett drag.
+  _propLage(part) {
+    const b = part._prop
+    if (!b || !this._phys) return
+    const ute = part.y < PROP_PARK_Y
+    if (ute && !part._led) {
+      Body.setStatic(b, false)
+      Body.setAngularVelocity(b, 0)
+      part._led = this._phys.gangjarn(b, { x: part.x, y: part.y })
+      part._led.motor({ fart: PROP_OMEGA, maxMoment: PROP_MOMENT })
+    } else if (!ute && part._led) {
+      part._led.ta()
+      part._led = null
+      Body.setStatic(b, true)
+      Body.setAngle(b, Math.PI / 4)
     }
   },
 
@@ -1042,16 +1104,16 @@ export default {
   // varken kropp att flytta eller silhuett att rita om.
   _stepSprings() {
     for (const part of this._parts) {
-      if (part && !part.destroyed && part._props) {
-        // Propellern: ETT fast steg = PROP_OMEGA rad, satt MED fart så kulan knuffas. Vinkeln
-        // wrappas aldrig — ett hopp i `angle` vore en enorm fart i just det steget.
-        // På hyllan (parkerad) står den still: bladen skulle annars svepa in i hinken, och
-        // en kvarlämnad vinkelfart på en statisk kropp försvinner aldrig av sig själv —
-        // `setAngle(…, true)` med oförändrad vinkel nollar den.
-        // Parkerad står den i kryss (45°) så bladen inte når upp över hyllans kant.
-        if (part.y < PROP_PARK_Y) part._spin += PROP_OMEGA
-        else part._spin = Math.PI / 4
-        for (const b of part._props) Body.setAngle(b, part._spin, true)
+      if (part && !part.destroyed && part._prop) {
+        // Propellern drivs av sitt gångjärn + sin motor (`_propLage`); här bara två skydd per FAST
+        // steg. ⓵ Den möter bara kulan, och bara medan kulan faktiskt är släppt — en frusen kula på
+        // utsläppet eller en bandel som dragits över den ska aldrig kunna blockera en snurrande
+        // propeller. ⓶ Snurrfarten har ett tak så en hård träff aldrig gör den till en murbräcka.
+        const b = part._prop
+        b.collisionFilter.mask = this._ballBody.isStatic ? 0 : MASK_PROP
+        if (part._led && Math.abs(b.angularVelocity) > PROP_W_MAX) {
+          Body.setAngularVelocity(b, Math.sign(b.angularVelocity) * PROP_W_MAX)
+        }
         continue
       }
       const f = part?._fjader
@@ -1194,7 +1256,16 @@ export default {
     // Propellerns blad ritas i kroppens vinkel (en skrivning per bildruta, ingen tween).
     for (const part of this._parts) {
       if (part && !part.destroyed && part._blad && !part._blad.destroyed) {
-        part._blad.rotation = part._spin
+        const pb = part._prop
+        if (pb) {
+          part._blad.rotation = pb.angle
+          // Svisch: tonas in när farten avviker från takten (kulan gav den en puff), vänds med riktningen.
+          if (part._svisch && !part._svisch.destroyed) {
+            const w = pb.angle - pb.anglePrev
+            part._svisch.alpha = part._led ? clamp((Math.abs(w - PROP_OMEGA) - 0.012) / 0.05, 0, 1) : 0
+            part._svisch.scale.y = w < 0 ? -1 : 1
+          }
+        }
         // Stativet bara ute i fältet — på hyllan hade foten stuckit ut under skärmkanten.
         if (part._stativ && !part._stativ.destroyed) part._stativ.visible = part.y < PROP_PARK_Y
       }
@@ -1538,7 +1609,7 @@ export default {
       if (other.label === 'propeller') {
         if (this._tnow - this._lastPropAt > BOUNCE_THROTTLE) {
           this._lastPropAt = this._tnow
-          const part = this._parts.find((p) => p && !p.destroyed && p._props && p._props.includes(other))
+          const part = this._parts.find((p) => p && !p.destroyed && p._prop && p._prop === other.parent)
           const kraft = clamp((Math.hypot(this._ballBody.velocity.x, this._ballBody.velocity.y) - 1) / 10, 0, 1)
           ctx.services.audio.tone({ freq: 380 + 160 * kraft, dur: 0.12, type: 'triangle', vol: 0.08 + 0.1 * kraft, slideTo: 760 + 240 * kraft })
           if (part?._hub && !part._hub.destroyed) pop(part._hub, { scale: 1.35 })
@@ -1614,9 +1685,13 @@ export default {
       for (const s of part._subBodies) this._phys.removeBody(s.body)
       part._subBodies = null
     }
-    if (part._props) {
-      for (const b of part._props) this._phys.removeBody(b)
-      part._props = null
+    if (part._led) {
+      part._led.ta()
+      part._led = null
+    }
+    if (part._prop) {
+      this._phys.removeBody(part._prop)
+      part._prop = null
     }
   },
 

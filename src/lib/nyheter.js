@@ -10,6 +10,22 @@
 
 export const NYHETER = [
   {
+    version: '1.427',
+    fran: '1.419',
+    datum: '2026-10-03',
+    titel: 'Det man fångar blir kvar, och vinden syns',
+    punkter: [
+      'Glittret i Enhörningens Glitterbajs försvinner inte längre i kistan. Det lägger sig i en glittrande hög som följer med när barnet drar kistan, och högen hoppar till när mätaren är full.',
+      'Frukten i Fånga Frukten lägger sig i korgen och blir en liten hög som följer med korgen.',
+      'I Roliga Snurran står en blank skål under luckan. En del av mynten från myntregnet landar i skålen och blir liggande där.',
+      'I Spindelhjälten blåser vinden i ett band på himlen med löv och vita streck. Kastet svänger bara när hjälten flyger genom bandet.',
+      'Vinden i Enhörningen Elvira syns: små blommor och blå streck blåser genom luften. En lätt Elvira blåser längre än en tung.',
+      'Fläkten i Flugan blåser synliga blå luftbågar mot fönstret.',
+      'I Bobos Bowling syns vindpusten som hjälper till när käglor står kvar. Käglorna lutar sig och blåser omkull åt samma håll.',
+      'I Fallskärmen blåser vinden olika på olika höjd. Remsor, luftdrag och löv visar åt vilket håll. Fallskärmen glider åt ett håll högt upp och åt ett annat längre ner.',
+    ],
+  },
+  {
     version: '1.418',
     fran: '1.417',
     datum: '2026-10-02',

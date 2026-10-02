@@ -10,6 +10,15 @@
 
 export const NYHETER = [
   {
+    version: '1.367',
+    fran: '1.365',
+    datum: '2026-10-02',
+    titel: 'Förberedelser bakom kulisserna',
+    punkter: [
+      'Ingenting ändras i spelen ännu. Appen har fått nya byggstenar så att saker snart kan fjädra till när man rör dem och dunsa ner på marken när de kommer in i bild, i stället för att bara dyka upp i luften.',
+    ],
+  },
+  {
     version: '1.364',
     fran: '1.361',
     datum: '2026-10-02',

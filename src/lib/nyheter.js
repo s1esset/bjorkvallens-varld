@@ -10,6 +10,16 @@
 
 export const NYHETER = [
   {
+    version: '1.386',
+    fran: '1.384',
+    datum: '2026-10-02',
+    titel: 'En riktig studsmatta',
+    punkter: [
+      'Mattan i Studsmattan fjädrar på riktigt nu. Ju högre kaninen faller, desto högre studsar den, upp till en topp som alltid syns på skärmen. Mattan buktar och gungar efter varje landning och följer med när man drar i den. Kaninen studsar vidare medan den firar, och ett tryck strax före landningen hörs också.',
+      'Saftbaren går lite lättare på surfplattor med mindre kraft.',
+    ],
+  },
+  {
     version: '1.383',
     fran: '1.379',
     datum: '2026-10-02',

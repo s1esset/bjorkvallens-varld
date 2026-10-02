@@ -88,6 +88,8 @@ vägg, och glöden tänker åt barnet.**
   (DragControllers översläng); nu klickar vagnen i kopplet — kort metallisk tvåtons-klick (E6
   + G5), grusdamm vid båda hjulen och ett ryck på 9 px mot loket som studsar tillbaka
   (`_koppelSnapp` :513). Rycket går på vagnens BARN via ett proxy-objekt, ett per vagn.
+- ✅ ~~**[Quick] Kopplen fjädrar när tåget startar och stannar (FYSIKPLAN P2).**~~ Klar 2026-10-02:
+  se §5.
 
 ### Progression
 - **[Deep] Kurvan planar ut efter N=5.** Två luckor i ett 5-tåg (`1,_,3,_,5`), tåg som börjar på 2 i stället för 1, olika laster per runda (kräver nya klipp för räknefraserna).
@@ -108,6 +110,8 @@ vägg, och glöden tänker åt barnet.**
   (MOSS nere).
 
 ## 5. Status / loggar
+
+- 2026-10-02 · **Vagnskorgarna gungar på sina hjul (FYSIKPLAN P2, `lib/vippa.js`).** Premissen ("stel tidslinje, `:877`") höll: avfärden är en gsap-tidslinje där vagnarna bara byter x. Varje vagn har nu en `_fjad`-nod (barn till `_inner`, pivot på hjullinjen y 70 så hjulen står kvar på rälsen) som `vippa(…, { axel: 'skev', max: 0.06 })` lutar. Vagnen själv (hitArea, DragController-item, landning), `_inner` (vilo-livets y/rotation, kopplingsryckets x) och `_glow` rörs inte av den. Stötarna: **start** (t 0,1 s i `_finishRound`) lutar korgarna bakåt en vagn i taget, loket först; **inbromsning** vid stationen (t `FARD_TID − 0,15`) skjuter dem framåt i samma ordning; **avfärd** (`UTFART_T`) lutar varje vagn i samma ögonblick som dess tween börjar (samma stafett, `DEPART_STAGGER` orörd); **koppling** (`_onCorrect`) ger den nya vagnen och grannarna en stöt. Vippan skapas först när en vagn får sin första stöt (`_gunga`) och rivs i `_dodaRundTweens` (rundbyte + destroy). Tidslinjens `call`s dör med `_depart.kill()`. Rundor, laster, lägen, repliker och tider är orörda. Omätt i webbläsare (byggnatt utan test).
 
 - 2026-10-01 🚂 **Sluta jaga blinkern, börja räkna** (arbetsorder, nattkörning; ej körd i webbläsare
   av byggaren — orkestreraren testar).

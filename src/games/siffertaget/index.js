@@ -21,6 +21,7 @@ import { COLORS, FONT, PLAYFUL, PRAISE } from '../../lib/theme.js'
 import { BLEED_X, BLEED_Y } from '../../lib/view.js'
 import { verticalFill } from '../../lib/form.js'
 import { createScene } from '../../lib/scene.js'
+import { vippa } from '../../lib/vippa.js'
 import { Varld, STATION_X, STATION_HALV, GAST_HOJD, GAST_BREDD } from './varld.js'
 import { valjEgna, byggEgenFigur, presentera } from '../../lib/egnafigurer.js'
 
@@ -537,13 +538,22 @@ export default {
       it.position.set(-((n - 1) * spacing) / 2 + i * spacing, 36)
       cargo.addChild(it)
     }
-    inner.addChild(glow, body, num, cargo)
+    // `fjad` = vippans nod (FYSIKPLAN P2): ett barn till `_inner` med pivot på hjullinjen (y 70), så
+    // skevningen gungar KORGEN på sina hjul — hjulen står kvar på rälsen. Vagnen själv (träffyta,
+    // drag, landning) och `_inner` (vilo-livets y/rotation, kopplingsryckets x) rörs aldrig av den.
+    const fjad = new Container()
+    fjad.pivot.set(0, 70)
+    fjad.position.set(0, 70)
+    fjad.eventMode = 'none'
+    fjad.addChild(glow, body, num, cargo)
+    inner.addChild(fjad)
     inner.eventMode = 'none'
     inner.interactiveChildren = false
     car.addChild(inner)
     car.hitArea = new Rectangle(-97, -87, 194, 174)
     car._glow = glow
     car._inner = inner
+    car._fjad = fjad
     return car
   },
 
@@ -809,6 +819,14 @@ export default {
     sparkle(ctx.fxLayer, target.view.x, target.view.y)
     pop(rec.view)
     this._koppelSnapp(ctx, rec.view)
+    // Stöten i kopplet går vidare till grannarna: korgen på den nya vagnen och vagnen närmast
+    // loket lutar bakåt, en granne på andra sidan (luckläget) skjuts framåt.
+    this._gunga(rec.view, 0.5)
+    for (const c of this._cars) {
+      if (c.destroyed || !c._placed || c === rec.view) continue
+      if (c._n === n - 1) this._gunga(c, 0.4)
+      else if (c._n === n + 1) this._gunga(c, -0.3)
+    }
     // Spökplatsen har gjort sitt när vagnen sitter i — tona bort den, annars står tomma
     // streckade konturer kvar på rälsen när tåget rullar iväg.
     const ghost = target.view
@@ -822,6 +840,24 @@ export default {
 
     if (this._placedCount >= this._N) this._finishRound(ctx)
     else this._fraga(ctx) // nästa steg: fråga, utan glöd
+  },
+
+  // En vagnskorg gungar på sina hjul (vippa, axel 'skev', pivot på hjullinjen). Skapas första gången
+  // vagnen får en stöt — lösa vagnar i poolen har ingen. stot(+) lutar korgen BAKÅT (toppen åt
+  // höger, tåget kör åt vänster), stot(−) framåt. Taket (max) gör att en salva aldrig välter den.
+  _gunga(car, styrka) {
+    if (!this._alive || !car || car.destroyed || !car._fjad || car._fjad.destroyed) return
+    if (!car._vippa) car._vippa = vippa(car._fjad, { axel: 'skev', ticker: this._ctx?.ticker, max: 0.06, k: 150, damp: 0.16 })
+    car._vippa.stot(styrka)
+  },
+
+  // Stöten går längs tåget som kopplen tas upp eller trycks ihop: en vagn i taget, `steg` s emellan,
+  // starkast närmast loket. `t0` = tidslinjens tid. Alla anrop dör med tidslinjen (kill i _newRound/destroy).
+  _gungaTag(tl, t0, styrka, steg) {
+    const lista = this._cars.filter((c) => !c.destroyed && c._placed).sort((a, b) => a._n - b._n)
+    lista.forEach((c, i) => {
+      tl.call(() => this._gunga(c, styrka * (1 - 0.1 * i)), null, t0 + i * steg)
+    })
   },
 
   // Koppelsnäpp: vagnen KLICKAR i kopplet — en kort metallisk klick-ton, damm vid hjulen
@@ -880,6 +916,10 @@ export default {
       { s: s0 + (STATION_X - x0), duration: FARD_TID, ease: 'sine.inOut', onUpdate: () => this._skrolla() },
       0,
     )
+    // Kopplen tar upp slacken: när tåget börjar rulla lutar korgarna bakåt en vagn i taget (loket
+    // först), och när det bromsar in vid stationen skjuts de framåt i samma ordning.
+    this._gungaTag(this._depart, 0.1, 0.7, 0.09)
+    this._gungaTag(this._depart, FARD_TID - 0.15, -0.6, 0.08)
     // Hjulen snurrar snabbare och skorstenen chuffar medan tåget "åker".
     this._wheelBob?.timeScale(3.2)
     ;[0, 0.3, 0.6, 0.9, 1.25, 1.6].forEach((t) => this._depart.call(() => this._emitSteam(ctx), null, t))
@@ -916,6 +956,8 @@ export default {
     this._cars.forEach((c) => {
       if (c.destroyed) return
       const place = Math.max(0, (c._n | 0) - 1) // vagn 1 sitter närmast loket och rycker först
+      // Korgen lutar bakåt i samma ögonblick som vagnen rycker iväg (kopplet sträcks).
+      this._depart.call(() => this._gunga(c, 1), null, UTFART_T + (place + 1) * DEPART_STAGGER)
       this._depart.to(
         c,
         { x: `-=${departDx}`, duration: DEPART_TIME, ease: 'power1.in' },
@@ -1015,6 +1057,10 @@ export default {
         gsap.killTweensOf(inner.scale)
       }
       c._ryckTl?.kill()
+      if (c._vippa) {
+        c._vippa.destroy() // ticker-lyssnaren bort, korgen i viloläge
+        c._vippa = null
+      }
     })
   },
 

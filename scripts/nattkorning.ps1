@@ -73,11 +73,16 @@ if ($Schemalagg) {
   # Startar vid $start. De två väktartriggrarna gör ingenting om drivaren redan kör
   # (MultipleInstances IgnoreNew + låsfilen) — de finns för att en krasch/omstart inte ska
   # kosta resten av natten. Drivaren tar själv bort uppgiften när den är klar.
+  # Spannet följer planens `tider.morgon` (minst 12 h): en körning över ett dygn behöver
+  # väktare hela vägen OCH en tidsgräns som inte dödar drivaren mitt i (förr fast 10 h / 14 h).
+  $slut = $start.AddHours(12)
+  try { $pl = Get-Content $PlanFile -Raw -Encoding utf8 | ConvertFrom-Json; if ($pl.tider.morgon -and [datetime]$pl.tider.morgon -gt $slut) { $slut = [datetime]$pl.tider.morgon } } catch {}
+  $timmar = [int][math]::Ceiling(($slut - $start).TotalHours) + 1
   $trig = @((New-ScheduledTaskTrigger -Once -At $start)) +
-    @(2, 4, 6, 8, 10 | ForEach-Object { New-ScheduledTaskTrigger -Once -At $start.AddHours($_) })
+    @(for ($h = 2; $h -lt $timmar; $h += 2) { New-ScheduledTaskTrigger -Once -At $start.AddHours($h) })
   if ($Torrkorning) { $trig = @($trig[0]) }
   $set = New-ScheduledTaskSettingsSet -WakeToRun -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries `
-    -StartWhenAvailable -MultipleInstances IgnoreNew -ExecutionTimeLimit (New-TimeSpan -Hours 14)
+    -StartWhenAvailable -MultipleInstances IgnoreNew -ExecutionTimeLimit (New-TimeSpan -Hours ($timmar + 2))
   $prin = New-ScheduledTaskPrincipal -UserId "$env:USERDOMAIN\$env:USERNAME" -LogonType Interactive -RunLevel Limited
   Register-ScheduledTask -TaskName $TaskName -Action $act -Trigger $trig -Settings $set -Principal $prin -Force | Out-Null
   Write-Host "✓ $TaskName startar $($start.ToString('yyyy-MM-dd HH:mm'))$extra"

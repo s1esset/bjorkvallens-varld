@@ -77,8 +77,8 @@ en enda förplacerad linje, och vars auto-hjälp gärna spelar klart åt barnet.
   `BASE.tratt`) och låt vägen förgrenas till två muggar/plantor → äkta val, inte en linje.~~
   Byggd 2026-10-01: bana 5, 7, 9 … har ett T-rör som delar vattnet åt två muggar (se §5).
   Korsning (fyra portar) byggdes inte — T-röret räcker för en förgrening.
-- **[Quick] Ventil/kran-bit barnet får öppna** som sista steg ("vrid på kranen!") — ett litet
-  klimax-moment innan vattnet släpps på.
+- ✅ ~~**[Quick] Ventil/kran-bit barnet får öppna** som sista steg ("vrid på kranen!") — ett litet
+  klimax-moment innan vattnet släpps på.~~ Byggd 2026-10-02 (G8, `lib/vev.js`): se §5.
 
 ### Juice
 - ✅ ~~**[Quick] Rör som fylls synligt.** Låt innerkanalen färgas blå allteftersom vattnet passerar
@@ -107,6 +107,42 @@ en enda förplacerad linje, och vars auto-hjälp gärna spelar klart åt barnet.
   *Blockerad så länge MOSS är nere (glugget finns som stämd ton, :969).*
 
 ## 5. Status / loggar
+
+- 2026-10-02 **Ventilen efter webbläsarsonden + kritiken (D9).** `_dag-vattenvagen` 30/30, 0 konsolfel.
+  Fyra rättningar: ⓵ pilen vid ventilen släcktes av samma tryck som fullbordade vägen (`_resetIdle`
+  kom efter tändningen) — den står nu kvar så länge vägen är hel och kranen stängd; ⓶ kranen i
+  sjätte kolumnen gav x 1090, inom P0-avståndet från ljudknappen — ventilen sitter då till VÄNSTER
+  (`VENTIL_MAX_X` 1040, röret speglas); ⓷ båda vridhållen räknas (en treåring skruvar åt båda);
+  ⓸ tröskeln för vattnet 0,25 i stället för 0,3, så FÖRSTA trycket (ett kvarts varv = 0,278) ger
+  vatten. Auto-hjälpen vid 14 s är omätt i sonden (de otåliga trycken på bana 3 öppnar ventilen först).
+- 2026-10-02 ✅ **Ventilen — sista steget (G8, `lib/vev.js`)** (ej körd i webbläsare — bara `check` +
+  `_vevlibprobe` i Node; orkestreraren kör `scripts/_dag-vattenvagen.mjs`).
+  - **Premissen prövad mot koden.** "Ventilen barnet vrider som sista steg" förutsatte att kranen
+    kunde vara STÄNGD, men strålen rann alltid (den är det som gör pusslet begripligt, §5 2026-08-09).
+    Spelet har ingen `PhysicsWorld` — ventilen är alltså en egen vinkel+vinkelfart-integrator
+    (`Vev`, ingen matter), inte ett `phys.gangjarn`. Kranen rinner nu bara när ventilen är öppen:
+    spawn-takten är `dt · _oppen` (0 = ingen stråle, 1 = som förut, 70 ms mellan dropparna).
+  - **Ventilen.** Ett RITAT rött handhjul (ring, fyra ekrar, fyra handtag — ett gult så man ser att det
+    snurrar) på ett mässingsrör mot kranen, 150 px åt höger om pipen (x = kranens x + 150, y = 56).
+    Träffcirkel radie 60 (120 px), 24 px till närmaste brunn (mätt per bana i sonden). Vilo-guppning
+    (`liv` på ett barn); träffytan sitter på en egen `yta` (K3), så den inte guppar med bilden.
+  - **Två vägar, samma resultat.** Drag runt hjulet ger vinkelfart (moment ur fingrets tangentialfart,
+    tak: 0,01 rad/steg² och 2,39 varv/s); ett tryck är en knuff på ett kvarts varv, fyra tryck = ett
+    helt varv (Node: 10 tryck à 250 ms når 1,25 varv/s mot dragets 1,0). Kranen är helt öppen efter
+    0,9 varv rotation (summerad, åt båda hållen — se rättningen ovan). Ljud + kläm
+    vid själva nedtrycket, spärrhjulsklick var 45:e grad.
+  - **Flödet.** Sitter alla rör säger rösten "Rören sitter! Vrid på ventilen!" och en gul pil visas runt
+    hjulet; vid 30 % öppet kommer "Nu rinner det!" + gnistorna längs vägen + Elviras hopp, och strålen
+    växer med hjulet. Öppnas ventilen FÖRE vägen är hel faller strålen rakt igenom som förut.
+  - **Hjälpen (P0: sent och synligt).** 6 s utan tryck: pilen + "Vrid på ventilen!"; 14 s: "Jag hjälper
+    till!" och hjulet vrids ett helt varv av sig självt. Tomgången nollas medan hjulet rör sig.
+  - **Nya repliker (saknar klipp tills `npm run voice` körts):** "Rören sitter! Vrid på ventilen!" ·
+    "Vrid på ventilen!".
+  - **Att mäta (webbläsare):** `node scripts/_dag-vattenvagen.mjs` — stängd ventil = 0 partiklar även
+    med hel väg, moturs öppnar inte, drag-armen, tap-armen, taket (8 varv/s), halo (55 px träffar,
+    72 gör det inte), finger hållet över banbytet, auto-hjälpen, exit mitt i en snurr. ⚠️ Harnessens
+    autotryck når bara x ≤ 950: ventilen ligger från kranen i kolumn 4 (x > 950) utanför det, och
+    ingen autokörning öppnar den — först auto-hjälpen vid 14 s gör det.
 
 - 2026-10-01 ✅ **Kontrastpass, fristående rörbitar, levande planta, T-rör** (ej körd i webbläsare —
   bara `check`; orkestreraren testar). Allt var urblekt (vita brunnar alfa 0,1 på ljusblå himmel,

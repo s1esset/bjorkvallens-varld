@@ -32,6 +32,7 @@ import { COLORS, DESIGN_W, DESIGN_H, shade } from '../../lib/theme.js'
 import { cylinderFill, sphereFill, topLightFill, verticalFill, verticalFillAlpha, bage } from '../../lib/form.js'
 import { BLEED_X, BLEED_Y } from '../../lib/view.js'
 import { randomFrom, shuffle } from '../../lib/swedish.js'
+import { Vev } from '../../lib/vev.js'
 
 // --- rutnäts-geometri (designkoordinater 1280×720) ---
 const CELL = 120
@@ -49,6 +50,19 @@ const MUG_FLOOR = 78 // inre botten
 const MUG_LINE = -44 // den streckade mållinjen
 const HW_ONE = 62 // inre halvbredd, en mugg
 const HW_TWO = 50 // smalare när två muggar delar scenen (färre partiklar, plats för lådan)
+
+// --- ventilen (G8: lib/vev.js) — sista steget: barnet vrider på vattnet ---
+// Sitter på samma rad som kranen, 150 px åt höger om pipen (design 1280×720). Hjulets träffyta
+// (cirkel, radie 60 = 120 px) slutar 24 px ovanför rutnätets översta brunnar (y 140), så den aldrig
+// delar yta med en brunn. Autotestets tryck når bara x ≤ 950, y ≤ 600: ventilen på bana 1 ligger
+// på x = 730; på sexkolumnsbanor med kranen i kolumn 4 eller 5 hamnar den över 950.
+const VENTIL_DX = 150
+const VENTIL_MAX_X = 1040 // hjulets mitt; träffcirkeln (60) + 24 px håller sig från ljudknappens halo
+const VENTIL_Y = 56
+const VENTIL_HIT = 60
+// Så mycket MEDURS rotation (rad) som behövs för att vattnet ska vara fullt på. Fyra knuffar
+// (ett kvarts varv var) är ett helt varv — alltså lite mer än nog.
+const OPPEN_VINKEL = 0.9 * 2 * Math.PI
 
 // --- rör-modell: portar = öppna sidor (T=topp, R=höger, B=botten, L=vänster) ---
 const ROT = { T: 'R', R: 'B', B: 'L', L: 'T' } // medurs 90°
@@ -296,6 +310,61 @@ function makeLeaf(len, color) {
   return g
 }
 
+// Ventilen: ett RITAT röd handhjul på ett mässingsrör som leder bort mot kranen. Roten ligger i
+// ventilens mitt (vx, vy). `wrap` bär vilo-guppningen och tryck-kläm (ett barn — träffytan sitter på
+// en egen yta), `hjul` är det som vrids av Vev (rotation = vinkeln, aldrig modulo). Ett gult handtag
+// är det enda som skiljer hjulets fyra sidor åt, så man SER att det snurrar.
+function makeVentil(vx, vy, sourceX) {
+  const BRASS = 0xe0a93a
+  const brassEdge = shade(BRASS, 0.5)
+  const ROD = 0xe8523f
+  const rodEdge = 0x8f2a20
+  const root = new Container()
+  root.position.set(vx, vy)
+  root.eventMode = 'none'
+
+  // Rör mot kranen (bakom hjulet) och en axelkrage. Sitter ventilen till VÄNSTER om kranen
+  // (kranen står längst till höger) speglas röret — ritningen är densamma.
+  const x0 = -(Math.abs(sourceX - vx) + 10)
+  const stub = new Graphics()
+  stub.scale.x = vx < sourceX ? -1 : 1
+  stub.roundRect(x0, -22, -x0 - 10, 22, 8).fill(cylinderFill(BRASS, { axis: 'x' })).stroke({ width: 4, color: brassEdge })
+  stub.roundRect(-92, -29, 16, 36, 6).fill(cylinderFill(shade(BRASS, 0.12), { axis: 'y' })).stroke({ width: 4, color: brassEdge })
+  const skugga = new Graphics().ellipse(4, 12, 46, 44).fill({ color: 0x000000, alpha: 0.22 })
+  const krage = new Graphics().circle(0, 0, 25).fill(sphereFill(BRASS, { lightX: 0.4, lightY: 0.36 })).stroke({ width: 4, color: brassEdge })
+  root.addChild(stub, skugga, krage)
+
+  const wrap = new Container()
+  const hjul = new Container()
+  const g = new Graphics()
+  // Ekrar (mörk kant under, röd ovanpå), ring, handtag och nav.
+  for (let i = 0; i < 4; i++) {
+    const a = (i * Math.PI) / 2
+    g.moveTo(0, 0).lineTo(Math.cos(a) * 30, Math.sin(a) * 30).stroke({ width: 13, color: rodEdge, cap: 'round' })
+  }
+  g.circle(0, 0, 29).stroke({ width: 15, color: rodEdge })
+  for (let i = 0; i < 4; i++) {
+    const a = (i * Math.PI) / 2
+    g.moveTo(0, 0).lineTo(Math.cos(a) * 30, Math.sin(a) * 30).stroke({ width: 7, color: ROD, cap: 'round' })
+  }
+  g.circle(0, 0, 29).stroke({ width: 9, color: ROD })
+  g.circle(0, 0, 29).stroke({ width: 3, color: 0xffa191, alpha: 0.7 })
+  for (let i = 0; i < 4; i++) {
+    const a = (i * Math.PI) / 2
+    const col = i === 0 ? COLORS.yellow : 0xff7b6b
+    g.circle(Math.cos(a) * 38, Math.sin(a) * 38, 9).fill(sphereFill(col)).stroke({ width: 3, color: i === 0 ? 0xd8a520 : rodEdge })
+  }
+  g.circle(0, 0, 13).fill(sphereFill(0xff7b6b)).stroke({ width: 3.5, color: rodEdge })
+  g.circle(0, 0, 5).fill(shade(BRASS, 0.15))
+  g.eventMode = 'none'
+  hjul.addChild(g)
+  hjul.eventMode = 'none'
+  wrap.addChild(hjul)
+  wrap.eventMode = 'none'
+  root.addChild(wrap)
+  return { root, wrap, hjul }
+}
+
 export default {
   id: 'vattenvagen',
   titleSv: 'Vattenvägen',
@@ -378,10 +447,12 @@ export default {
     this._fluidView.layer.interactiveChildren = false
 
     this._propLayer = new Container()
+    // Ventilens träffyta (Vev) — egen rot så ett släpp når den vart fingret än lyfts (K3).
+    this._ventilLayer = new Container()
     this._glowLayer = new Container()
     this._glowLayer.eventMode = 'none'
     this._trayLayer = new Container()
-    this._board.addChild(this._propLayer, this._glowLayer, this._trayLayer)
+    this._board.addChild(this._propLayer, this._ventilLayer, this._glowLayer, this._trayLayer)
 
     this._drag = new DragController({ space: this._board, services: ctx.services })
 
@@ -401,6 +472,14 @@ export default {
     this._mounted = false
     this._queue = [] // vatten på väg genom rören: tidpunkt då droppen kommer ut
     this._exits = [] // var vattnet kommer ut just nu (muggar och läckor)
+    this._vev = null // ventilens rotationsgrepp (lib/vev.js)
+    this._ventil = null // { root, wrap, hjul }
+    this._oppen = 0 // hur öppen kranen är, 0–1 (bara uppåt: medurs rotation räknas, aldrig tillbaka)
+    this._framat = 0 // summerad MEDURS rotation (rad) sedan banan började
+    this._vPrev = 0
+    this._paPa = false // vattnet har satts på (ventilen öppnad nog)
+    this._ventilHint = null
+    this._klickT = 0
 
     this._level = Math.max(1, ctx.progress.get().highestLevel | 0)
 
@@ -410,6 +489,9 @@ export default {
       this._idle = 0
       this._hintShown = false
       this._clearGlow()
+      // Pilen vid ventilen står kvar så länge den gäller: trycket som fullbordade vägen
+      // kommer hit EFTER att pilen tändes, och skulle annars släcka den direkt.
+      if (!(this._connected && !this._paPa)) this._clearVentilHint()
     }
     this._board.on('pointerdown', this._resetIdle)
 
@@ -433,9 +515,17 @@ export default {
     // Städa förra banan (lagren återanvänds — vätskelagret får inte rivas).
     this._drag.clear()
     this._clearGlow()
+    this._clearVentilHint()
     this._killAll()
+    this._vev?.destroy() // lyssnarna av FÖRE ytan rivs
+    this._vev = null
+    this._ventil = null
+    this._oppen = 0
+    this._framat = 0
+    this._vPrev = 0
+    this._paPa = false
     this._elvira = null
-    for (const l of [this._gridLayer, this._pipeLayer, this._propLayer, this._glowLayer, this._trayLayer]) {
+    for (const l of [this._gridLayer, this._pipeLayer, this._propLayer, this._ventilLayer, this._glowLayer, this._trayLayer]) {
       l.removeChildren().forEach((o) => o.destroy({ children: true }))
     }
     this._pipes = []
@@ -497,6 +587,9 @@ export default {
       }
       this._grid.push(row)
     }
+
+    // Ventilen (G8): ett rött handhjul på kranens rad. Ritas FÖRE kranen så röret tar slut bakom den.
+    this._buildVentil(ctx)
 
     // Kran + pip. RITAD mässingskran (vägghållare, böjt rör, pip och rött vred).
     const BRASS = 0xe0a93a
@@ -1103,15 +1196,15 @@ export default {
     this._connected = all
     if (n > this._reachedN && !this._resolving && announce) {
       ctx.services.audio.sfx('reveal')
-      if (all && this._mugs.length > 1) ctx.services.voice.say('Nu får båda växterna vatten!')
-      else ctx.services.voice.say('Nu rinner det!')
-      res.cells.forEach((c, i) =>
-        ctx.later(i * 0.12, () => {
-          const cc = cellCenter(this._gx0, c.col, c.row)
-          sparkle(ctx.fxLayer, cc.x, cc.y)
-        })
-      )
-      this._cheerElvira(ctx, false) // Elvira ser att vattnet är på väg
+      // Ventilen är sista steget: är den stängd rinner inget än — rören "sitter" bara. (Är den redan
+      // öppen, eller sitter bara en del av vägen, är det som förut.)
+      if (this._paPa) ctx.services.voice.say(all && this._mugs.length > 1 ? 'Nu får båda växterna vatten!' : 'Nu rinner det!')
+      else if (all) {
+        ctx.services.voice.say('Rören sitter! Vrid på ventilen!')
+        this._visaVentilHint(ctx, false) // pilen visas genast; rösten har redan sagt det
+      }
+      this._sparklaVagen(ctx, res.cells)
+      if (this._paPa) this._cheerElvira(ctx, false) // Elvira ser att vattnet är på väg
     }
     this._reachedN = n
   },
@@ -1158,20 +1251,27 @@ export default {
     this._clock += dt
 
     // Idle-recue (glöd vid ~6s) + auto-hjälp (vid ~14s) — bara om ej klar.
-    if (!this._resolving && !this._connected) {
+    this._stegVentil(ctx, dt)
+
+    // Sista steget är ventilen: sitter rören men vattnet inte är påsatt väntar barnet på den.
+    const ventilVantar = this._connected && !this._paPa
+    if (!this._resolving && (!this._connected || ventilVantar)) {
       // Tomgången står STILL medan rösten talar (V21): ledtråden kan då aldrig kapa en
       // replik. Pausad, inte nollad — samma klocka driver auto-hjälpen vid 14 s, och
       // ledtrådens egen replik hade annars skjutit upp den till ~22 s.
       if (!ctx.services.voice.talar) this._idle += dt
       if (this._idle >= 6000 && !this._hintShown) {
         this._hintShown = true
-        this._showHint(ctx)
+        if (ventilVantar) this._visaVentilHint(ctx)
+        else this._showHint(ctx)
       }
       if (this._idle >= 14000) {
         this._idle = 0
         this._hintShown = false
         this._clearGlow()
-        this._autoHelp(ctx)
+        this._clearVentilHint()
+        if (ventilVantar) this._hjalpVentil(ctx)
+        else this._autoHelp(ctx)
       }
     } else if (this._connected) {
       this._idle = 0
@@ -1201,8 +1301,9 @@ export default {
     // rutnätet, och klicken är 55 px. Med en droppe var 145:e ms hamnar de 70 px
     // isär — en prickad linje som aldrig når metaboll-tröskeln. 55 ms ger ~26 px
     // mellanrum och en sammanhängande stråle.
-    if (!this._resolving) {
-      this._spawnAcc += dt
+    // Ventilen styr takten: stängd = ingen stråle, helt öppen = full (70 ms mellan dropparna).
+    if (!this._resolving && this._oppen > 0) {
+      this._spawnAcc += dt * this._oppen
       while (this._spawnAcc >= 70) {
         this._spawnAcc -= 70
         f.spawn(this._sourceX + (Math.random() - 0.5) * 6, this._tapY, { vy: 1.6 })
@@ -1329,6 +1430,138 @@ export default {
     squash(m.wrap, { intensity: 1.3 })
     gsap.to(m.stam.scale, { x: 1 + 0.025 * steg, y: 1 + 0.07 * steg, duration: 0.5, ease: 'back.out(2.4)' })
     sparkle(ctx.fxLayer, m.x + m.lean * (m.hw * 0.6 + 12), m.y - 34 - 96 * (1 + 0.07 * steg), { count: 3 })
+  },
+
+  // ---- ventilen (lib/vev.js, G8) ----
+  // Rören sitter → barnet vrider på kranen. Drag runt hjulet ger vinkelfart (med tak); ett tryck är
+  // en knuff på ett kvarts varv (fyra tryck = ett helt varv). Fingret kan vara var som helst i
+  // träffcirkeln. Ljud och bild kommer vid nedtrycket — inte först när hjulet börjat röra sig.
+  _buildVentil(ctx) {
+    // Till höger om kranen — utom när det skulle hamna inom P0-avståndet från skalets ljudknapp
+    // (kranen i sjätte kolumnen gav x 1090): då till vänster.
+    const vx = this._sourceX + VENTIL_DX <= VENTIL_MAX_X ? this._sourceX + VENTIL_DX : this._sourceX - VENTIL_DX
+    const vy = VENTIL_Y
+    const v = makeVentil(vx, vy, this._sourceX)
+    this._ventil = v
+    this._propLayer.addChild(v.root)
+    this._liv(v.wrap, { bob: 2, sway: 0, duration: 2.6, phase: Math.random() })
+
+    const yta = new Container()
+    this._ventilLayer.addChild(yta)
+    const audio = ctx.services.audio
+    this._vev = new Vev({
+      yta,
+      hitArea: new Circle(vx, vy, VENTIL_HIT),
+      x: vx,
+      y: vy,
+      hitRadie: VENTIL_HIT,
+      maxFart: 0.25,
+      onNed: () => {
+        if (!this._alive || !this._ventil) return
+        audio.sfx('soft')
+        squash(this._ventil.wrap, { intensity: 0.6 })
+      },
+      onKnuff: () => {
+        if (this._alive) audio.sfx('flip')
+      },
+      // Spärrhjulsklick var 45:e grad, glesade så en snabb snurra inte blir en surr.
+      onKlick: (n) => {
+        if (!this._alive || this._clock - this._klickT < 70) return
+        this._klickT = this._clock
+        audio.tone({ freq: 330 + (((n % 4) + 4) % 4) * 45, dur: 0.045, type: 'triangle', vol: 0.16 })
+      },
+    })
+  },
+
+  // Varje bildruta: stega hjulet, vrid bilden, bokför medurs rotation → hur öppen kranen är.
+  _stegVentil(ctx, dt) {
+    const vev = this._vev
+    if (!vev || !this._ventil) return
+    vev.uppdatera(dt)
+    const a = vev.vinkel
+    this._ventil.hjul.rotation = a
+    const d = a - this._vPrev
+    this._vPrev = a
+    this._framat += Math.abs(d) // åt vilket håll som helst — en treåring skruvar åt båda
+    const p = Math.max(0, Math.min(1, this._framat / OPPEN_VINKEL))
+    if (p > this._oppen) this._oppen = p
+    // Ett hjul som snurrar är ett barn som leker — ingen ledtråd ovanpå det.
+    if (vev.gripen || Math.abs(vev.fart) > 0.004) {
+      this._idle = 0
+      this._hintShown = false
+      this._clearVentilHint()
+    }
+    if (!this._paPa && this._oppen >= 0.25 && !this._resolving) this._vattenPaa(ctx)
+  },
+
+  // Kranen har öppnats nog: vattnet kommer. Är vägen redan hel blir det ögonblicket belöningen.
+  _vattenPaa(ctx) {
+    this._paPa = true
+    this._clearVentilHint()
+    const v = this._ventil
+    if (v && v.root && !v.root.destroyed) sparkle(ctx.fxLayer, v.root.x, v.root.y, { count: 5 })
+    ctx.services.audio.tone({ freq: 523, dur: 0.14, type: 'sine', vol: 0.4 })
+    if (!this._connected) return
+    ctx.services.audio.sfx('reveal')
+    ctx.services.voice.say(this._mugs.length > 1 ? 'Nu får båda växterna vatten!' : 'Nu rinner det!')
+    this._sparklaVagen(ctx, this._traverse().cells)
+    this._cheerElvira(ctx, false)
+  },
+
+  _sparklaVagen(ctx, cells) {
+    cells.forEach((c, i) =>
+      ctx.later(i * 0.12, () => {
+        if (!this._alive) return
+        const cc = cellCenter(this._gx0, c.col, c.row)
+        sparkle(ctx.fxLayer, cc.x, cc.y)
+      })
+    )
+  },
+
+  // Ledtråden: en gul pil runt hjulet i den riktning det ska vridas, som andas, plus rösten.
+  _visaVentilHint(ctx, tala = true) {
+    const v = this._ventil
+    if (!v || v.root.destroyed) return
+    this._clearVentilHint()
+    const g = new Graphics()
+    const R = 55
+    const a0 = -2.5
+    const a1 = -0.35
+    bage(g, 0, 0, R, a0, a1).stroke({ width: 9, color: 0x8f6a10, cap: 'round' })
+    bage(g, 0, 0, R, a0, a1).stroke({ width: 5, color: COLORS.yellow, cap: 'round' })
+    // Pilspets i bågens slut, vinkelrät mot radien (medurs).
+    const tx = Math.cos(a1) * R
+    const ty = Math.sin(a1) * R
+    const ux = -Math.sin(a1)
+    const uy = Math.cos(a1)
+    const nx = Math.cos(a1)
+    const ny = Math.sin(a1)
+    g.poly([tx + ux * 14, ty + uy * 14, tx + nx * 11, ty + ny * 11, tx - nx * 11, ty - ny * 11])
+      .fill(COLORS.yellow)
+      .stroke({ width: 3, color: 0x8f6a10 })
+    g.eventMode = 'none'
+    v.root.addChild(g)
+    this._ventilHint = { g, tw: breathe(g, { scale: 1.1 }) }
+    sparkle(ctx.fxLayer, v.root.x, v.root.y, { count: 4 })
+    if (tala) ctx.services.voice.say('Vrid på ventilen!')
+  },
+
+  _clearVentilHint() {
+    const h = this._ventilHint
+    if (!h) return
+    this._ventilHint = null
+    h.tw?.kill()
+    if (!h.g.destroyed) h.g.destroy({ children: true })
+  },
+
+  // Hjälpen (sent och SYNLIGT, P0): hjulet vrids ett helt varv av sig självt.
+  _hjalpVentil(ctx) {
+    if (!this._alive || this._resolving || !this._vev) return
+    if (!ctx.services.voice.talar) ctx.services.voice.say('Jag hjälper till!')
+    const v = this._ventil
+    if (v && !v.root.destroyed) sparkle(ctx.fxLayer, v.root.x, v.root.y)
+    this._vev.vrid(2 * Math.PI)
+    ctx.services.audio.sfx('pop')
   },
 
   // ---- hjälp ----
@@ -1481,6 +1714,7 @@ export default {
     this._elviraBreath?.kill()
     this._elviraBreath = null
     if (this._elvira) this._killViewTweens(this._elvira)
+    if (this._ventil) this._killViewTweens(this._ventil.wrap)
   },
 
   destroy(ctx) {
@@ -1489,6 +1723,9 @@ export default {
     if (ctx?.ticker && this._tick) ctx.ticker.remove(this._tick)
     if (this._board && this._resetIdle) this._board.off('pointerdown', this._resetIdle)
     this._clearGlow()
+    this._clearVentilHint()
+    this._vev?.destroy()
+    this._vev = null
     this._drag?.destroy()
     this._fluidView?.destroy()
     this._fluid?.destroy()

@@ -10,6 +10,16 @@
 
 export const NYHETER = [
   {
+    version: '1.383',
+    fran: '1.379',
+    datum: '2026-10-02',
+    titel: 'Ett finger i taget',
+    punkter: [
+      'Om ett drag avbryts mitt i, till exempel när plattan svarar på en kantgest eller ett samtal, fastnar saken inte längre. Den släpps där fingret var, och man kan genast ta nästa. Förut kunde Sortera Skräp och Popcornkalaset sluta svara på nya tryck.',
+      'En handflata eller ett andra finger som råkar nudda skärmen tar inte längre över det barnet drar i eller siktar med, till exempel i Sortera Skräp och Spindelhjälten. Saken följer det finger som tog tag i den.',
+    ],
+  },
+  {
     version: '1.378',
     fran: '1.375',
     datum: '2026-10-02',

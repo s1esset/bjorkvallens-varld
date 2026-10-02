@@ -843,6 +843,8 @@ allt L3–L5 mätt (klättring, envägsgrenar, bajsloopen) gäller i de nya vär
   sig, groda nummer två som tävlar om samma fluga (vänskapligt).
 - [Deep] Bredare damm med `lib/kamera.js` (världsbredd 2400).
 
+- ⏸ **R4-porten (`sparr: 'vatten'` i stället för `_iVolym`-växlingen) — väntar på ett beslut om landets vridDamp.** Byggd och mätt 2026-10-02 (D5), sedan återställd: grodans delar ligger i flytvolymen även på land, och `vridDamp` 0,9 har hela tiden dämpat ragdollen i vanliga hopp. Med optionen blev landhoppet annorlunda (seedad `_superhoppprobe`: höjd 188,9 → 192,2 px, studs 4 → 7 steg, `vilSteg` 90 → 60). Libbet har optionen (`Flytvolym.lagg(body, { sparr: 'vatten' })`); porten kräver ett uttryckligt val av landdämpning + `_tumlaprobe` före/efter.
+
 ## 5. Status / loggar
 
 `2026-09-23 · spec-kort godkänt, bygget beställt som nattpass · —`
@@ -854,3 +856,4 @@ allt L3–L5 mätt (klättring, envägsgrenar, bajsloopen) gäller i de nya vär
 `2026-09-24 · sikt-pil i superhoppet (dra fingret = riktning, pilen visar banan) + vändknapp nere till höger; fartspärren läckte rörelsemängd (rättad), grodan lättar ur underlaget; _siktprobe; v1.260.0 · cd2e075`
 `2026-09-24 · L6 + L7 sex nya världar (träsk, öken, strand, kök, vardagsrum, badrum; §4i–4j) — ramverk + konst från tre hjälpare; bajsloopen klar i alla sex, fysiken mätt mot kontrollarmar, vågorna förstärkta; 9 röstklipp; spelkritiker "klar att committa"; v1.261.0 · 0c96019`
 `2026-10-02 · flytkraften per fysiksteg (FYSIKPLAN T1): Dammens Flytvolym registrerar sig själv i phys.beforeStep (den skapas före grodan/bajs/hinder, så den stegar fortfarande först av krokarna); raden flytvolym.steg(nu) i dammen.steg är borta, stromX sätts kvar per bildruta (en parameter), destroy() avregistrerar kroken. Flythöjden för stock/blad/grodans delar ändras bara vid skärmar som inte ger exakt ett steg per bildruta — där stämmer den nu med 60 Hz-värdet. Titta på: stocken guppar ~±2 px, grodan flyter vid ytan, forsens/vågornas ström bär sakerna som förut.`
+`2026-10-02 · D5: iterationerna via PhysicsWorld({ iterationer }) (R5, samma 8/6/5); R4-porten byggd, mätt och återställd (landhoppet ändrades) → §4 ⏸ · v1.382.0`

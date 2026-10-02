@@ -17,12 +17,12 @@ import { makeKaraktar } from '../../lib/karaktarer.js'
 import { Motstandsvolym } from '../../lib/luftmotstand.js'
 import { Mjukkropp } from '../../lib/mjukkropp.js'
 import { Takt } from '../../lib/takt.js'
+import { Gras, START_Y, GROUND_Y, GRAV, V_LATT, MASSA_TUNG } from './gras.js'
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
 
 // Logiskt luftrum (designkoordinater).
-const START_Y = 150 // fallskärmens (barnets fötter) start-y
-const GROUND_Y = 560 // marknivå: landning triggas här
+// START_Y / GROUND_Y bor i ./gras.js (sonden delar dem med spelet).
 const BOBO_R = 44 // mottagarens ansiktsradie (makeBobo: fötterna 2,36·r under origo)
 const X_MIN = 140 // mjuka väggar i sidled
 const X_MAX = 1140
@@ -39,11 +39,10 @@ const X_MAX = 1140
 // Nu är allt EN lag: motstånd mot farten relativt luften. Gränsfarten faller ut ur
 // massa mot kupolarea, vinden är luftens egen hastighet (därför driver en lätt last
 // med byn medan en tung släpar efter), och styrningen möter samma motstånd.
-const GRAV = 0.086 // px/bildruta² — sätter hur LÄNGE accelerationen syns (~0,5 s till 95 %)
-const V_LATT = 85 / 60 // px/bildruta: HEADs uppmätta 85 px/s, bevarad fallkänsla
+// GRAV (0,086 px/bildruta²) och V_LATT (85 px/s, HEADs uppmätta fallkänsla) bor i ./gras.js.
 // Tung last i SAMMA kupol. Gränsfarten går som √massa, så 2,79 ger 1,67× — exakt HEADs
 // uppmätta kvot mellan Tung och Lätt (142/85). Talet är alltså mätt, inte valt.
-const MASSA_TUNG = 2.79
+// MASSA_TUNG = 2,79 (i ./gras.js)
 const VIND_FART = 11.8 // vindtal → luftens fart i px/bildruta (kalibrerad mot HEADs drift)
 const STEER_KRAFT = 0.7 // barnets drag i linan: en KRAFT (delas med massan → Tung är trögare)
 const ASSIST_ACC = 0.05 // no-fail-assisten: en ACCELERATION (massoberoende — hjälpen ska
@@ -103,6 +102,13 @@ export default {
     this._takt = new Takt({ steg: 1000 / 60, max: 3, snapp: 0.5 })
     this._kupolX = 0 // senast ritade toppunkt — grindar omritningen av tyget
     this._kupolY = 0
+
+    // GRÄSMATTAN (P1): landningen är en fjäder (gras.js → fjader1d) som tar emot hoppararens
+    // FART — en tung hoppare pressar mattan djupare och kastas högre. Egen Takt: fast 1/60 s.
+    this._gras = null
+    this._grasTakt = new Takt({ steg: 1000 / 60, max: 4, snapp: 0.5 })
+    this._grasSlag = 0
+    this._landVy = 0 // nedslagsfart (px/s) som _land läste ur luften
 
     this._root = new Container()
     ctx.stage.addChild(this._root)
@@ -172,6 +178,12 @@ export default {
     this._target.eventMode = 'none'
     this._glow = new Graphics()
     this._mat = new Graphics()
+    // Mattan ligger i en INRE container förankrad vid undersidan, så landningen kan trycka ihop den
+    // (scale.y) utan att rubba målet — _target själv bär bara pop-tweenen.
+    this._matSq = new Container()
+    this._matSq.position.y = 18
+    this._mat.y = -18
+    this._matSq.addChild(this._mat)
     // RITAD måltavla (P0 ASSETS) — var en 🎯-emoji.
     this._bull = new Graphics()
     this._bull.circle(0, 0, 26).fill(0xff6b6b)
@@ -179,7 +191,7 @@ export default {
     this._bull.circle(0, 0, 11).fill(0xff6b6b)
     this._bull.circle(0, 0, 5).fill(0xfffdf7)
     this._bull.y = -46
-    this._target.addChild(this._glow, this._mat, this._bull)
+    this._target.addChild(this._glow, this._matSq, this._bull)
     this._target.position.set(700, GROUND_Y)
     this._root.addChild(this._target)
 
@@ -501,6 +513,7 @@ export default {
     this._tapTimer = 0
     this._vx = 0
     this._resolving = false
+    this._stoppaStuds() // ingen kvarglömd fjäder från förra landningen
     this._setLast() // ny runda = ny last i luften, utan kvarvarande fart
 
     // Placera/rita mål.
@@ -532,6 +545,9 @@ export default {
 
     // Lövpartiklar drivs alltid (så de hinner lämna skärmen även vid landning).
     this._driveLeaves(dt)
+
+    // Landningens fjäder lever medan rundan är avgjord (_resolving) — stegas före utgången nedan.
+    if (this._gras) this._stegaStuds(ctx, dms)
 
     if (this._resolving) return
     const chute = this._chute
@@ -850,6 +866,8 @@ export default {
     this._idle = 0
     const chute = this._chute
     chute.y = GROUND_Y
+    // Nedslagsfarten (px/s) ur luften — den som fjädern i gräsmattan tar emot (se _startaStuds).
+    this._landVy = Math.max(0, (this._luftRec ? this._luftRec.vy : 0) * 60)
     const dx = Math.abs(chute.x - this._targetX)
 
     if (dx <= this._targetR) {
@@ -909,23 +927,17 @@ export default {
     if (this._kid && !this._kid.destroyed) pop(this._kid, { scale: 1.18 })
 
     // Studsmattan SÄGER boing: riktigt klipp om det finns, annars en stämd glidton
-    // (G3 → G4), och ett mindre eko vid andra studsen (C4 → G4, 0,54 s = timelinens
-    // första nedslag). Damm yr ur mattan på båda sidor och bilden rycker till lite.
+    // (G3 → G4). Ekot vid de följande nedslagen kommer ur fjädern själv (_stegaStuds), inte
+    // ur en fast fördröjning. Damm yr ur mattan på båda sidor och bilden rycker till lite.
     const au = ctx.services.audio
     if (!au.sample('boing')) au.tone({ freq: 196, slideTo: 392, dur: 0.28, type: 'sine', vol: 0.24 })
-    au.tone({ freq: 261.63, slideTo: 392, dur: 0.18, type: 'sine', vol: 0.1, delay: 0.54 })
     puff(ctx.fxLayer, chute.x - 56, GROUND_Y + 14, { count: 6, color: 0xe6d8bf })
     puff(ctx.fxLayer, chute.x + 56, GROUND_Y + 14, { count: 6, color: 0xe6d8bf })
     shake(this._root, { intensity: 3, duration: 0.25 })
 
-    // Mjuk studs-sekvens (direkt på fallskärmen; dödas i destroy).
-    this._landTl?.kill()
-    this._landTl = gsap
-      .timeline()
-      .to(chute, { y: GROUND_Y - 72, duration: 0.28, ease: 'power2.out' })
-      .to(chute, { y: GROUND_Y, duration: 0.26, ease: 'bounce.out' })
-      .to(chute, { y: GROUND_Y - 38, duration: 0.2, ease: 'power2.out' })
-      .to(chute, { y: GROUND_Y, duration: 0.22, ease: 'bounce.out' })
+    // Studsen är en FJÄDER som tar emot hoppararens fart (var en fast tidslinje: samma 72 px
+    // oavsett fart och tyngd). Stegas i _update; rivs av _loadLevel och destroy.
+    this._startaStuds()
 
     // Vinstljud, beröm och konfettiregn kommer från complete() nedan — här bara det egna.
     burst(ctx.fxLayer, this._targetX, GROUND_Y, { count: 16 })
@@ -936,11 +948,69 @@ export default {
     ctx.progress.complete()
 
     this._nextTimer?.kill()
-    this._nextTimer = gsap.delayedCall(1.6, () => {
+    const nasta = () => {
       if (!this._alive) return
+      // Studsen får alltid sluta först (Tung kan ta några hundradelar över 1,6 s i ett sällsynt fall).
+      if (this._gras && !this._gras.klar) {
+        this._nextTimer = gsap.delayedCall(0.1, nasta)
+        return
+      }
       this._level += 1
       this._loadLevel(ctx, this._level)
-    })
+    }
+    this._nextTimer = gsap.delayedCall(1.6, nasta)
+  },
+
+  // ---- Gräsmattans fjäder (P1) ------------------------------------------------
+
+  // Landa på gräsmattan med den fart luften gav: fjädern (gras.js) pressar mattan, kastar upp
+  // hoppararen, och två nedslag till tynar bort. Tung = fortare ner = djupare + högre.
+  _startaStuds() {
+    if (!this._alive) return
+    this._gras?.destroy()
+    this._gras = new Gras()
+    this._grasTakt.nollstall()
+    this._gras.landa(this._landVy)
+    this._grasSlag = this._gras.slagN // första nedslaget har _celebrate redan gett ljud
+  },
+
+  _stegaStuds(ctx, dms) {
+    const g = this._gras
+    const chute = this._chute
+    if (!g || !chute || chute.destroyed) return
+    if (!g.klar) this._grasTakt.kor(dms, () => g.steg(1 / 60))
+    chute.y = GROUND_Y + g.dy
+    // Mattan trycks ihop med fjädern (inre container, förankrad vid undersidan) och måltavlan följer toppen.
+    const s = 1 - 0.5 * Math.min(1, g.sank)
+    if (this._matSq && !this._matSq.destroyed) this._matSq.scale.y = s
+    if (this._bull && !this._bull.destroyed) this._bull.y = -46 + 36 * (1 - s)
+    // Skuggan krymper när hoppararen är i luften.
+    if (this._shadow && !this._shadow.destroyed) {
+      const h = Math.min(1, g.hojd / 90)
+      this._shadow.x = chute.x
+      this._shadow.scale.set(1.25 - h * 0.3)
+      this._shadow.alpha = 0.2 - h * 0.08
+    }
+    // Varje NYTT nedslag efter det första: stämd ton som växer med laddningen + lite damm.
+    if (g.slagN !== this._grasSlag) {
+      this._grasSlag = g.slagN
+      const k = g.senaste ? g.senaste.k : 0.3
+      if (g.senaste && g.senaste.n > 0) {
+        ctx.services.audio.tone({ freq: 261.63, slideTo: 392, dur: 0.16, type: 'sine', vol: 0.05 + 0.08 * k })
+        puff(ctx.fxLayer, chute.x, GROUND_Y + 14, { count: 3, color: 0xe6d8bf })
+        if (this._kid && !this._kid.destroyed) pop(this._kid, { scale: 1 + 0.08 * k })
+      }
+    }
+  },
+
+  // Nollar fjädern och lämnar mattan, måltavlan och hoppararen i viloläge (ny runda / exit).
+  _stoppaStuds() {
+    this._gras?.destroy()
+    this._gras = null
+    this._grasSlag = 0
+    this._grasTakt?.nollstall()
+    if (this._matSq && !this._matSq.destroyed) this._matSq.scale.y = 1
+    if (this._bull && !this._bull.destroyed) this._bull.y = -46
   },
 
   // ---- Städning ------------------------------------------------------------
@@ -955,7 +1025,9 @@ export default {
     this._kupol = null
     this._canopy = null
     this._glowTw?.kill()
-    this._landTl?.kill()
+    this._gras?.destroy() // fjädern: steg() efter detta gör ingenting
+    this._gras = null
+    this._grasTakt = null
     this._glideTw?.kill()
     this._boboIdle?.kill()
     if (this._bobo && !this._bobo.destroyed) {

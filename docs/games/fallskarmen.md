@@ -1,5 +1,5 @@
 # Fallskärmen (`fallskarmen`)
-> ⚙️ fysik · drag · 3–5 år · status: 🔧 förbättringar pågår
+> ⚙️ fysik · drag · 3–5 år · status: ✅ (inga byggbara [Deep] kvar; [Medium] "Samla på vägen ner" och "Landningsbok" väntar)
 
 ## 1. Nuläge (sett som spelare)
 
@@ -88,6 +88,8 @@ styrs hem, men det berättas ingen liten resa.
   vid mattan) och en kort kamera-mikroskak.~~ Klar 2026-09-23 (v1.251.0): `_celebrate` (:895-903)
   spelar `boing`-klippet (stämd G3→G4 om det saknas) + ett mindre eko vid andra studsen, dammpuffar
   på båda sidor om mattan och `shake(this._root)` 3 px / 0,25 s.
+
+- ✅ ~~**[Quick] Landningen är en fjäder, inte en tidslinje** (FYSIKPLAN P1: "tung hoppare sjunker djupare och kastas högre").~~ Klar 2026-10-02: se §5.
 
 ### Progression
 - **[Medium] "Landningsbok".** Räkna och visa de olika mål-typer barnet landat på (mattan,
@@ -184,3 +186,10 @@ styrs hem, men det berättas ingen liten resa.
     Vind-lut på fallskärmen** (den senare fanns delvis redan; lutningen läses nu ur den
     verkliga relativfarten mot luften i stället för ur vindtalet).
 - 2026-10-02 **T3: fast 60 Hz-steg via lib/takt.js — 57 fps-fysiken blir 60 Hz-fysik** (Ä10): luften (`Motstandsvolym.steg`, inkl. styrkraft, no-fail-assist och väggklämman) och kupolens mjukkropp (`falt` + `steg`) stegar nu i en `Takt` med exakt 1 per steg i stället för variabelt `dt` (deltaMS/16,67). Kraft och hjälp läggs in per steg, så ingen kraft ackumuleras över en nollstegs-bildruta. Löven, lutningen, benen och chevronerna är rendering/utjämning och ligger kvar per bildruta med `dt`. Formen flyttar sig lite mot 57 fps-varianten — avsiktligt.
+- 2026-10-02 **P1: landningen är en fjäder (`gras.js` → `fjader1d`) i stället för en gsap-tidslinje** (D7 B4).
+  - **Före (HEAD, mätt i `scripts/_dag-fallskarm-landa.mjs` §1 med den ordagranna tweenen):** första studsen **72,0 px för alla fallhöjder och båda tyngderna** (spann 0,00 px), ingen inpressning alls, 0,96 s. Tyngd-valet syntes aldrig i landningen.
+  - **Nu:** `Gras` (ren modul, ingen Pixi) tar emot nedslagsfarten ur spelets EGEN luft (`_luftRec.vy · 60`). Första slaget = mattan ger en spark (`forstaLast`: golv 0,5 + hoppararens fart / 150 px/s, tak 1), de följande två är hoppararens egen utfart (`passivLast`, retur ≈ 0,69) så studsarna AVTAR. Fjädern är `fjader1d(ω 24, ζ 0,12)`, stegad med en egen `Takt` (fast 1/60 s → identisk kurva 30/57/60/90 fps, mätt 0,00 px spann). Mattan trycks ihop (`_matSq.scale.y`, inre container; måltavlan följer toppen), hoppararen sjunker ≤ ~22 px och kastas upp, skuggan krymper i luften, varje följande nedslag ger en stämd ton (C4→G4, volym ∝ laddning) + lite damm. Boing-klippet vid första nedslaget är oförändrat; det fasta ekot (`delay: 0.54`) är borta — ekot kommer nu ur fjädern.
+  - **Mätt (spelets fall, 410 px):** Lätt 85 px/s → 36,5 px studs med golv 0,3 — **höjt till 0,5 efter D7-kritiken (Lätt, förvalet, fick det svagaste anslaget): Lätt ~45 px, webbläsaren 39,8 px** · Tung 142 px/s → 68,2 px, 21,6 px, 1,48 s (HEAD: 72/0/0,96 s för båda). Korta fall (6/14/30 px): Lätt 23→31→35 px, Tung 25→37→49 px — växer med fallhöjden. Byte till Tung SENARE i fallet ger ett mellanvärde (36→45→52→64 px). **Tak:** utfart ≤ 460 px/s → högsta studs ≤ ~70 px (73 med diskretisering) även vid 1 500 px/s; över 300 slumpade landningar lägsta y 492 (fallskärmen startar på 150, aldrig ur bild); alla slutar, ≤ 1,48 s, max 3 nedslag.
+  - **Ärlig begränsning:** luften har en gränsfart (~30 px lätt / ~60 px tung räcker), så fallhöjden spelar bara roll för korta fall — i spelets 410 px-fall är det TYNGDEN (och ett tyngdbyte nära marken) som avgör studsen. Premissen "växer med fallhöjden" gäller alltså fysiken, inte det fasta spelfallet.
+  - **Återspelssäkert:** fjädern rivs av `_loadLevel` (`_stoppaStuds`) och `destroy`; `_landTl` är borta (inga tweens på `chute.y` kvar); nästa-runda-timern väntar in en fjäder som mot förmodan inte slutat.
+  - **Doc-drift (rättas här — FYSIKPLAN är inte min att röra):** FYSIKPLAN §5.6 listar fortfarande `fallskarmen:526→:600` som ett kupolsteg per BILDRUTA (variabelt `dtF`) — det är åtgärdat av T3 (2026-10-02, se loggen ovan: `Takt`, fast steg). P1:s radnummer (`:909-914` landningstweenen, `:922/:958` `_landTl`) är obsoleta efter den här ändringen, och §5.7-raden "landningen en tween → `fjader1d` (P1)" är nu byggd. Sonden ligger i `scripts/_dag-fallskarm-landa.mjs`; `gras.js` exporterar även `START_Y/GROUND_Y/GRAV/V_LATT/MASSA_TUNG` så sond och spel delar konstanterna.

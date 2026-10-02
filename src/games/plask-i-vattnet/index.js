@@ -452,6 +452,9 @@ export default {
     // Riktigt vatten i ytskiktet + toningen som gömmer skarven mot djupet.
     this._buildFluid()
 
+    // Sandbotten och vattenväxter: tanken har ett golv att landa på (föremålen vilar på FLOOR_TOP).
+    this._buildBotten()
+
     // Ambient: små bubblor som driver uppåt (ticker-driven, exit-säker).
     this._buildBubbles()
     // Tankens invånare — en liten fisk som lever sitt eget liv i vattnet.
@@ -474,6 +477,102 @@ export default {
 
     this._buildLogs(ctx) // två sidohyllor "Flyter"/"Sjunker" (upptäckts-logg)
     this._buildGuessUi(ctx) // gissa-först-knappar (dolda tills ett föremål markeras)
+  },
+
+  // ---- Botten: sand, stenar, snäcka och vajande vattenväxter -------------------
+
+  // Allt ritas OVANPÅ vattenkroppen men under föremål, fisk och bubblor. Sanden ligger i
+  // tankens insida (x 398..882, y ~660..682) med överytan runt föremålens landningsnivå
+  // (FLOOR_TOP 672), så en sjunken sten vilar nedtryckt i sanden i stället för på en rät linje.
+  // Växterna står vid sidorna (föremålen faller i mitten) och vajar i `_update` utan gsap.
+  _buildBotten() {
+    const sand = new Graphics()
+    const x0 = WATER.x
+    const x1 = WATER.x + WATER.w
+    const yB = WATER.y + WATER.h // 682
+    const r = WATER.r
+    const topp = (x) => 664 + Math.sin(x * 0.021) * 3.5 + Math.sin(x * 0.057 + 1.3) * 2.5
+    const form = (g, dy) => {
+      g.moveTo(x0, topp(x0) + dy)
+      for (let x = x0 + 24; x <= x1; x += 24) g.quadraticCurveTo(x - 12, topp(x - 12) + dy - 3, Math.min(x, x1), topp(Math.min(x, x1)) + dy)
+      g.lineTo(x1, topp(x1) + dy)
+      g.lineTo(x1, yB - r)
+        .quadraticCurveTo(x1, yB, x1 - r, yB)
+        .lineTo(x0 + r, yB)
+        .quadraticCurveTo(x0, yB, x0, yB - r)
+        .closePath()
+    }
+    form(sand, 0)
+    sand.fill(0xe9d296)
+    const skugga = new Graphics()
+    skugga.roundRect(x0, yB - 10, WATER.w, 10, 5).fill({ color: 0xa88646, alpha: 0.35 })
+    const kam = new Graphics()
+    kam.moveTo(x0 + 6, topp(x0 + 6) + 1.5)
+    for (let x = x0 + 30; x <= x1 - 6; x += 24) kam.quadraticCurveTo(x - 12, topp(x - 12) - 1.5, x, topp(x) + 1.5)
+    kam.stroke({ width: 3, color: 0xfff2c4, alpha: 0.7, cap: 'round' })
+    // korn och småsten i sanden (fasta lägen)
+    const korn = new Graphics()
+    for (let i = 0; i < 46; i++) {
+      const x = x0 + 12 + ((i * 97) % (WATER.w - 24))
+      const y = 672 + ((i * 53) % 8)
+      korn.ellipse(x, y, 2 + (i % 3), 1.4 + (i % 2)).fill({ color: i % 2 ? 0xc9aa6a : 0xfff0c0, alpha: 0.7 })
+    }
+    for (const [x, y, rx, ry, c] of [[452, 668, 11, 7, 0x9aa5ad], [470, 672, 7, 5, 0xb9a89a], [832, 669, 12, 8, 0x8e9aa3], [851, 673, 7, 5, 0xc4b4a4], [566, 674, 6, 4, 0xa9b4bb]]) {
+      korn.ellipse(x, y, rx, ry).fill(c)
+      korn.ellipse(x - rx * 0.25, y - ry * 0.35, rx * 0.5, ry * 0.4).fill({ color: 0xffffff, alpha: 0.28 })
+    }
+    // en liten snäcka
+    korn.ellipse(724, 674, 12, 8).fill(0xffc2d4)
+    for (const k of [-6, -2, 2, 6]) korn.moveTo(724 + k * 0.4, 668).lineTo(724 + k * 1.6, 679).stroke({ width: 1.4, color: 0xf08aa8, alpha: 0.8 })
+    for (const g of [sand, skugga, kam, korn]) g.eventMode = 'none'
+
+    // Växter: tångblad (grön), en korall (rosa). Varje blad är sitt eget barn och sväller
+    // aldrig utanför tankens insida. Bladen vajar kring sin fot med egen fas.
+    const vaxter = new Container()
+    vaxter.eventMode = 'none'
+    vaxter.interactiveChildren = false
+    this._vaxter = []
+    const tang = (x, antal, hojd, gron) => {
+      const p = new Container()
+      p.position.set(x, topp(x) + 6)
+      for (let i = 0; i < antal; i++) {
+        const h = hojd * (0.62 + 0.38 * ((i * 37) % 10) / 10)
+        const lean = (i - (antal - 1) / 2) * 7
+        const w = 8 + (i % 2) * 2
+        const b = new Graphics()
+        b.moveTo(-w, 0)
+          .quadraticCurveTo(-w * 1.5 + lean, -h * 0.5, lean * 1.7, -h)
+          .quadraticCurveTo(w * 1.5 + lean, -h * 0.5, w, 0)
+          .closePath()
+          .fill(gron[i % gron.length])
+        b.moveTo(0, -3).quadraticCurveTo(lean * 0.7, -h * 0.5, lean * 1.6, -h * 0.9).stroke({ width: 2, color: 0xffffff, alpha: 0.25, cap: 'round' })
+        b.position.set((i - (antal - 1) / 2) * 9, 0)
+        b.rotation = lean * 0.006
+        b._ph = x * 0.013 + i * 1.1
+        b._amp = 0.07 + (i % 3) * 0.02
+        b._base = b.rotation
+        p.addChild(b)
+        this._vaxter.push(b)
+      }
+      vaxter.addChild(p)
+    }
+    tang(436, 4, 128, [0x3d9a57, 0x56b46a, 0x2f8a4c])
+    tang(474, 3, 88, [0x66bb6a, 0x4aa85e])
+    tang(846, 4, 138, [0x2f8a4c, 0x4eb066, 0x3d9a57])
+    tang(808, 3, 92, [0x56b46a, 0x3d9a57])
+    // korall: tre grenar med runda toppar
+    const korall = new Container()
+    korall.position.set(770, topp(770) + 6)
+    const kg = new Graphics()
+    for (const [dx, h, lean] of [[-14, 46, -10], [0, 62, 2], [15, 40, 12]]) {
+      kg.moveTo(dx, 0).lineTo(dx + lean, -h).stroke({ width: 9, color: 0xf07a96, cap: 'round' })
+      kg.circle(dx + lean, -h, 7).fill(0xff9bb2)
+    }
+    kg.ellipse(0, 2, 26, 6).fill({ color: 0xc2536f, alpha: 0.5 })
+    kg.eventMode = 'none'
+    korall.addChild(kg)
+    vaxter.addChild(korall)
+    this._root.addChild(sand, skugga, kam, korn, vaxter)
   },
 
   // ---- Vätskeskikt ---------------------------------------------------------
@@ -1186,6 +1285,11 @@ export default {
 
     // Tankens invånare simmar (och nosar på det som sjunkit).
     this._updateFish(dt)
+
+    // Tången vajar (egen fas per blad, ingen tween — rivs med roten).
+    for (const b of this._vaxter || []) {
+      if (!b.destroyed) b.rotation = b._base + Math.sin(this._t * 1.3 + b._ph) * b._amp
+    }
 
     // Drivande bubblor.
     for (const b of this._bubbles) {

@@ -102,8 +102,15 @@ garanterar minst 2 av varje så mönstret framträder över tid.
   namngivningen sägs i samma tick före `complete()` — den kapas aldrig längre.
 - **[Quick] Lugn vatten-ambient-loop** (mjukt porlande) + varierat berömsting. ⛔ Slingan kräver
   ett nytt klipp (SFX-pipelinen/MOSS nere).
+- [Deep] Sandbotten är bara ~20 px: föremålen landar på `FLOOR_TOP` 672, så en tjockare botten kräver att landningen flyttas med (kritiken 2026-10-02).
 
 ## 5. Status / loggar
+
+- 2026-10-02 ✅ **Sandbotten och vattenväxter (FYSIKPLAN §5.4)**: `_buildBotten()` ritar en vågig
+  sandbotten (överytan runt FLOOR_TOP 672, så en sjunken sak vilar nedtryckt i sanden), korn, småsten,
+  en snäcka, fyra tånggrupper vid tankens sidor (vajar i `_update`, egen fas per blad, ingen gsap) och en
+  korall. Lagret ligger över vattenkroppen men under föremål, fisk och bubblor. Flytvolymen, vätskan
+  och stänket orörda (T1 rör dem senare).
 
 - 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): spelet hade ingen egen kopia av
   firandet; namngivningen ("Anden flyter!") sägs i samma tick före `complete()` och står nu kvar

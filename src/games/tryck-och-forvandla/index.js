@@ -60,6 +60,59 @@ const TEMAN = {
 }
 const TEMA_CHANS = 0.35
 
+// ── Mark under varje sak ────────────────────────────────────────────────────────────────────
+// Ritas som ett eget barn i `cont` (Graphics centrerad kring origo, ingen stor .position), så
+// träffytan och skuggan inte rörs. Fotlinjen ligger där plattan låg (y = podR * 0,58).
+function markTyp(k) {
+  if (k === 'snoflinga') return 'sno'
+  if (k === 'bil' || k === 'raket') return Math.random() < 0.7 ? 'sten' : 'gras'
+  return Math.random() < 0.8 ? 'gras' : 'sten'
+}
+
+function ritaMark(podR, typ, tint) {
+  const g = new Graphics()
+  const y0 = podR * 0.58
+  const w = podR * 0.92
+  const h = podR * 0.26
+  if (typ === 'sten') {
+    g.ellipse(0, y0 + 5, w * 0.9, h * 0.95).fill({ color: 0x6b727a, alpha: 0.5 })
+    g.ellipse(0, y0, w * 0.88, h * 0.95).fill(0x9aa3ad)
+    g.ellipse(-w * 0.1, y0 - h * 0.18, w * 0.7, h * 0.62).fill(0xb9c1c9)
+    g.ellipse(-w * 0.3, y0 - h * 0.3, w * 0.25, h * 0.2).fill({ color: 0xffffff, alpha: 0.4 })
+    // Småsten bredvid.
+    g.ellipse(w * 0.98, y0 + h * 0.5, w * 0.16, h * 0.34).fill(0x8c949d)
+    g.ellipse(-w * 1.0, y0 + h * 0.62, w * 0.11, h * 0.26).fill(0xa5adb6)
+    // Ett par strån som tittar fram bakom stenen.
+    g.moveTo(-w * 0.78, y0 - h * 0.2).quadraticCurveTo(-w * 0.82, y0 - h * 1.0, -w * 0.7, y0 - h * 1.25)
+    g.moveTo(w * 0.8, y0 - h * 0.1).quadraticCurveTo(w * 0.86, y0 - h * 0.9, w * 0.96, y0 - h * 1.1)
+    g.stroke({ width: 3, color: 0x4fa84f, cap: 'round' })
+  } else if (typ === 'sno') {
+    g.ellipse(0, y0 + 4, w * 1.0, h * 0.95).fill({ color: 0x9fb4cc, alpha: 0.45 })
+    g.ellipse(0, y0, w * 0.95, h * 0.9).fill(0xf4fbff)
+    g.ellipse(w * 0.4, y0 - h * 0.15, w * 0.45, h * 0.5).fill(0xffffff)
+    g.ellipse(-w * 0.45, y0 + h * 0.1, w * 0.3, h * 0.4).fill(0xe3f1fb)
+    g.circle(-w * 0.9, y0 + h * 0.4, 4).fill({ color: 0xffffff, alpha: 0.9 })
+  } else {
+    // Gräsplätt: mörkare kant under, ljusare topp, strån runtom och en liten blomma i sakens färg.
+    g.ellipse(0, y0 + 4, w * 1.02, h).fill({ color: 0x4a9c4a, alpha: 0.4 })
+    g.ellipse(0, y0, w * 0.96, h * 0.94).fill({ color: 0x7cc96c, alpha: 0.85 })
+    g.ellipse(-w * 0.12, y0 - h * 0.2, w * 0.7, h * 0.5).fill({ color: 0x9be08a, alpha: 0.55 })
+    const n = 11
+    for (let i = 0; i < n; i++) {
+      const u = (i + 0.5) / n
+      const x = (u * 2 - 1) * w * 0.92
+      const yy = y0 + Math.sin(u * 7.3) * h * 0.35
+      const hb = 9 + ((i * 7) % 4) * 3.5
+      g.moveTo(x, yy).quadraticCurveTo(x + (i % 2 ? 2 : -2), yy - hb * 0.6, x + (i % 2 ? 5 : -5), yy - hb)
+    }
+    g.stroke({ width: 3, color: 0x3f9a45, cap: 'round' })
+    const bx = (Math.random() < 0.5 ? -1 : 1) * w * (0.55 + Math.random() * 0.3)
+    g.circle(bx, y0 + h * 0.2, 5).fill(tint)
+    g.circle(bx, y0 + h * 0.2, 2).fill(0xfff2a8)
+  }
+  return g
+}
+
 // Slutposen när en sak blivit klar — en kort egen "klar"-animation per resultat.
 // Den ligger på `label` (konsten), aldrig på `cont` som bär träffytan; tickern skriver
 // label.y varje bildruta, så hopp och lyft går via PIVOT, inte y.
@@ -221,12 +274,9 @@ export default {
     // Mjuk markskugga (ger djup; krymper när saken "svävar" upp i tickern).
     const shadow = new Graphics().ellipse(0, podR * 0.72, podR * 0.72, podR * 0.26).fill({ color: COLORS.shadow, alpha: 0.12 })
     shadow.eventMode = 'none'
-    // Platta att stå PÅ — inte en ring runt om. En cirkel kring föremålet läste som
-    // "ikon i en bubbla", vilket är precis det P0 ASSETS vill bort från.
-    const pad = new Graphics()
-      .ellipse(0, podR * 0.62, podR * 0.9, podR * 0.28).fill({ color: tint, alpha: 0.22 })
-      .ellipse(0, podR * 0.56, podR * 0.9, podR * 0.28).fill({ color: tint, alpha: 0.4 })
-      .ellipse(0, podR * 0.56, podR * 0.9, podR * 0.28).stroke({ width: 5, color: tint, alpha: 0.7 })
+    // Mark att stå PÅ — gräs, sten eller snö, aldrig en färgad platta (P0 ASSETS).
+    // Typen lottas per sak: bil/raket oftast sten, snöflinga snö, resten oftast gräs.
+    const pad = ritaMark(podR, markTyp(chain[0].k), tint)
     pad.eventMode = 'none'
     // Själva saken — RITAD, skalad efter plattans storlek.
     const label = new Graphics()

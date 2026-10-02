@@ -108,8 +108,18 @@ bildbyte utan eget uttryck**, och världen minns inget av det jag skapat.
 - **[Quick] Varierad resultat-röst** (fler formuleringar per resultat) + en lugn
   ängs-ambient (fågel/vind) i bakgrunden. *(Blockerad 2026-09-23: nya repliker kräver TTS,
   ambienten ett slingklipp — båda tjänsterna nere.)*
+- [Polish] `markTyp` väljer mark efter `chain[0].k`: natt-/himmelskedjorna (gnista, måne, moln) hamnar på gräs. Ge himmelssakerna en egen mark (moln/dimma). (F3-kritik 2026-10-02)
 
 ## 5. Status / loggar
+
+- 2026-10-02 ✅ **Rosa plattorna bort — sakerna står på mark** (natt F3 · B3 · P0 ASSETS):
+  - Den ellipsformade färgplattan under varje sak (fylld + `stroke`-ring i temats färg) är ersatt av
+    `ritaMark`: en **gräsplätt** (strån + en liten blomma i sakens färg), en **sten** (platt sten,
+    två småstenar, strån bakom) eller **snö** (för snöflingan). Typen lottas per sak (`markTyp`:
+    bil/raket 70 % sten, snöflinga snö, resten 80 % gräs). Skuggan, träffytan (hitArea) och stegpunkterna
+    är oförändrade; marken är ett eget Graphics-barn utan stor `.position`.
+  - Temafärgerna (`TEMAN.farger`) styr nu bara blomman, stegpunkterna och poff-färgen.
+    Grind: `check --game tryck-och-forvandla` 0/0; ej webbläsartestad av byggaren.
 
 - 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): `complete()`-flödet var redan rent
   (resultatrepliken sägs före `complete()`, inga egna kopior). Nytt: temarundor (ren djur- eller

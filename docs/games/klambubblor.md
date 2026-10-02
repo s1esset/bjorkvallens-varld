@@ -54,7 +54,7 @@ loopen är "töm rutnät → töm större rutnät".
 
 ### Kärnloop & agens
 - ✅ ~~**[Medium] Levande bubblor.**~~ Redan byggd 2026-08-05 (ticker-driven drift, gupp och
-  kantstuds, `b._vx` :194 / :460) — uppdagat 2026-09-23. Studs mot varandra är inte byggd.
+  kantstuds, `b._vx`) — uppdagat 2026-09-23. **Studs mot varandra klar 2026-10-02** (`_stot`, se §5).
 - ✅ ~~**[Quick] Storleksspridning + klustring.**~~ Redan byggd 2026-07-01 (hex-förskjutning +
   jitter :181) — uppdagat 2026-09-23.
 - **[Deep] Sammanslagning/kombo.** Två bubblor som rör vid varandra kan smälta till en större
@@ -87,8 +87,21 @@ loopen är "töm rutnät → töm större rutnät".
 ### Ljud
 - **[Quick] Variera vinst-stinget** — verifierat 2026-09-23: `complete()` (:399) spelar det globalt
   varierade vinstljudet. Vatten-ambient-loopen kräver ett SFX-klipp (MOSS nere) — öppen.
+- [Polish] Från nivå 5 (8×5) överlappar startlayouten (stepX 137 ± 24 mot radiesumma ~98); när stöten slår på efter 1,1 s glider bubblorna isär. Sprid startlayouten eller klämm stöten mjukare första sekunden. (F3-kritik 2026-10-02)
 
 ## 5. Status / loggar
+
+- 2026-10-02 ✅ **Bubblorna stöter mot varandra** (F3 B2, FYSIKPLAN §5.4): `_stot` — billig cirkelstöt
+  efter mönstret i `poppa-ballonger` (ingen matter): överlapp > 6 % glider isär (högst 5 px per
+  bubbla och bildruta, på `x` och `_baseY` eftersom y ritas ur basen + gupp), farten längs x byts
+  bara när de är på väg MOT varandra, och båda plattas längs kontaktlinjen (`_plattas` /
+  `_stegaSquash`: en dämpad cosinus på en `fig`-ram, `art` vrids tillbaka så glansen inte snurrar —
+  inga tweens, alltså inget att riva). En stöt ger en mjuk pentatonton (vol 0,05, minst 170 ms
+  emellan; paret vilar 0,7 s). Extra fart dras tillbaka mot drivtakten (> 14 px/s avtar), annars
+  hade en chock gjort bubblorna till kulor. Stöten börjar 1,1 s efter bygget (de studsar in först).
+  En POPP skjuter dessutom undan grannar inom 230 px (fart + liten y-knuff + platt), så en pop i
+  klungan sätter igång stötar — det är den som gör att bubblorna reagerar på barnets val, inte bara
+  på varandra. Hint-bubblan (andas) hoppas över. Mätvärde: `g._stotN` räknar stötar.
 
 - 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): nästa fälts instruktion kom 1,3 s efter
   `complete()` och kapade berömmet — köas nu med `ctx.narTyst` (bygg-token). Ombyggnaden och

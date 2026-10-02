@@ -50,6 +50,8 @@ export default {
     this._idle = 0
     this._combo = 0 // snabba pop i rad → stigande kombo-ton
     this._lastPopAt = -9999
+    this._stotN = 0 // antal stötar bubblor emellan (syns i g._stotN)
+    this._stotTon = 0
     this._build(ctx, false)
     this._tick = (ticker) => this._update(ctx, ticker)
     ctx.ticker.add(this._tick)
@@ -87,6 +89,8 @@ export default {
     this._root.removeChildren().forEach((c) => c.destroy({ children: true }))
 
     const L = ctx.progress.get().highestLevel || 0
+    this._t = this._t || 0
+    this._buildT = this._t // stöten startar först när bubblorna hunnit studsa in
 
     // Bakgrundsscen (varierar per nivå).
     this._scene = createScene(THEME_CYCLE[L % THEME_CYCLE.length])
@@ -238,15 +242,23 @@ export default {
 
   _makeBubble(ctx, { color, r, rainbow, surprise }) {
     const b = new Container()
+    // Konsten bor i fig > art: fig plattas längs kontaktnormalen när bubblor stöter ihop, art vrids
+    // tillbaka så glansen inte snurrar. b självt äger scale för entré, pop och andning.
+    const fig = new Container()
+    const art = new Container()
+    fig.addChild(art)
+    b.addChild(fig)
+    b._fig = fig
+    b._art = art
 
     // Mjuk skugga (offset, låg alpha) — ger djup utan filter.
-    b.addChild(new Graphics().circle(2, 7, r * 1.04).fill({ color: 0x16314a, alpha: 0.13 }))
+    art.addChild(new Graphics().circle(2, 7, r * 1.04).fill({ color: 0x16314a, alpha: 0.13 }))
 
     // Halvgenomskinlig kropp.
     const body = new Graphics()
     if (rainbow) body.circle(0, 0, r).fill({ color: 0xffffff, alpha: 0.3 })
     else body.circle(0, 0, r).fill({ color, alpha: 0.42 })
-    b.addChild(body)
+    art.addChild(body)
 
     if (rainbow) {
       // Roterande regnbågsring (mjuk shimmer).
@@ -259,22 +271,22 @@ export default {
           new Graphics().arc(0, 0, r, a0, a1).stroke({ width: r * 0.16, color: PLAYFUL[i], alpha: 0.95, cap: 'round' }),
         )
       }
-      b.addChild(ring)
+      art.addChild(ring)
       b._spin = gsap.to(ring, { rotation: Math.PI * 2, duration: 6, repeat: -1, ease: 'none' })
     } else {
       // Ljus kant + svag iriserande "sheen" i en förskjuten nyans.
       body.circle(0, 0, r).stroke({ width: Math.max(3, r * 0.1), color, alpha: 0.95 })
       const sheen = PLAYFUL[(PLAYFUL.indexOf(color) + 3) % PLAYFUL.length]
-      b.addChild(new Graphics().circle(r * 0.26, r * 0.3, r * 0.5).fill({ color: sheen, alpha: 0.16 }))
+      art.addChild(new Graphics().circle(r * 0.26, r * 0.3, r * 0.5).fill({ color: sheen, alpha: 0.16 }))
     }
 
     // Mjuk inre ring + glansig dager (roterad ellips) + liten gnista.
-    b.addChild(new Graphics().circle(0, 0, r * 0.8).stroke({ width: 2, color: 0xffffff, alpha: 0.22 }))
+    art.addChild(new Graphics().circle(0, 0, r * 0.8).stroke({ width: 2, color: 0xffffff, alpha: 0.22 }))
     const gloss = new Graphics().ellipse(0, 0, r * 0.34, r * 0.19).fill({ color: 0xffffff, alpha: 0.85 })
     gloss.position.set(-r * 0.3, -r * 0.32)
     gloss.rotation = -0.6
-    b.addChild(gloss)
-    b.addChild(new Graphics().circle(r * 0.18, -r * 0.42, r * 0.07).fill({ color: 0xffffff, alpha: 0.6 }))
+    art.addChild(gloss)
+    art.addChild(new Graphics().circle(r * 0.18, -r * 0.42, r * 0.07).fill({ color: 0xffffff, alpha: 0.6 }))
 
     b.eventMode = 'static'
     b.cursor = 'pointer'
@@ -374,6 +386,20 @@ export default {
     // Bobo tar emot: burken fylls med en pärla i bubblans färg och han mumsar till.
     this._catch(b._color)
 
+    // Poppen skjuter undan grannarna: de glider bort, plattas och stöter i sin tur andra.
+    for (const o of this._bubbles) {
+      if (!o || o === b || o.destroyed || o._popped) continue
+      const dx = o.x - b.x
+      const dy = o.y - b.y
+      const d = Math.hypot(dx, dy)
+      const R = 230
+      if (d >= R || d < 0.5) continue
+      const f = 1 - d / R
+      o._vx = Math.max(-60, Math.min(60, o._vx + (dx / d) * 60 * f))
+      this._nudgeY(o, (dy / d) * 22 * f)
+      this._plattas(o, Math.atan2(dy, dx) + Math.PI, 0.05 + 0.12 * f)
+    }
+
     // Squash/stretch -> krymp och försvinn.
     gsap.killTweensOf(b.scale)
     gsap
@@ -455,12 +481,17 @@ export default {
     // Bubblorna vandrar mjukt och studsar mot kanterna.
     for (const b of this._bubbles || []) {
       if (!b || b.destroyed || b._popped) continue
+      // En stöt eller poppchock kan ge extra fart — den lugnar sig tillbaka mot drivtakten.
+      if (Math.abs(b._vx) > 14) b._vx *= 1 - Math.min(1, 0.9 * dt)
+      b._bumpCd = (b._bumpCd || 0) - dt
       b.x += b._vx * dt
       const r = b._r || 40
       if (b.x < r + 10) { b.x = r + 10; b._vx = Math.abs(b._vx) }
       if (b.x > ctx.width - r - 10) { b.x = ctx.width - r - 10; b._vx = -Math.abs(b._vx) }
       b.y = b._baseY + Math.sin(this._t * b._bobSp * Math.PI + b._ph) * b._bobAmp
+      if (b._sqA > 0) this._stegaSquash(b, dt)
     }
+    this._stot(ctx)
 
     // Tomgången räknas från TYSTNAD: medan en replik talar står klockan still (V21 —
     // annars kapar påminnelsens say() en replik som redan talar).
@@ -482,6 +513,89 @@ export default {
         this._idleBreath = breathe(b, { scale: 1.12, duration: 0.7 })
       }
     }
+  },
+
+  // Bubblor som stöter ihop: glansiga bubblor glider isär, byter fart längs kontaktlinjen och
+  // plattas mot varandra. Billig cirkelstöt (samma mönster som poppa-ballonger), ingen matter.
+  // Ritad position ägs av driften (x) och _baseY (y) — därför flyttas just de.
+  _stot(ctx) {
+    if (!this._bubbles || this._t - this._buildT < 1.1) return
+    const live = this._bubbles.filter((b) => b && !b.destroyed && !b._popped)
+    const maxY = ctx.height - 96
+    for (let i = 0; i < live.length; i++) {
+      for (let j = i + 1; j < live.length; j++) {
+        const a = live[i]
+        const c = live[j]
+        const dx = c.x - a.x
+        const dy = c.y - a.y
+        const rad = (a._r + c._r) * 0.94 // glasbubblor får kyssas lite
+        const d2 = dx * dx + dy * dy
+        if (d2 >= rad * rad) continue
+        const d = Math.sqrt(d2)
+        const nx = d > 0.01 ? dx / d : 1
+        const ny = d > 0.01 ? dy / d : 0
+        const k = Math.min((rad - d) * 0.5, 5) // högst 5 px per bubbla och bildruta
+        a.x = Math.max(a._r + 10, Math.min(ctx.width - a._r - 10, a.x - nx * k))
+        c.x = Math.max(c._r + 10, Math.min(ctx.width - c._r - 10, c.x + nx * k))
+        a._baseY = Math.max(a._r + 120, Math.min(maxY - a._r, a._baseY - ny * k))
+        c._baseY = Math.max(c._r + 120, Math.min(maxY - c._r, c._baseY + ny * k))
+        // Farten längs x byts (lika tunga) bara när de är på väg MOT varandra.
+        const rel = (a._vx - c._vx) * nx
+        if (rel > 0) {
+          const imp = rel * Math.abs(nx) + 8 * Math.abs(nx)
+          a._vx = Math.max(-60, Math.min(60, a._vx - imp * Math.sign(nx || 1)))
+          c._vx = Math.max(-60, Math.min(60, c._vx + imp * Math.sign(nx || 1)))
+        }
+        if ((a._bumpCd || 0) <= 0 && (c._bumpCd || 0) <= 0) {
+          a._bumpCd = 0.7
+          c._bumpCd = 0.7
+          const amp = Math.min(0.2, 0.09 + Math.abs(rel) / 260)
+          this._plattas(a, Math.atan2(dy, dx), amp)
+          this._plattas(c, Math.atan2(-dy, -dx), amp)
+          this._stotN++
+          const nu = performance.now()
+          if (nu - this._stotTon > 170) {
+            this._stotTon = nu
+            const ton = KASKAD[this._stotN % KASKAD.length] * 2
+            ctx.services.audio.tone({ freq: ton, dur: 0.07, type: 'sine', vol: 0.05, slideTo: ton * 0.9 })
+          }
+        }
+      }
+    }
+  },
+
+  _nudgeY(b, dy) {
+    b._baseY = Math.max(b._r + 120, Math.min(720 - 96 - b._r, b._baseY + dy))
+  },
+
+  // Starta en plattning: längs vinkeln ang (mot kontakten), amplitud amp. Stegas i _update (inga tweens).
+  _plattas(b, ang, amp) {
+    if (!b || b.destroyed || b._popped || !b._fig || b._fig.destroyed) return
+    if (b === this._hintBubble) return
+    b._sqA = amp
+    b._sqT = 0
+    b._sqAng = ang
+  },
+
+  _stegaSquash(b, dt) {
+    const fig = b._fig
+    if (!fig || fig.destroyed) {
+      b._sqA = 0
+      return
+    }
+    b._sqT += dt
+    const e = Math.exp(-7 * b._sqT)
+    if (b._sqA * e < 0.004) {
+      b._sqA = 0
+      fig.scale.set(1)
+      fig.rotation = 0
+      b._art.rotation = 0
+      return
+    }
+    const a = b._sqA * e * Math.cos(15 * b._sqT)
+    fig.rotation = b._sqAng
+    b._art.rotation = -b._sqAng
+    fig.scale.set(1 - a, 1 + a * 0.8)
   },
 
   // En poppad bubbla landar som en pärla i Bobos burk (synligt samlande).

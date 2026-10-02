@@ -107,6 +107,14 @@ Mallar: **`rulla-bollen-hem`** (top-down minigolf, underlagsväxling), **`spinde
   kanter: mätt i `_fysikbank` S8 (40 px/ruta genom 12 fallande bollar: teleport 12 IGENOM, mötesfart 1,6 →
   kinematisk 0 IGENOM, mötesfart 15,9). Kroppen märks `_kinematisk` så fallvakten (`statisk-fart`) litar på den.
   Mönstret för en studsmatta/trampolin i ett spel: `src/games/studsmatta/matta.js` (mät: `_studsmattaprobe.mjs`).
+- **F3 brytbar (physics.js, opt-in):** `const h = phys.brytbar(body, { grans: 6, bitar: 6 | (body, {w,h,cx,cy}) => [{dx,dy,r}],
+  livstid: 3, tak: 12, utkast: 1, tona: 0.6, filter: (annan, par) => bool, onBryt({ kropp, bitar, x, y, fore, efter }),
+  onTona(bit, alfa), onBort(bit) })` · `h.bryt()` (tvinga) · `h.bruten` · `h.bitar` · `h.ta()` · `phys.brytBitar`. Kontakt över `grans`
+  (NORMALfart före lösaren, som `onImpact`) köar kroppen; i `beforeUpdate` av NÄSTA steg byts den mot RUNDADE cirkelbitar som
+  ärver `v + ω × r` + utkast (≤ 2 px/steg), Σm = kroppens massa, rörelsemängden bevarad EXAKT (`_fysikbank` S9: 0,0000 %).
+  Skapa bitarnas vyer i `onBryt` (`phys.link(bit, vy)`), `onTona` sätter alfa, `onBort` river vyn. Världen håller högst `tak` bitar
+  (de äldsta viker). Bitarna är inskrivna i kroppens yta (ingen föds i en vägg) — ge egen `bitar`-funktion för en icke-rektangel.
+  Kunder: `knuffa-tornet` (glas → godisbitar) · `snobollen` (snögubben → snöklumpar).
 - **Fjäderbräda som studsyta (P1):** kaninen måste ÅKA MED brädan ner (`setVelocity(y: fj.kompFart)` efter `taEmot`) —
   annars är kontakten borta när brädan vänder och kastet blir 4 i stället för 14 px/steg; `overslag` 0,6 (förval
   0,3 klipper utkastet till 0,84 ×); sätt kaninens `restitution` 0; ett tryck får aldrig laddas OVANPÅ en landning.

@@ -16,7 +16,7 @@
 //   | S3   | tunnling: kula mot 16 px vägg vid 10–60 px/steg    | 10 px/steg studsar alltid           | S8:s vägg  |
 //   | S4   | leder: gångjärnsdrift, pendelenergi damp 0/0,1     | damp 0,1 MÅSTE tappa snurr          | _superhoppprobe |
 //   | S5   | grepp: drivPunkt mot Constraint vid r²·m/I 0,5/1/3 | Constraint vid 3,0 MÅSTE skena      | karl.js drivPunkt |
-//   | S9   | brytbart: rörelsemängd före/efter delning          | ingen delning under gränsen         | (väntar på F3) |
+//   | S9   | brytbart: rörelsemängd före/efter delning          | ingen delning under gränsen         | BYGGD (F3) — s9() |
 //   Saknas i S6 (M1-tabellen nämner dem): magnetfångst (kräver Magnetfalt-loopen ur magnet-fiske),
 //   mjukkroppshäng (marshmallowen), rephäng (`rep.js`), Motstandsvolym-fall. Saknas i S7:
 //   skuggvärld per omritning (G3a finns inte än).
@@ -1166,12 +1166,251 @@ function s4() {
 }
 
 // ═════════════════════════════════════════════════════════════════════════════════════════════
+// S9 — BRYTBART (F3): phys.brytbar — rörelsemängd före/efter delning, ingen bit föds i en vägg, taket
+// ═════════════════════════════════════════════════════════════════════════════════════════════
+
+const S9_B = { left: 0, top: 0, right: 640, bottom: 600 }
+
+// Ett block 100×56 vilar på golvet; en kula (r 16) skjuts rakt in i dess kortsida med fart `V`.
+// Gravitationen är 0 — mätningen gäller delningen, inte hur blocket vilar. Returnerar tider i fysiksteg:
+// kontakten, delningen, och om föräldern fanns kvar i världen när kontaktsteget var klart.
+function s9Slag(V, { grans = 6, filter = null, bitar = 4 } = {}) {
+  const phys = new PhysicsWorld({ gravityY: 0, walls: ['floor', 'left', 'right'], bounds: S9_B })
+  const block = phys.rectangle(320, 572, 100, 56, { label: 'glas', frictionAir: 0, friction: 0.3, restitution: 0.05, density: 0.0016 })
+  const kula = phys.circle(240, 572, 16, { label: 'kula', frictionAir: 0, friction: 0, restitution: 0.1, density: 0.0016 })
+  Body.setVelocity(kula, { x: V, y: 0 })
+  let steg = 0
+  let kontaktSteg = -1
+  let delSteg = -1
+  let foraldernKvarEfterKontakt = null
+  let pre = null
+  let efter = null
+  // Registreras FÖRE brytbar → körs före libbets egen beforeUpdate och läser föräldern orörd.
+  phys.beforeStep(() => { steg++; if (Composite.allBodies(phys.world).includes(block)) pre = { m: block.mass, vx: block.velocity.x, vy: block.velocity.y } })
+  phys.onCollision((e) => { for (const p of e.pairs) if (kontaktSteg < 0 && (p.bodyA.parent === block || p.bodyB.parent === block) && (p.bodyA.label === 'kula' || p.bodyB.label === 'kula')) kontaktSteg = steg })
+  Events.on(phys.engine, 'afterUpdate', () => { if (steg === kontaktSteg && foraldernKvarEfterKontakt === null) foraldernKvarEfterKontakt = Composite.allBodies(phys.world).includes(block) })
+  const h = phys.brytbar(block, {
+    grans, bitar, filter, livstid: 3, tak: 12,
+    onBryt: (info) => {
+      delSteg = steg
+      let sx = 0
+      let sy = 0
+      let sm = 0
+      for (const p of info.bitar) { sx += p.mass * p.velocity.x; sy += p.mass * p.velocity.y; sm += p.mass }
+      efter = { px: sx, py: sy, m: sm, info }
+    },
+  })
+  for (let i = 0; i < 80; i++) phys.update(FIXED)
+  const res = { bruten: h.bruten, kontaktSteg, delSteg, foraldernKvarEfterKontakt, pre, efter, bitar: h.bitar.length }
+  phys.destroy()
+  return res
+}
+
+// Cirklar mot statiska kroppar: djupaste inträngning (px) över alla par.
+function s9Djup(phys, bitar) {
+  const stat = Composite.allBodies(phys.world).filter((b) => b.isStatic)
+  let max = 0
+  for (const p of bitar) for (const s of stat) {
+    const c = Matter.Collision.collides(p, s)
+    if (c) max = Math.max(max, c.depth)
+  }
+  return max
+}
+
+function s9() {
+  const s = scen('S9', 'brytbart (F3) — rörelsemängd före/efter delning, ingen bit föds i en vägg, taket, ingen delning under gränsen')
+  const GR = 6
+
+  // ── KONTROLL: ingen delning under gränsen, delning över; gränsen ligger där `grans` säger ──────
+  const farter = [1, 3, 5.5, 6.5, 8, 10, 14]
+  const slag = farter.map((V) => ({ V, ...s9Slag(V, { grans: GR }) }))
+  s.rader.push({ slag: slag.map((r) => ({ V: r.V, bruten: r.bruten, kontaktSteg: r.kontaktSteg, delSteg: r.delSteg })) })
+  for (const r of slag) ut(`  slag ${padL(r.V, 4)} px/steg → ${r.bruten ? 'DELAD  ' : 'hel    '} kontakt steg ${padL(r.kontaktSteg, 3)} · delning steg ${padL(r.delSteg, 3)}`)
+  kontroll(s, 'ingen delning under gränsen (1 · 3 · 5,5 px/steg mot grans 6) — och kontakten hände', slag.filter((r) => r.V < GR).every((r) => !r.bruten && r.kontaktSteg > 0), slag.filter((r) => r.V < GR).map((r) => `${r.V}:${r.bruten ? 'delad' : 'hel'}`).join(' '))
+  kontroll(s, 'delning över gränsen (6,5 · 8 · 10 · 14 px/steg) — mätaren rör sig mellan två kända lägen', slag.filter((r) => r.V > GR).every((r) => r.bruten), slag.filter((r) => r.V > GR).map((r) => `${r.V}:${r.bruten ? 'delad' : 'hel'}`).join(' '))
+  const nastaSteg = slag.filter((r) => r.bruten).every((r) => r.delSteg - r.kontaktSteg === 1 && r.foraldernKvarEfterKontakt === true)
+  kontroll(s, 'delningen köas: föräldern står kvar när kontaktsteget är klart och ersätts EXAKT ett steg senare (aldrig inne i kollisionshändelsen)', nastaSteg, slag.filter((r) => r.bruten).map((r) => `${r.delSteg - r.kontaktSteg} steg · kvar ${r.foraldernKvarEfterKontakt}`).join(' · '))
+  {
+    const nej = s9Slag(10, { grans: GR, filter: () => false })
+    kontroll(s, 'filter(annan) → false stoppar delningen även över gränsen', !nej.bruten)
+  }
+  if (!s.kontrollHolls) { ut('  ✗ kontrollen höll inte — inga mätrader för S9'); return }
+
+  // ── MÄTARM 1: rörelsemängd före/efter (slagfallet, flera farter) ───────────────────────────────
+  ut('')
+  let tapp = 0
+  for (const r of slag.filter((x) => x.bruten)) {
+    const p0 = Math.hypot(r.pre.m * r.pre.vx, r.pre.m * r.pre.vy)
+    const dp = Math.hypot(r.efter.px - r.pre.m * r.pre.vx, r.efter.py - r.pre.m * r.pre.vy)
+    const rel = dp / p0
+    tapp = Math.max(tapp, rel)
+    const dm = Math.abs(r.efter.m - r.pre.m) / r.pre.m
+    s.rader.push({ rorelsemangd: { V: r.V, fore: [r.pre.m * r.pre.vx, r.pre.m * r.pre.vy], efter: [r.efter.px, r.efter.py], relFel: rel, massFel: dm } })
+    ut(`  V ${padL(r.V, 4)}: p före (${f(r.pre.m * r.pre.vx, 4)}, ${f(r.pre.m * r.pre.vy, 4)}) · efter (${f(r.efter.px, 4)}, ${f(r.efter.py, 4)}) · fel ${f(rel * 100, 4)} % · massa ${f(dm * 100, 4)} % · ${r.bitar} bitar`)
+  }
+  kontroll(s, 'rörelsemängden före/efter delning inom 1 % (slagfallet, 4 farter)', tapp < 0.01, `största fel ${f(tapp * 100, 5)} %`)
+
+  // ── MÄTARM 2: snurrande kropp i fritt fall — v + ω × r ──────────────────────────────────────────
+  {
+    const phys = new PhysicsWorld({ gravityY: 0, walls: [] })
+    const b = phys.rectangle(300, 300, 100, 56, { frictionAir: 0, density: 0.0016 })
+    Body.setVelocity(b, { x: 2.5, y: -1.2 })
+    Body.setAngularVelocity(b, 0.06)
+    Body.setAngle(b, 0.4)
+    let pre = null
+    phys.beforeStep(() => { if (Composite.allBodies(phys.world).includes(b)) pre = { m: b.mass, vx: b.velocity.x, vy: b.velocity.y, w: b.angularVelocity, I: b.inertia, x: b.position.x, y: b.position.y } })
+    let info = null
+    const h = phys.brytbar(b, { bitar: 6, onBryt: (i) => { info = i } })
+    phys.update(FIXED)
+    h.bryt()
+    phys.update(FIXED) // delningen sker i beforeUpdate av det här steget
+    const bit = h.bitar
+    let px = 0
+    let py = 0
+    let L = 0
+    let vRel = 0
+    for (const p of bit) {
+      px += p.mass * p.velocity.x
+      py += p.mass * p.velocity.y
+      L += p.inertia * p.angularVelocity + p.mass * ((p.position.x - pre.x) * p.velocity.y - (p.position.y - pre.y) * p.velocity.x)
+    }
+    // Rörelsemängdsmoment kring förälderns tyngdpunkt (bitarnas ORBITALA del, utan egenrotation): ska bli den
+    // FYSISKA I·ω = m·(w²+h²)/12·ω. Matters egen `inertia` är ~4× den fysiska (för rektangeln OCH för cirkeln), så
+    // jämförelsen görs mot formeln, inte mot `body.inertia` — det är dessutom ett steg bort från att vara en sanning om lösaren.
+    let Lorb = 0
+    for (const p of bit) Lorb += p.mass * ((p.position.x - pre.x) * (p.velocity.y - pre.vy) - (p.position.y - pre.y) * (p.velocity.x - pre.vx))
+    const Lfys = (pre.m * (100 * 100 + 56 * 56)) / 12 * pre.w
+    const fel = Math.hypot(px - pre.m * pre.vx, py - pre.m * pre.vy) / Math.hypot(pre.m * pre.vx, pre.m * pre.vy)
+    for (const p of info.bitar) vRel = Math.max(vRel, Math.hypot(p.velocity.x - pre.vx, p.velocity.y - pre.vy))
+    s.rader.push({ snurr: { relFel: fel, Lfys, Lorb, vRel, bitar: bit.length } })
+    ut(`  snurrande kropp (ω 0,06): p-fel ${f(fel * 100, 4)} % · orbitalt rörelsemängdsmoment ${f(Lorb, 1)} mot fysiska I·ω ${f(Lfys, 1)} (${f(Lorb / Lfys * 100, 1)} %) · största relativfart ${f(vRel, 2)} px/steg · ${bit.length} bitar`)
+    kontroll(s, 'snurrande kropp: rörelsemängden bevarad inom 1 % och bitarna ärver v + ω × r (orbitalt L inom 75–105 % av fysiska I·ω — sex cirklar fyller inte hela rektangeln)', bit.length === 6 && fel < 0.01 && Lorb / Lfys > 0.75 && Lorb / Lfys < 1.05, `p-fel ${f(fel * 100, 4)} % · L ${f(Lorb / Lfys * 100, 1)} %`)
+    phys.destroy()
+  }
+
+  // ── MÄTARM 3: ingen bit föds överlappande statisk geometri (hörn: golv + vägg + avsats) ─────────
+  {
+    const kor = (bitarFn, utk = 1) => {
+      const phys = new PhysicsWorld({ gravityY: 0.4, walls: ['floor', 'left', 'right'], bounds: S9_B })
+      phys.rectangle(160.5, 560, 120, 80, { isStatic: true, label: 'avsats' }) // blocket sitter i vinkeln mellan golv, vägg och avsats
+      const b = phys.rectangle(50.5, 572, 100, 56, { label: 'glas', density: 0.0016, friction: 0.3 })
+      for (let i = 0; i < 30; i++) phys.update(FIXED) // låt det sätta sig
+      const foraldernsDjup = s9Djup(phys, [b])
+      let djupFodd = 0
+      const h = phys.brytbar(b, { bitar: bitarFn, utkast: utk, onBryt: (i) => { djupFodd = s9Djup(phys, i.bitar) } }) // mätt I FÖDELSEÖGONBLICKET, före lösaren
+      h.bryt()
+      phys.update(FIXED) // delningen sker i beforeUpdate
+      const bit = h.bitar
+      const djup = djupFodd
+      let ejekt = 0
+      for (const p of bit) ejekt = Math.max(ejekt, Math.hypot(p.velocity.x, p.velocity.y))
+      phys.destroy()
+      return { djup, foraldernsDjup, n: bit.length, ejekt }
+    }
+    const bra = kor(6)
+    // KONTROLL: ett medvetet för stort rutnät (cirklar som sticker ut ur kroppen) MÅSTE ge inträngning
+    const dalig = kor(() => [{ dx: -30, dy: 0, r: 40 }, { dx: 30, dy: 0, r: 40 }])
+    s.rader.push({ vagg: { bra, dalig } })
+    ut(`  bitar i vinkeln golv+vägg+avsats: djupaste inträngning ${f(bra.djup, 3)} px (föräldern själv ${f(bra.foraldernsDjup, 3)}) · kontrollarm med för stora cirklar ${f(dalig.djup, 3)} px`)
+    kontroll(s, 'cirklar som sticker ut ur kroppen ger MÄTBAR inträngning (> 3 px) — mätaren rör sig', dalig.djup > 3, `${f(dalig.djup, 2)} px`)
+    kontroll(s, 'ingen bit föds överlappande statisk geometri (≤ 0,5 px, och aldrig mer än föräldern själv + 0,1)', bra.n === 6 && bra.djup <= 0.5 && bra.djup <= bra.foraldernsDjup + 0.1, `${f(bra.djup, 3)} px mot förälderns ${f(bra.foraldernsDjup, 3)}`)
+    const stor = kor(6, 9)
+    kontroll(s, 'utkastfarten ≤ 2 px/steg (utkast 1 → ≈ 1 + en steg tyngd; en begäran på 9 klamras till 2)', bra.ejekt <= 1.5 && stor.ejekt <= 2.5 && stor.ejekt > bra.ejekt, `utkast 1 → ${f(bra.ejekt, 3)} · utkast 9 → ${f(stor.ejekt, 3)} px/steg`)
+  }
+
+  // ── MÄTARM 4: taket (aldrig fler än `tak` levande bitar) + livstid ────────────────────────────
+  {
+    const kor = (tak) => {
+      const phys = new PhysicsWorld({ gravityY: 0.3, walls: ['floor', 'left', 'right'], bounds: S9_B })
+      let fodda = 0
+      let bortta = 0
+      let maxLevande = 0
+      let maxKroppar = 0
+      const hs = []
+      for (let i = 0; i < 5; i++) {
+        const b = phys.rectangle(80 + i * 110, 300, 100, 56, { label: 'glas', density: 0.0016 })
+        hs.push(phys.brytbar(b, { bitar: 4, tak, livstid: 2, tona: 0.5, onBryt: (info) => { fodda += info.bitar.length }, onBort: () => { bortta++ } }))
+      }
+      Events.on(phys.engine, 'afterUpdate', () => {
+        maxLevande = Math.max(maxLevande, phys.brytBitar.length)
+        maxKroppar = Math.max(maxKroppar, Composite.allBodies(phys.world).filter((b) => b.label === 'bit').length)
+      })
+      for (let i = 0; i < 40; i++) { if (i % 8 === 0) hs[i / 8].bryt(); phys.update(FIXED) } // ett block var 8:e steg
+      for (let i = 0; i < 150; i++) phys.update(FIXED) // livstiden (2 s = 120 steg) går ut
+      const kvar = Composite.allBodies(phys.world).filter((b) => b.label === 'bit').length
+      phys.destroy()
+      return { fodda, bortta, maxLevande, maxKroppar, kvar }
+    }
+    const fri = kor(100)
+    const tat = kor(12)
+    s.rader.push({ tak: { fri, tat } })
+    ut(`  5 block × 4 bitar: tak 100 → födda ${fri.fodda}, högst levande ${fri.maxLevande} · tak 12 → födda ${tat.fodda}, högst levande ${tat.maxLevande} (kroppar i världen ${tat.maxKroppar}), bortagna ${tat.bortta}, kvar efter 190 steg ${tat.kvar}`)
+    kontroll(s, 'utan tak (100) lever alla 20 bitar samtidigt — så ett tak på 12 har något att hålla mot', fri.maxLevande === 20 && fri.fodda === 20, `${fri.maxLevande}`)
+    kontroll(s, 'taket håller: aldrig fler än 12 levande bitar i världen (räknat i libbet OCH som kroppar med etiketten bit) vid varje steg', tat.maxLevande <= 12 && tat.maxKroppar <= 12 && tat.maxLevande >= 11, `lib ${tat.maxLevande} · kroppar ${tat.maxKroppar}`)
+    kontroll(s, 'bitarna tonar och tas bort: efter livstiden finns inga kvar, och onBort kom en gång per född bit', tat.kvar === 0 && tat.bortta === tat.fodda && fri.bortta === fri.fodda && fri.kvar === 0, `födda ${tat.fodda} · bortagna ${tat.bortta} · kvar ${tat.kvar}`)
+  }
+
+  // ── MÄTARM 5: tonad — onTona kommer varje steg under de sista `tona` s, alfa 1 → 0, monotont ────
+  {
+    const phys = new PhysicsWorld({ gravityY: 0, walls: [] })
+    const b = phys.rectangle(300, 300, 100, 56, { density: 0.0016 })
+    const alfor = []
+    let bort = 0
+    let forsta = null
+    const h = phys.brytbar(b, { bitar: 4, livstid: 1, tona: 0.4, onBryt: (i) => { forsta = i.bitar[0] }, onTona: (bit, a) => { if (bit === forsta) alfor.push(a) }, onBort: () => { bort++ } })
+    h.bryt()
+    for (let i = 0; i < 70; i++) phys.update(FIXED)
+    const mono = alfor.every((a, i) => i === 0 || a < alfor[i - 1])
+    kontroll(s, 'onTona: ~24 anrop under de sista 0,4 s, strikt fallande från nära 1 mot 0, sedan onBort (4 bitar)', alfor.length >= 22 && alfor.length <= 25 && mono && alfor[0] > 0.9 && alfor.at(-1) < 0.1 && bort === 4, `${alfor.length} anrop · ${f(alfor[0], 2)} → ${f(alfor.at(-1), 3)} · bort ${bort}`)
+    phys.destroy()
+  }
+  // ── MÄTARM 6: kund snobollen — snögubben (64×86, fyra klumpar) på en 0,1 rad lutande backe ─────────
+  // KLUMPAR är en KOPIA av konstanten i src/games/snobollen/index.js (ändras den där, ändra den här).
+  {
+    const KLUMPAR = [{ dx: 0, dy: 17, r: 25 }, { dx: 0, dy: -26, r: 17 }, { dx: -25, dy: -8, r: 7 }, { dx: 25, dy: -8, r: 7 }]
+    const VINKEL = 0.1
+    const kor = (klumpar) => {
+      const phys = new PhysicsWorld({ gravityY: 2, walls: [] })
+      // backen: en tjock lutande platta; snögubben står med sin underkant 2 px ovanför ytan, som i spelet
+      const SIN = Math.sin(VINKEL)
+      const COS = Math.cos(VINKEL)
+      const hill = phys.rectangle(0, 0, 4000, 600, { isStatic: true, angle: VINKEL })
+      Body.setPosition(hill, { x: 500 - SIN * 300 + 0, y: 300 + 0 + COS * 300 + 0 })
+      const yta = (x) => hill.position.y - COS * 300 + Math.tan(VINKEL) * (x - (hill.position.x + SIN * 300))
+      const cy = yta(500) - 43 - 2
+      const b = phys.rectangle(500, cy, 64, 86, { frictionAir: 0.02, restitution: 0.5, friction: 0.2, density: 0.0005, angle: VINKEL, label: 'debris', collisionFilter: { category: 4, mask: 1 } })
+      Body.setVelocity(b, { x: 9, y: -5 })
+      Body.setAngularVelocity(b, 0.08)
+      let pre = null
+      phys.beforeStep(() => { if (Composite.allBodies(phys.world).includes(b)) pre = { m: b.mass, vx: b.velocity.x, vy: b.velocity.y } })
+      let djup = 0
+      let efter = null
+      const h = phys.brytbar(b, { bitar: () => klumpar, utkast: 1.6, livstid: 2.4, tak: 12, onBryt: (i) => { djup = s9Djup(phys, i.bitar); efter = { x: i.efter.x, y: i.efter.y, n: i.bitar.length, filt: i.bitar.every((p) => p.collisionFilter.category === 4 && p.collisionFilter.mask === 1) } } })
+      h.bryt()
+      phys.update(FIXED)
+      const res = { djup, pre, efter, bruten: h.bruten }
+      phys.destroy()
+      return res
+    }
+    const ok = kor(KLUMPAR)
+    const dalig = kor(KLUMPAR.map((k) => ({ ...k, r: k.r * 2 }))) // kontrollarm: dubbla radier sticker ut ur hindret
+    const fel = Math.hypot(ok.efter.x - ok.pre.m * ok.pre.vx, ok.efter.y - ok.pre.m * ok.pre.vy) / Math.hypot(ok.pre.m * ok.pre.vx, ok.pre.m * ok.pre.vy)
+    s.rader.push({ snogubbe: { djup: ok.djup, kontrollDjup: dalig.djup, pFel: fel } })
+    ut(`  snögubben på backen: ${ok.efter.n} klumpar · inträngning vid födseln ${f(ok.djup, 3)} px (kontrollarm med dubbla radier ${f(dalig.djup, 2)} px) · p-fel ${f(fel * 100, 5)} % · filter ärvt ${ok.efter.filt}`)
+    kontroll(s, 'kontrollarm: dubbla klumpradier ger MÄTBAR inträngning i backen (> 3 px)', dalig.djup > 3, `${f(dalig.djup, 2)} px`)
+    kontroll(s, 'snobollen: fyra klumpar föds utan att tränga in i backen (≤ 0,5 px), rörelsemängden bevarad (< 1 %) och kollisionsfiltret (debris) ärvt', ok.bruten && ok.efter.n === 4 && ok.djup <= 0.5 && fel < 0.01 && ok.efter.filt, `${f(ok.djup, 3)} px · ${f(fel * 100, 5)} %`)
+  }
+  not(s, 'brytgränsen mäts i NORMALfart (som onImpact) FÖRE lösaren; ett snuddande glid med hög totalfart delar sig inte')
+}
+
+// ═════════════════════════════════════════════════════════════════════════════════════════════
 if (vill('S1')) s1()
 if (vill('S3')) s3()
 if (vill('S4')) s4()
 if (vill('S6')) s6()
 if (vill('S7')) s7()
 if (vill('S8')) s8()
+if (vill('S9')) s9()
 if (vill('S10')) s10()
 if (JSON_UT) console.log(JSON.stringify(resultat, null, 2))
 else ut(`\n${kontrollFel ? '✗ ' + kontrollFel + ' kontrollrad(er) föll' : '✓ alla kontrollrader höll'}`)

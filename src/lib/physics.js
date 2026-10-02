@@ -452,6 +452,234 @@ export class PhysicsWorld {
     this._fartTak.set(body, max)
   }
 
+  // BRYTBAR KROPP (FYSIKPLAN F3, ägarbeslut Ä7): en kropp som går sönder i RUNDADE bitar när något slår
+  // i den hårt nog — glas som blir godisbitar med glitter, en snögubbe som blir snöklumpar. Aldrig
+  // skärvor, aldrig fler än `tak` bitar i världen.
+  //
+  //   const h = phys.brytbar(glas, {
+  //     grans: 5,        // normalfart (px/steg, som onImpact) över vilken kroppen går sönder
+  //     bitar: 6,        // antal (rutnät över kroppens lokala ytterform) ELLER (body, {w,h,cx,cy}) => [{dx,dy,r}]
+  //     livstid: 3,      // s tills en bit är borta
+  //     tak: 12,         // högst så många bitar LEVER i världen — nya bitar tränger bort de äldsta
+  //     utkast: 1,       // px/steg rakt ut från tyngdpunkten (klamras till ≤ 2) — medelvärdet dras av
+  //     filter: (annan, par) => bool,   // valfritt: bara dessa kontakter räknas (annars allt)
+  //     onBryt: ({ kropp, bitar, x, y, fore, efter }) => …   // skapa bitarnas vyer här: phys.link(bit, vy)
+  //     onTona: (bit, alfa) => …    // varje steg under de sista `tona` s (alfa 1 → 0)
+  //     onBort: (bit) => …          // biten tas ur världen — riv vyn här
+  //   })
+  //   h.bryt()   // tvinga en delning (köas som en träff)   h.bruten   h.bitar   h.ta() = sluta bevaka
+  //
+  // HUR: kontakten (collisionStart, farten FÖRE lösaren) köar kroppen. NÄSTA fysiksteg — i
+  // `beforeUpdate`, aldrig inne i en kollisionshändelse — ersätts den av bitar.
+  //   • Bitarna är cirklar i kroppens egen form (inskrivna i dess yta → ingen bit föds djupare i en
+  //     vägg än kroppen själv stod), arvar `v + ω × r` OCH en utkastfart, och massan fördelas efter
+  //     area så att Σm = kroppens massa. Medelvärdet av utkastet dras bort massviktat →
+  //     rörelsemängden före/efter är EXAKT lika (mätt i `_fysikbank` S9).
+  //   • Bitarna ärver kroppens friktion, studs, `mat`, `collisionFilter` och `label: 'bit'` (eller
+  //     `label`), så `impactAudio` talar med samma material och ett filter som håller bitar borta från
+  //     något gör det även för dem.
+  //   • Är världen full (`tak`) tas de ÄLDSTA bitarna bort direkt (onBort) för att ge plats.
+  // En STATISK kropp delas utan fart. `removeBody` på en bevakad kropp/bit rensar bevakningen.
+  brytbar(body, { grans = 6, bitar = 4, livstid = 3, tak = 12, utkast = 1, tona = 0.6, filter = null, label = 'bit', studs = null, onBryt = null, onTona = null, onBort = null } = {}) {
+    const rec = { kropp: body, grans, bitar, livstid, tak, utkast: Math.max(0, Math.min(2, utkast)), tona, filter, label, studs, onBryt, onTona, onBort, ko: false, dod: false, bruten: false, nya: [] }
+    if (!this._alive || !body) return { kropp: body, bruten: false, bitar: [], bryt() {}, ta() {} }
+    if (!this._brytbara) this._brytInit()
+    this._brytbara.set(body, rec)
+    return {
+      get kropp() {
+        return rec.kropp
+      },
+      get bruten() {
+        return rec.bruten
+      },
+      get bitar() {
+        return rec.nya
+      },
+      bryt: () => {
+        if (!rec.dod && !rec.ko) {
+          rec.ko = true
+          this._brytKo.push(rec)
+        }
+      },
+      ta: () => this._brytTa(body),
+    }
+  }
+
+  // Levande bitar i världen (kroppar) — taket `tak` gäller den här listan.
+  get brytBitar() {
+    return this._brytBitar ? this._brytBitar.map((b) => b.kropp) : []
+  }
+
+  _brytInit() {
+    this._brytbara = new Map() // kropp → rec
+    this._brytKo = [] // rec som ska delas i nästa steg
+    this._brytBitar = [] // { kropp, kvar, tonaSteg, rec } i födelseordning (äldst först)
+    this.onCollision((e) => {
+      for (const p of e.pairs) {
+        const a = p.bodyA.parent
+        const b = p.bodyB.parent
+        const ra = this._brytbara.get(a)
+        const rb = this._brytbara.get(b)
+        if ((!ra && !rb) || p.bodyA.isSensor || p.bodyB.isSensor) continue
+        const n = p.collision?.normal
+        const rel = n ? Math.abs((a.velocity.x - b.velocity.x) * n.x + (a.velocity.y - b.velocity.y) * n.y) : Math.hypot(a.velocity.x - b.velocity.x, a.velocity.y - b.velocity.y)
+        for (const [r, annan] of [[ra, b], [rb, a]]) {
+          if (!r || r.ko || r.dod || !(rel > r.grans)) continue
+          if (r.filter && !r.filter(annan, p)) continue
+          r.ko = true
+          this._brytKo.push(r)
+        }
+      }
+    })
+    this.beforeStep(() => this._brytSteg())
+  }
+
+  _brytSteg() {
+    // Åldra bitarna (fasta steg → samma livslängd oavsett bildfrekvens), äldst först.
+    const lista = this._brytBitar
+    for (let i = 0; i < lista.length; i++) {
+      const bit = lista[i]
+      bit.kvar--
+      if (bit.kvar <= 0) {
+        lista.splice(i--, 1)
+        this._brytKasta(bit)
+      } else if (bit.kvar < bit.tonaSteg && bit.rec.onTona) bit.rec.onTona(bit.kropp, bit.kvar / bit.tonaSteg)
+    }
+    if (this._brytKo.length) {
+      const ko = this._brytKo
+      this._brytKo = []
+      for (const rec of ko) if (!rec.dod) this._brytDela(rec)
+    }
+  }
+
+  _brytKasta(bit) {
+    bit.rec.onBort?.(bit.kropp)
+    this.removeBody(bit.kropp)
+  }
+
+  _brytTa(body) {
+    const rec = this._brytbara?.get(body)
+    if (rec) {
+      rec.dod = true
+      this._brytbara.delete(body)
+    }
+    if (this._brytBitar?.length) {
+      const i = this._brytBitar.findIndex((x) => x.kropp === body)
+      if (i >= 0) this._brytBitar.splice(i, 1)
+    }
+  }
+
+  _brytDela(rec) {
+    const b = rec.kropp
+    rec.dod = true
+    this._brytbara.delete(b)
+    const stat = b.isStatic
+    const o = stat && b._original ? b._original : b // en statisk kropps friktion/studs är nollade — läs originalen
+    const massa = Number.isFinite(b.mass) ? b.mass : o.mass || 0
+    const v = stat ? { x: 0, y: 0 } : { x: b.velocity.x, y: b.velocity.y }
+    const w = stat ? 0 : b.angularVelocity
+    const px = b.position.x
+    const py = b.position.y
+    const ang = b.angle
+    // Lokal ytterform (kroppens eget rum, orörd av vinkeln) — rutnätet läggs över den.
+    const cs = Math.cos(-ang)
+    const sn = Math.sin(-ang)
+    let x0 = Infinity
+    let x1 = -Infinity
+    let y0 = Infinity
+    let y1 = -Infinity
+    for (const p of b.vertices) {
+      const dx = p.x - px
+      const dy = p.y - py
+      const lx = dx * cs - dy * sn
+      const ly = dx * sn + dy * cs
+      if (lx < x0) x0 = lx
+      if (lx > x1) x1 = lx
+      if (ly < y0) y0 = ly
+      if (ly > y1) y1 = ly
+    }
+    const matt = { w: x1 - x0, h: y1 - y0, cx: (x0 + x1) / 2, cy: (y0 + y1) / 2 }
+    let delar
+    if (typeof rec.bitar === 'function') delar = rec.bitar(b, matt) || []
+    else {
+      // Rutnät: välj kol × rad så få celler går bort och cellerna blir ungefär kvadratiska.
+      const n = Math.max(2, Math.round(rec.bitar))
+      let bast = null
+      for (let kol = 1; kol <= n; kol++) {
+        const rad = Math.ceil(n / kol)
+        const score = (kol * rad - n) * 10 + Math.abs(Math.log(matt.w / kol / (matt.h / rad)))
+        if (!bast || score < bast.score) bast = { kol, rad, score }
+      }
+      const cw = matt.w / bast.kol
+      const ch = matt.h / bast.rad
+      const r = (Math.min(cw, ch) / 2) * 0.94 // lite luft: bitarna föds aldrig överlappande varandra
+      delar = []
+      for (let i = 0; i < n; i++) {
+        delar.push({ dx: matt.cx - matt.w / 2 + cw * ((i % bast.kol) + 0.5), dy: matt.cy - matt.h / 2 + ch * (Math.floor(i / bast.kol) + 0.5), r })
+      }
+    }
+    delar = delar.filter((d) => d && d.r > 0).slice(0, rec.tak)
+    // Taket: de äldsta bitarna går först (aldrig fler än `tak` samtidigt i världen).
+    while (this._brytBitar.length && this._brytBitar.length + delar.length > rec.tak) this._brytKasta(this._brytBitar.shift())
+
+    const c = Math.cos(ang)
+    const s = Math.sin(ang)
+    const nya = []
+    for (const d of delar) {
+      const p = Bodies.circle(px + d.dx * c - d.dy * s, py + d.dx * s + d.dy * c, d.r, {
+        label: rec.label,
+        friction: o.friction,
+        frictionStatic: o.frictionStatic,
+        frictionAir: o.frictionAir,
+        restitution: rec.studs ?? o.restitution,
+        collisionFilter: { category: b.collisionFilter.category, mask: b.collisionFilter.mask, group: b.collisionFilter.group },
+      })
+      if (b.mat) p.mat = b.mat
+      nya.push(p)
+    }
+    // Massan efter area så att Σm = kroppens massa (matters cirklar är månghörningar → skala exakt).
+    let sumM = 0
+    for (const p of nya) sumM += p.mass
+    if (massa > 0 && sumM > 0) for (const p of nya) Body.setMass(p, (p.mass * massa) / sumM)
+    sumM = 0
+    for (const p of nya) sumM += p.mass
+    // v + ω × r + utkast; medelvärdet av summan dras bort massviktat → rörelsemängden bevaras exakt.
+    const hast = []
+    let mx = 0
+    let my = 0
+    for (const p of nya) {
+      const rx = p.position.x - px
+      const ry = p.position.y - py
+      const l = Math.hypot(rx, ry)
+      const ex = l > 1e-6 ? (rx / l) * rec.utkast : 0
+      const ey = l > 1e-6 ? (ry / l) * rec.utkast : 0
+      const hx = v.x - w * ry + ex
+      const hy = v.y + w * rx + ey
+      hast.push({ x: hx, y: hy })
+      mx += p.mass * hx
+      my += p.mass * hy
+    }
+    const dvx = sumM > 0 ? (massa * v.x - mx) / sumM : 0
+    const dvy = sumM > 0 ? (massa * v.y - my) / sumM : 0
+    let ex = 0
+    let ey = 0
+    this.removeBody(b)
+    for (let i = 0; i < nya.length; i++) {
+      const p = nya[i]
+      Body.setAngle(p, ang)
+      Body.setAngularVelocity(p, w)
+      Body.setVelocity(p, { x: hast[i].x + dvx, y: hast[i].y + dvy })
+      this._add(p)
+      ex += p.mass * p.velocity.x
+      ey += p.mass * p.velocity.y
+      const steg = Math.max(1, Math.round(rec.livstid * 60))
+      this._brytBitar.push({ kropp: p, kvar: steg, tonaSteg: Math.min(steg, Math.round(rec.tona * 60)), rec })
+    }
+    rec.nya = nya
+    rec.bruten = true
+    rec.onBryt?.({ kropp: b, bitar: nya, x: px, y: py, fart: v, fore: { x: massa * v.x, y: massa * v.y }, efter: { x: ex, y: ey } })
+  }
+
   // KINEMATISK KROPP (FYSIKPLAN R2): en STATISK kropp som följer fingret — en korg, en tratt, en
   // matta, en paddel — flyttad som verktyg i stället för med en teleport per bildruta.
   //
@@ -771,6 +999,7 @@ export class PhysicsWorld {
     if (!body) return
     Composite.remove(this.world, body)
     this._fartTak?.delete(body)
+    if (this._brytbara) this._brytTa(body) // en bevakad kropp/bit lämnar bevakningen (brytbar)
     if (this._kin) for (const r of [...this._kin]) if (r.body === body) r.destroy()
     if (this._leder) for (const l of [...this._leder]) if (l.a === body || l.b === body) l.ta() // en led utan sin kropp hänger kvar i världen
     const i = this._links.findIndex((l) => l.body === body)

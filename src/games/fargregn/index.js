@@ -13,6 +13,7 @@ import { createScene } from '../../lib/scene.js'
 import { pop, wiggle, sparkle, bounceIn, puff, ripple, burst, shake, squash, liv, floatText } from '../../lib/feedback.js'
 import { makeKaraktar } from '../../lib/karaktarer.js'
 import { bage } from '../../lib/form.js'
+import { Ytvag } from '../../lib/ytvag.js'
 import { COLORS, PRAISE, FONT } from '../../lib/theme.js'
 import { randomFrom, shuffle } from '../../lib/swedish.js'
 
@@ -60,6 +61,9 @@ const SPAWN_Y = 92 // mitt under molnet — molnlagret ligger OVANPÅ dropparna 
 const DROP_R = 42
 const BOTTOM_Y = 648 // droppen "landar" i pölremsan här
 const PUDDLE_Y = 672 // pölarnas mittlinje (i markremsan)
+const WAVE_MAX = 4.5 // pölvågens utslagstak i px — ryms med marginal i pölens halva höjd (≥ 18 px)
+const WAVE_KRAFT = 1.5 // fart in vid en droppes nedslag (en stöt, aldrig per bildruta)
+const WAVE_ROWS = [-0.14, 0, 0.14] // vågskiktets linjer, andel av pölens halvbredd
 
 // Mottagaren Bobo i markremsan, till höger om regnet.
 const MOTT_X = 1140
@@ -542,9 +546,19 @@ export default {
     this._puddles = []
     for (const fx of [0.13, 0.34, 0.55, 0.76]) {
       const w = 64 + Math.random() * 46
-      const p = new Graphics()
+      // En pöl = en Container: botten (ellipsen) + ett vågskikt ovanpå. Graphics är ett löv
+      // i Pixi v8 och kan inte bära barn, och pop() skalar hela pölen med båda skikten.
+      const p = new Container()
       p._w = w
       p._tint = null // vilken färg pölen just nu innehåller (null = klart vatten)
+      p._base = new Graphics()
+      p._wave = new Graphics()
+      p.addChild(p._base, p._wave)
+      // Ytvågor (FYSIKPLAN F5): ett litet höjdfält per pöl, bara pölens egen bredd. Taket
+      // (WAVE_MAX px) håller vågen inom pölens form; vilaTrosk gör ytan spegelblank i vila.
+      p._yta = new Ytvag({ n: 15, x0: -w, x1: w, ytY: 0, sprid: 0.08, k: 0.03, damp: 0.96, max: WAVE_MAX, stotKlamma: true, vilaTrosk: 0.25 })
+      p._vagAktiv = false // en stöt har kommit och ytan har inte stannat än
+      p._vagRitad = false // vågskiktet bär linjer just nu (rensas en gång när ytan stilnat)
       p.position.set(ctx.width * fx, PUDDLE_Y)
       this._paintPuddle(p, null)
       this._puddleLayer.addChild(p)
@@ -558,10 +572,63 @@ export default {
     const w = p._w
     const water = color ?? 0x8fd6ee
     const shade = color ? darken(color, 0.3) : 0x3f8fc6
-    p.clear()
-    p.ellipse(0, 7, w, w * 0.26).fill({ color: shade, alpha: 0.32 }) // skugga
-    p.ellipse(0, 0, w, w * 0.28).fill({ color: water, alpha: color ? 0.75 : 0.6 }) // vatten
-    p.ellipse(-w * 0.28, -w * 0.06, w * 0.42, w * 0.1).fill({ color: 0xffffff, alpha: 0.45 }) // glans
+    p._shadeCol = darken(water, 0.35)
+    const g = p._base
+    g.clear()
+    g.ellipse(0, 7, w, w * 0.26).fill({ color: shade, alpha: 0.32 }) // skugga
+    g.ellipse(0, 0, w, w * 0.28).fill({ color: water, alpha: color ? 0.75 : 0.6 }) // vatten
+    g.ellipse(-w * 0.28, -w * 0.06, w * 0.42, w * 0.1).fill({ color: 0xffffff, alpha: 0.45 }) // glans
+  },
+
+  // En dropp slår i pölen vid x: en stöt i hennes höjdfält. Träffar den vid sidan (stänket når)
+  // blir stöten svagare och läggs på kanten (stotKlamma). Längre bort än så rör sig inget.
+  _vagStot(p, x, stor) {
+    if (!p || p.destroyed) return
+    const dx = Math.abs(x - p.x)
+    const nara = p._w + 46
+    if (dx > nara) return
+    const kraft = (stor ? WAVE_KRAFT * 1.35 : WAVE_KRAFT) * (dx <= p._w ? 1 : 0.55)
+    p._yta.stot(x - p.x, kraft)
+    p._vagAktiv = true
+  },
+
+  // Stegar pölarnas ytor och ritar om vågskiktet BARA medan ytan rör sig (plus en sista gång);
+  // en stilla pöl kostar ingen omritning och ligger spegelblank.
+  _vagUpdate(ms) {
+    for (const p of this._puddles) {
+      if (p.destroyed || !p._vagAktiv) continue
+      const y = p._yta
+      const om = y.uppdatera(ms)
+      if (om) this._ritaVag(p)
+      else if (!y.rorlig) p._vagAktiv = false
+    }
+  },
+
+  // Vågen som tre ljusa strömlinjer (med skugga strax under) tvärs över pölen. Linjernas längd
+  // räknas ur ellipsens korda vid den allra lägsta/högsta punkten vågen kan nå — så ritas
+  // ingenting utanför pölens form.
+  _ritaVag(p) {
+    const g = p._wave
+    if (!g || g.destroyed) return
+    const y = p._yta
+    if (!y.pa) {
+      if (p._vagRitad) g.clear()
+      p._vagRitad = false
+      return
+    }
+    const w = p._w
+    const b = w * 0.28
+    g.clear()
+    p._vagRitad = true
+    for (const rad of WAVE_ROWS) {
+      const y0 = rad * w
+      const a = w * Math.sqrt(Math.max(0, 1 - ((Math.abs(y0) + WAVE_MAX + 3) / b) ** 2)) * 0.92
+      if (a < 8) continue
+      y.path(g, { x0: -a, x1: a, steg: 9, dy: y0 + 3 })
+      g.stroke({ width: 2, color: p._shadeCol, alpha: 0.3, cap: 'round', join: 'round' })
+      y.path(g, { x0: -a, x1: a, steg: 9, dy: y0 })
+      g.stroke({ width: 2.6, color: 0xffffff, alpha: 0.6, cap: 'round', join: 'round' })
+    }
   },
 
   // Nivåparametrar växer mjukt med antal klarade rundor: fler färger, snabbare
@@ -1093,9 +1160,13 @@ export default {
         puff(this._splashLayer, d.x, PUDDLE_Y - 4, { count: 5, color: d._def.rainbow ? randomFrom(RAINBOW) : d._def.color })
         this._plop(ctx)
         this._rippleNearestPuddle(ctx, d.x, d._def)
+        for (const p of this._puddles) this._vagStot(p, d.x, d._kind === 'stor')
         if (!d.destroyed) d.destroy({ children: true })
       }
     }
+
+    // Pölarnas ytvågor (rör sig bara efter en dropp; ritas bara medan de rör sig).
+    this._vagUpdate(ticker.deltaMS)
 
     // Spawn-ackumulator (pausar/städas med tickern).
     if (!this._paused) {
@@ -1183,7 +1254,11 @@ export default {
     this._livs?.forEach((n) => n._fxLiv?.kill())
     this._drops?.forEach((d) => this._killDropFx(d))
     this._dots?.forEach((d) => gsap.killTweensOf(d.scale))
-    this._puddles?.forEach((p) => gsap.killTweensOf(p.scale))
+    this._puddles?.forEach((p) => {
+      p._fxPopTl?.kill()
+      gsap.killTweensOf(p.scale)
+      p._vagAktiv = false
+    })
     this._clouds?.forEach((c) => {
       c.inner._fxSquashTl?.kill()
       gsap.killTweensOf(c.inner.scale)

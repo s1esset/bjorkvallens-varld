@@ -94,7 +94,16 @@ Kort sagt: *snyggt och korrekt färg-matchning*, men det **lär inte färgord** 
   droppklick, pöl-plopp, regnbågs-kaskad. Lägg en stillsam regn-ambient på låg volym för lugn.
   *(Blockerad 2026-09-23: MOSS nere.)*
 
+- [Lätt] Pölvågen (±4,5 px) är subtil för en 3-åring — det som märks är fortfarande pölens `pop` och stänket (kritik D14).
+
 ## 5. Status / loggar
+
+- 2026-10-03 ✅ **Pölarna slår upp vågor (F5, `lib/ytvag.js`)**: varje pöl har ett eget litet höjdfält (15 punkter över
+  pölens bredd, tak 4,5 px mot pölens halvhöjd 18–31 px). Ett nedslag = EN stöt (aldrig per bildruta, ej konstant
+  kraft); en dropp som landar vid sidan av en pöl (≤ 46 px från kanten) ger en svagare stöt på kanten, längre bort
+  rör sig inget; stor skvätt 1,35×. Vågen ritas som tre ljusa strömlinjer + skugga ovanpå pölen, kortade så de ryms
+  i ellipsen (mätt: 0 punkter utanför, `_fargregnvagprobe`). Omritning bara medan ytan rör sig (+ en sista), sedan
+  spegelblank — noll arbete i vila. Pölen är nu en Container (botten + vågskikt) så `pop()` skalar båda. Inga nya repliker.
 
 - 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): rundans vinstreplik (`done`)
   sades EFTER `complete()` och kapade berömmet — flyttad före, så den står kvar och berömmet

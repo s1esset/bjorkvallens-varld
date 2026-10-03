@@ -106,6 +106,30 @@ garanterar minst 2 av varje så mönstret framträder över tid.
 
 ## 5. Status / loggar
 
+- 2026-10-03 ✅ **Hindren följer kropparna + "lasta flytaren" (FYSIKPLAN F6a, D15 B1).**
+  (1) `_fluidColliders()` (handflyttade `addCircle` varje bildruta) är borta: spelet kallar
+  `this._fluid.foljKroppar(this._phys)` en gång och lägger en post per föremål i `_onDrop`
+  (`form` cirkel r 34 = `OBJ_FLUID_R`, `nar: iSkiktet` = samma "i ytskiktet"-villkor som förut).
+  `o._coll` finns kvar som läsande getter (sonderna läser den). **Porten ger samma tal:** i
+  `scripts/_foljprobe.mjs` del A faller en kropp genom ett skikt — handsynk (gamla koden) mot
+  `foljKroppar`, max avvikelse **0,000 px** över alla partiklar och steg (kontroller: inga hinder
+  309 px, fel radie 200 px). (2) **Lasta flytaren:** en SJUNKARE föds nu ovanför det som flyter
+  under släppet och LANDAR på det (`last.js: slappY`, 30 px fallhöjd) i stället för att födas
+  inne i det. Mätt i Node (`scripts/_lastaflytprobe.mjs`, flytarens gupp är deterministiskt så
+  varje arm jämförs steg för steg mot en kontrollbana, sex guppfaser): HEAD föder sjunkaren upp
+  till **70 px inne i flytaren** (matter skjuter isär dem, flytaren far upp till 108 px nedåt) —
+  nya koden **0 px**, första beröring efter ≥ 4 steg med 4,0 px/steg anslag, flytaren trycks ned
+  **40–73 px** beroende på hur rakt på, och kommer tillbaka (|Δy efter 12 s| = 0,0 px).
+  Sjunkaren lämnar flytaren inom 0,9–2,4 s. **Premissen var halv:** `Flytvolym` + matter-kontakt
+  tryckte redan ned flytaren; det som saknades var en riktig landning och ett svar. Svaret:
+  `_onLast` (onImpact sjunkare↔flytare, strypt 450 ms) → flytaren pulsar, en ring vid ytan, ett
+  mjukt `plopp`. Ingen ny replik. Volym trängs undan — mätt: **416 → 416** partiklar, 0 utanför,
+  flytarens hinder höjer ytan 3,8 px i medel (12 px som mest); sjunkaren tränger undan först när
+  den är I skiktet (y > 304), inte medan den vilar på flytaren. Flytaren kantrar inte
+  (`ANG_DAMP` 0,9 dämpar vridningen) — det är "trycker ned"-varianten som gäller.
+  **Orkestreraren kör:** `_plaskprobe` (undanträngning +8–13 px, volym 416 → 416) och
+  `_vatskeprobe --losa` mot HEAD; i bilden: släpp en sjunkare på en flytare nära mitten.
+
 - 2026-10-02 ✅ **Sandbotten och vattenväxter (FYSIKPLAN §5.4)**: `_buildBotten()` ritar en vågig
   sandbotten (överytan runt FLOOR_TOP 672, så en sjunken sak vilar nedtryckt i sanden), korn, småsten,
   en snäcka, fyra tånggrupper vid tankens sidor (vajar i `_update`, egen fas per blad, ingen gsap) och en

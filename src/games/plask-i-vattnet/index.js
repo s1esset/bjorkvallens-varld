@@ -28,6 +28,7 @@ import { puff, ripple, wiggle, pop, bounceIn, sparkle } from '../../lib/feedback
 import { createScene } from '../../lib/scene.js'
 import { COLORS, FONT } from '../../lib/theme.js'
 import { groundFill } from '../../lib/form.js'
+import { slappY } from './last.js'
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
 
@@ -95,6 +96,8 @@ const OBJ_FLUID_R = 34
 // svävade mitt i tanken, 98 px under den yta föremålen guppade i. Fyllningen räknas nu
 // UR den siffran, så vattnet står stilla på rätt nivå redan första bildrutan.
 const PARTIKEL_YTA = 73 // px² per partikel i vila (uppmätt)
+// Ett föremål tränger undan vatten bara medan det är I ytskiktet (en bit över ytan till strax under hyllan).
+const iSkiktet = (b) => b.position.y > SURFACE_Y - 26 && b.position.y < FLUID_BOTTOM + 20
 
 const ROUND_SIZE = 6 // antal föremål per runda (fyller hyllans 6 platser)
 
@@ -141,6 +144,7 @@ const POOL_SINK = [
 const ALL_KINDS = new Set([...POOL_FLOAT, ...POOL_SINK].map((d) => d.kind))
 
 const KVACK_MS = 700
+const LAST_MS = 450 // minsta tid mellan två "sjunkare landar på flytare"-svar
 
 // Ankans kvack-vickning ligger på vyns figur (`_fig`, se `_kvack`) — `killTweensOf(vyn)`
 // når inte dit, så den dödas här innan vyn rivs.
@@ -363,6 +367,14 @@ export default {
       guppW: BOB_W,
       vaggAmp: SWAY_AMP,
       vaggW: SWAY_W,
+    })
+
+    // LASTA FLYTAREN: landar en sjunkare på en flytare svarar flytaren (puls + ring + mjukt
+    // dunk). Filtret släpper bara just det paret; `onImpact` strypar själv per bildruta.
+    this._phys.onImpact((e) => this._onLast(ctx, e), {
+      minSpeed: 2.2,
+      maxPerFrame: 1,
+      filter: (a, b) => (a.label === 'sinker' && b.label === 'floater') || (a.label === 'floater' && b.label === 'sinker'),
     })
 
     this._buildTank(ctx)
@@ -597,7 +609,7 @@ export default {
     // från första bildrutan. Ingen kran, inget avlopp, ingen `splash()` som föder nya
     // partiklar: volymen i en sluten tank ska vara KONSTANT, annars kan vattnet svälla
     // över eller torka ut medan barnet leker. Stänket kommer i stället ur att föremålen
-    // tränger undan vatten på riktigt (se `_fluidColliders`).
+    // tränger undan vatten på riktigt (se `foljKroppar` i `_buildFluid`).
     const steg = Math.sqrt(PARTIKEL_YTA)
     for (let y = FLUID_BOTTOM - 4; y > SURFACE_Y; y -= steg) {
       for (let x = WALL_L + 5; x < WALL_R - 4; x += steg) {
@@ -622,6 +634,10 @@ export default {
     })
     this._fluidView.layer.eventMode = 'none'
     this._fluidView.layer.interactiveChildren = false
+    // Föremålens hinder FÖLJER kropparna (`foljKroppar`, FYSIKPLAN F6a) — inget handflyttande
+    // per bildruta. Posterna läggs till i `_onDrop`, hindret finns bara medan föremålet är I
+    // ytskiktet (se `iSkiktet`) och tas bort när det lämnar det eller rundan rivs.
+    this._fk = this._fluid.foljKroppar(this._phys)
 
     // ÖVERHÄNGET KLIPPS BORT VID HYLLAN. Metabollen lägger sin ljusa kant runt HELA
     // vätskan — också undertill, där skiktet vilar mot sin osynliga hylla. Den kanten
@@ -666,30 +682,15 @@ export default {
     this._root.addChild(veil)
   },
 
-  // Föremål som är I ytskiktet tränger undan vatten. En cirkel per föremål, bara
+  // Föremål som är I ytskiktet tränger undan vatten. En cirkel per föremål (`OBJ_FLUID_R`), bara
   // medan det befinner sig i skiktet — då stiger nivån när något sänks ner, vattnet
-  // slår ihop bakom en sjunkande sten och en flytande and puttar undan sin vik.
+  // slår ihop bakom en sjunkande sten och en flytande and puttar undan sin vik. Hindret
+  // följer kroppen via `foljKroppar` (registreras i `_onDrop`).
   //
-  // ⚠️ RADIEN ÄR MINDRE ÄN FÖREMÅLET med flit (24 mot BODY_R 38). Föremålen ritas
+  // ⚠️ RADIEN ÄR MINDRE ÄN FÖREMÅLET med flit (34 mot BODY_R 38). Föremålen ritas
   // OVANPÅ vätskan, så vattnet som kryper in under kanten syns aldrig — men undanträngd
   // volym höjer HELA ytan, och sex föremål med full radie hade lyft den mot rimmen.
   // Samma avvägning som stenarna i `golvet-ar-lava`.
-  _fluidColliders() {
-    if (!this._fluid) return
-    for (const o of this._objects) {
-      const b = o.body
-      if (!b) continue
-      const inne = b.position.y > SURFACE_Y - 26 && b.position.y < FLUID_BOTTOM + 20
-      if (inne) {
-        if (!o._coll) o._coll = this._fluid.addCircle(b.position.x, b.position.y, OBJ_FLUID_R)
-        o._coll.x = b.position.x
-        o._coll.y = b.position.y
-      } else if (o._coll) {
-        this._fluid.removeCollider(o._coll)
-        o._coll = null
-      }
-    }
-  },
 
   // ---- Upptäckts-logg (sidohyllor) ----------------------------------------
 
@@ -989,9 +990,8 @@ export default {
     this._drag = null
     for (const o of this._objects) {
       if (o.body) this._phys.removeBody(o.body)
-      if (o._coll) this._fluid?.removeCollider(o._coll) // annars tränger ett borttaget föremål undan vatten för alltid
-      o._coll = null
     }
+    this._fk?.rensa() // annars tränger ett borttaget föremål undan vatten för alltid
     this._vatten?.rensa() // kropparna är borta ur världen -> ut ur volymen också
     this._objects = []
     this._itemViews.forEach((v) => {
@@ -1024,7 +1024,10 @@ export default {
 
     // Liten slumpoffset så två föremål aldrig föds exakt på varandra (= ingen jitter).
     const x = TANK_CX + (Math.random() - 0.5) * 44
-    const y = DROP_Y + (Math.random() - 0.5) * 12
+    const y0 = DROP_Y + (Math.random() - 0.5) * 12
+    // LASTA FLYTAREN: en sjunkare föds ovanför det som flyter under släppet och LANDAR på det,
+    // i stället för att födas inne i det (se `last.js`). Flytare föds som förut.
+    const y = data.floats ? y0 : slappY(this._objects, x, y0, BODY_R)
     gsap.killTweensOf(view) // stoppa drag-controllerns snäpp-tween (klar) före fysik-synk
     view.position.set(x, y)
 
@@ -1051,7 +1054,20 @@ export default {
     // glider lugnt till botten och ligger still där.
     this._vatten.lagg(body, { flyt: data.floatFactor, r: BODY_R, hemX: homeX, liv: data.floats })
 
-    this._objects.push({ body, view, kind: data.kind, floats: data.floats, floatFactor: data.floatFactor, r: BODY_R, homeX })
+    // Hindret i vätskan följer kroppen medan den är i ytskiktet (`rec.coll` = hindret just nu).
+    const fk = this._fk?.lagg({ body, form: { type: 'circle', r: OBJ_FLUID_R }, nar: iSkiktet }) || null
+    this._objects.push({
+      body,
+      view,
+      kind: data.kind,
+      floats: data.floats,
+      floatFactor: data.floatFactor,
+      r: BODY_R,
+      homeX,
+      get _coll() {
+        return fk ? fk.coll : null
+      },
+    })
 
     this._splash(ctx, x, data, guessed)
     if (data.kind === 'and') this._kvack(ctx, view)
@@ -1061,6 +1077,24 @@ export default {
 
     this._dropped++
     if (this._dropped >= ROUND_SIZE) this._finishRound(ctx)
+  },
+
+  // En sjunkare landade på en flytare: flytaren trycks ned av vikten (fysiken gör det själv),
+  // här kommer bara svaret man ser och hör. Strypt (LAST_MS) så en sjunkare som studsar
+  // fram och tillbaka på stocken inte blir en dunk-kulspruta.
+  _onLast(ctx, e) {
+    if (!this._alive) return
+    const nu = performance.now()
+    if (nu - (this._lastLast || 0) < LAST_MS) return
+    const flyt = e.a.label === 'floater' ? e.a : e.b
+    const o = this._objects.find((q) => q.body === flyt)
+    if (!o) return
+    this._lastLast = nu
+    this._idle = 0
+    const a = ctx.services.audio
+    if (!a.sample('plopp')) a.tone({ freq: 260, dur: 0.18, type: 'sine', vol: 0.2, slideTo: 130 })
+    if (o.view && !o.view.destroyed) pop(o.view, { scale: 1.12 })
+    ripple(ctx.fxLayer, flyt.position.x, SURFACE_Y, { color: 0xbfeefa, maxR: 60, width: 5, alpha: 0.55 })
   },
 
   // Ytsvall vid ett nytt plask: flytare i närheten får en mjuk uppåt-knuff och guppar
@@ -1269,9 +1303,8 @@ export default {
     // Flytkraften läggs per FYSIKSTEG: `Flytvolym` registrerar sig själv i `phys.beforeStep` (T1).
     this._phys.update(ticker.deltaMS)
 
-    // Vätskeskiktet: föremålens hinder flyttas EFTER motorsteget (då står kropparna
-    // där de faktiskt hamnade), sedan simuleras och ritas vattnet.
-    this._fluidColliders()
+    // Vätskeskiktet: hindren följer kropparna i början av `update()` — EFTER motorsteget, då
+    // står kropparna där de faktiskt hamnade — sedan simuleras och ritas vattnet.
     this._fluid?.update(ticker.deltaMS)
     this._fluidView?.update()
 
@@ -1309,9 +1342,10 @@ export default {
     this._fluidMask = null
     this._fluidView?.destroy()
     this._fluidView = null
+    this._fk?.stoppa()
+    this._fk = null
     this._fluid?.destroy()
     this._fluid = null
-    for (const o of this._objects || []) o._coll = null
     this._surfaceTween?.kill()
     this._fishTl?.kill()
     this._fishTl = null

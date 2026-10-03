@@ -23,6 +23,7 @@ import { sphereFill, bage } from '../../lib/form.js'
 import { Button } from '../../lib/Button.js'
 import { nyttVindband, stallBand, forutsagBana, forhandsAcc, luftForNiva, BAND_HALV } from './vindband.js'
 import { Vindbild } from './vindbild.js'
+import { KnoppFjader } from './knopp.js'
 import { puff, sparkle, burst, floatText, pop, wiggle, ripple } from '../../lib/feedback.js'
 import { FONT, COLORS } from '../../lib/theme.js'
 
@@ -160,6 +161,10 @@ export default {
       previewWind: 0,
       previewDamp: PREVIEW_DAMP,
       bounds: { ...BOUNDS },
+      // G3a: pricklinjen går genom en skuggvärld med världens riktiga väggar (och hjältens egna tal), och SLUTAR där
+      // en kropp med `forhandsStopp` står — studsknoppen, som kan svaja efter en stöt. Moln/hinder är medvetet inte med
+      // (som förut: bara golv/väggar och vinden). `bounds` är reserven om skuggmotorn skulle falla.
+      skuggvarld: { varld: this._phys, kula: { r: HERO_R, ...MATERIALS.bouncy }, filter: (b) => b.label === 'wall' || !!b.forhandsStopp },
       getOrigin: () => ({ x: SLING.x, y: SLING.y }),
       defaultAim: () => this._nearestTarget() || { x: 900, y: 240 },
       onGrab: () => {
@@ -355,7 +360,16 @@ export default {
     view.eventMode = 'none'
     this._bumperLayer.addChild(view)
     const body = this._phys.circle(def.x, def.y, def.r, { isStatic: true, restitution: 1.0, friction: 0.2, label: 'bumper' })
-    this._bumpers.push({ body, view, r: def.r, x: def.x, y: def.y })
+    const bm = { body, view, r: def.r, x: def.x, y: def.y, fj: null, kin: null }
+    if (def.kind !== 'cloud') {
+      // F1: studsknoppen vilar tills hjälten slår i den, svajar på en mjuk fjäder (knopp.js) och vilar igen. Kroppen är
+      // statisk men flyttas av `phys.kinematisk` med fjäderns utslag som avvikelse (förflyttningen ÄR farten, så hjälten
+      // studsar mot en rörlig knopp), och `forhandsStopp` låter pricklinjen sluta där knoppen står just nu.
+      body.forhandsStopp = true
+      bm.fj = new KnoppFjader()
+      bm.kin = this._phys.kinematisk(body, { maxFart: 8, avvikelse: () => bm.fj.steg() })
+    }
+    this._bumpers.push(bm)
   },
 
   // ---- Skott + flyg -------------------------------------------------------
@@ -398,6 +412,10 @@ export default {
     this._t += dt
     this._animateDecor(ctx, dt)
     this._phys.update(ticker.deltaMS)
+    // Knoppens bild följer KROPPENS läge (träffytan och bilden är samma sak): den svajar bara efter en stöt.
+    for (const bm of this._bumpers) {
+      if (bm.fj && bm.view && !bm.view.destroyed) bm.view.position.set(bm.body.position.x, bm.body.position.y)
+    }
 
     if (this._mode === 'flying' || this._mode === 'gliding') {
       if (this._mode === 'flying') this._flightT += dt
@@ -927,6 +945,7 @@ export default {
       if (la !== 'hero' && lb !== 'hero') continue
       const other = la === 'hero' ? lb : la
       if (other !== 'wall' && other !== 'bumper') continue
+      if (other === 'bumper') this._stotKnopp(ctx, la === 'hero' ? pair.bodyA : pair.bodyB, la === 'hero' ? pair.bodyB : pair.bodyA)
       if (this._t - this._lastBoing > BOING_THROTTLE) {
         this._lastBoing = this._t
         ctx.services.audio.sfx('boing')
@@ -938,12 +957,28 @@ export default {
             if (bm && bm.view && !bm.view.destroyed) {
               pop(bm.view)
               // En ring som går UT från knoppen och några studs-stjärnor: knoppen svarar.
-              ripple(ctx.fxLayer, bm.x, bm.y, { color: 0xffffff, maxR: bm.r + 46, width: 5, alpha: 0.6 })
-              sparkle(ctx.fxLayer, bm.x, bm.y - bm.r * 0.6, { count: 6 })
+              ripple(ctx.fxLayer, bm.body.position.x, bm.body.position.y, { color: 0xffffff, maxR: bm.r + 46, width: 5, alpha: 0.6 })
+              sparkle(ctx.fxLayer, bm.body.position.x, bm.body.position.y - bm.r * 0.6, { count: 6 })
             }
           }
         }
       }
+    }
+  },
+
+  // Hjälten slog i en studsknopp som kan svaja: stöten blir fjäderns fart bort från hjälten (knopp.js). Körs i
+  // `collisionStart`, FÖRE lösaren, så hjältens fart är den han kom med. Moln har ingen fjäder och står stilla.
+  _stotKnopp(ctx, hjalte, knopp) {
+    const bm = this._bumpers.find((b) => b.body === knopp)
+    if (!bm?.fj) return
+    const dx = knopp.position.x - hjalte.position.x
+    const dy = knopp.position.y - hjalte.position.y
+    const d = Math.hypot(dx, dy) || 1
+    const fart = (hjalte.velocity.x * dx + hjalte.velocity.y * dy) / d // hjältens fart MOT knoppen (px/steg)
+    if (bm.fj.stot(dx / d, dy / d, fart)) {
+      // Knoppen svarar med en mjuk klang som följer slagets styrka (≈ 220–330 Hz) — den "ringer" medan den gungar.
+      const f = 220 + Math.min(1, fart / 24) * 110
+      ctx.services.audio.tone({ freq: f, slideTo: f * 0.8, dur: 0.32, type: 'sine', vol: 0.1 })
     }
   },
 

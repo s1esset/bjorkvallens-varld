@@ -75,9 +75,10 @@ licens/igenkänning. No-fail via hjälp-skott → glid-båge.
   medelacceleration så slutpunkten stämmer): mätt fel vid steg 64 ≈ 15 px mot 95 px utan vind
   (`node scripts/_spindelvindprobe.mjs --bara A`), men kurvans MITT är rakare än verkligheten och talet
   ligger ett sikte efter (launchern ritar före `onAim`). Exakt kurva kräver G3b (banan genom `Vindfalt`).
-- **[Medium] Gör studsknoppen till ett *aktivt* val.** Låt den röra sig långsamt
-  (sin-bana), eller bli en knapp som barnet kan **dra för att placera** innan skottet — då
-  blir den ett verktyg som ändrar utfallet (som molnen i `enhorningen-elvira`), inte pynt.
+- ✅ ~~**[Medium] Gör studsknoppen till ett *aktivt* val.**~~ Halvt byggd 2026-10-03 (F1, `knopp.js`): knoppen
+  svajar på en fjäder när hjälten slår i den och vilar igen (se §5), och pricklinjen slutar vid den. *(Att
+  **dra** knoppen på plats innan skottet är INTE byggt — ett andra drag-mål bredvid slangbellan konkurrerar om
+  samma finger. Tas om svajet visar sig bära.)*
 - ~~**[Medium] Infria kattung-räddningen.**~~ ✅ 2026-08-07 (verifierad i kod, byggd tidigare).
   `_rescueKitten` (`index.js:460`) öppnar buren (`:1204`), spelar ett riktigt `djur_katt`-läte
   (`:464`) och låter kattungen hoppa ner i hjältens famn. Hon är banans finalmål.
@@ -127,6 +128,32 @@ licens/igenkänning. No-fail via hjälp-skott → glid-båge.
 - [Enkel] Busken längst till höger ligger nästan helt bakom Vind-knappen (kritiken 2026-10-02) — flytta den eller byt plats med staketets högra sektion.
 
 ## 5. Status / loggar
+
+- 2026-10-03 ⚙️ **F1 + G3a: knoppen svajar och banan slutar vid den** (D16 B4, `knopp.js` ny fil). Studsknoppen (nivå 1+,
+  den flytande disken — INTE molnen) VILAR tills hjälten slår i den: `collisionStart` (före lösaren) ger fjädern
+  `STOT_FAKTOR` 0,16 × hjältens fart mot knoppen som fart bort från honom (0,6–3,0 px/steg, anslag under 1,5 räknas
+  inte), och en mjuk fjäder (period 1,25 s, ζ 0,28 ≈ tre synliga gungningar, utslag högst 34 px) drar tillbaka den; den står
+  på EXAKT sin plats igen ~3 s efter sista träffen. Det är ett SVAR på barnets skott, aldrig rörelse som kommer av
+  sig själv — barnet siktar alltid mot en knopp som står still. Kroppen är fortfarande statisk men flyttas av
+  `phys.kinematisk({ maxFart: 8, avvikelse: () => fj.steg() })` (studsmattans mönster): förflyttningen ÄR farten, så
+  hjälten studsar mot en rörlig knopp, och bilden läser KROPPENS läge varje bildruta (träffyta = bild). En klang
+  (220–330 Hz, följer slagets styrka) hörs medan den gungar; ring + gnistor från förra omgången kommer nu ur kroppens läge.
+  **Varför en egen fjäder och inte `phys.pendel`:** skuggvärlden (G3a) läser bara STATISKA kroppar — en dynamisk
+  pendel hade varit osynlig för pricklinjen.
+  **Pricklinjen:** `AimLauncher` fick `skuggvarld: { varld, kula: { r: 46, ...MATERIALS.bouncy }, filter: wall | forhandsStopp }`
+  (FYSIKPLANENS premiss att spelet redan låg på skuggvärlden höll inte — det gjorde bara bowling, rulla-bollen-hem och
+  vattenballongerna; spindelhjalten ritade med `predict()`). Knoppen bär `forhandsStopp`, så banan SLUTAR där hjälten rör den
+  (inte på viloplatsen om knoppen just svajar). Förut gick pricklinjen rakt igenom knoppen. Molnen är medvetet INTE med
+  (oförändrat: banan känner golv/väggar och vinden; `_solveShot` läser molnen själv — ett eget beslut). Vinden går som
+  förut via `setPreview({ wind })` (G3b väntar). `vindband.js`, hjälp-skottet, `_solveShot` och `_hitsBumper` (läser
+  viloplatsen) orörda.
+  Mätt i Node (`node scripts/_dag-spindelhjalten.mjs`, rutnät 162 skott × 3 knoppstorlekar): stöt → utslag medel 12,6–13,1 px
+  (max 24,5, taket 34), vila efter 3,2 s och kroppen exakt på platsen; kontrollarmar: HEAD-knoppen rör sig 0,000 px, en
+  fjäder utan dämpning kommer aldrig till vila; hjältens fart ut ur första studsen skiljer högst 0,66 px/steg från HEAD
+  (taket 3,5); ingen lämnar sidorna. Pricklinjens slut ligger 0,7–1,0 px från kontaktavståndet r + 46 (kontroll: HEAD:s
+  `predict()` går in i knoppen i alla träffande skott) och 0,0–13,9 px från hjältens faktiska läge (det sämsta ett
+  glidande streck längs ytan); mitt i ett svaj (knoppen 17,7 px från platsen) slutar banan vid knoppen, inte vid platsen.
+  `node scripts/_spindelvindprobe.mjs` grön (alla mått). Omätt i webbläsare av byggaren.
 
 - 2026-10-03 ✅ **Vindbandet (FYSIKPLAN F4, kluster B2)**: global `setWind` + sex pilar ersatta av ett `Vindfalt`-band
   (`vindband.js`, bild i `vindbild.js`). Vind-knappen är barnets val som förr (av → höger → vänster), men luften är nu

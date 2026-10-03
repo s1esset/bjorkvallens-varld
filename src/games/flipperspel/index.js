@@ -92,6 +92,22 @@ const SCALE = [523.25, 587.33, 659.25, 783.99, 880.0, 1046.5]
 // paddeln ska förbli kulans främsta energikälla.
 const SPIN = { x: MID, y: 550, r: 32 }
 const SPIN_PUSH = 2.0
+// Snurran är ett GÅNGJÄRN (F1): bladen sitter på en ROTOR — en dynamisk skiva fastnålad i navet med
+// `phys.gangjarn`. Kulans träff sätter fart på den (SPIN_KNUFF rad/steg per träff, tak SPIN_MAX) och
+// luftmotståndet bromsar den till vila — samma avklingning som den gamla bildtweenen (0,972/steg =
+// frictionAir 0,028). Bladen ritas i rotorns egen vinkel.
+//
+// ⚠️ ROTORN HAR INGEN KOLLISION (mask 0). Den STATISKA skivan (label 'spinner') står kvar och är
+// kulans enda yta. Mätt (`_dag-flipperspel.mjs`, kontrollarm): en dynamisk skiva i ett stelt gångjärn
+// gav kulan 30 % MER studs (utfart −5,76 mot −4,49 px/steg, samma fall) — ledens positionskorrektion
+// skjuter skivan tillbaka upp i kulan — och lösare gångjärn (0,05) släpper skivan runt några px.
+// Skivan är en cirkel, så ytan är identisk vare sig den snurrar eller inte: kulans väg ner (och
+// `hinderUrFysik`, som bara läser statiska kroppar) är därför BIT FÖR BIT densamma som förut.
+const SPIN_KNUFF = 0.34
+const SPIN_MAX = 0.62
+const SPIN_TATHET = 0.06
+const SPIN_LUFT = 0.028
+const SPIN_VILA = 0.0008
 // Två studsfenor i det döda bandet mellan dynorna och paddlarna. De slår kulan
 // UPP-INÅT igen, så ett tapp i sidan blir en ny chans i stället för ett drän.
 //
@@ -433,7 +449,15 @@ export default {
     c.interactiveChildren = false
     this._root.addChild(c)
     this._phys.circle(SPIN.x, SPIN.y, SPIN.r, { isStatic: true, restitution: 0.55, friction: 0.02, label: 'spinner' })
-    this._spinner = { view: c, blades, speed: 0 }
+    const kropp = this._phys.circle(SPIN.x, SPIN.y, SPIN.r, {
+      density: SPIN_TATHET, frictionAir: SPIN_LUFT, label: 'spinner-rotor', collisionFilter: { category: 0x0002, mask: 0 },
+    })
+    const led = this._phys.gangjarn(kropp, { x: SPIN.x, y: SPIN.y }, { label: 'spinner-nav' })
+    // Vila exakt: under tröskeln står den still i stället för att krypa i all evighet.
+    const unbind = this._phys.beforeStep(() => {
+      if (Math.abs(kropp.angularVelocity) > 0 && Math.abs(kropp.angularVelocity) < SPIN_VILA) Body.setAngularVelocity(kropp, 0)
+    })
+    this._spinner = { view: c, blades, body: kropp, led, unbind }
   },
 
   // Studsfena: en lutad stång som slår tillbaka kulan upp-inåt. Kicken läggs på
@@ -953,12 +977,9 @@ export default {
     // Den faktiska (ritade) vinkeln — kicken och sonder läser den, aldrig målvinkeln.
     for (const p of this._paddles) p.ang = p.body.angle
 
-    // Snurran rullar vidare och saktar in (rent visuellt — ingen fysik hänger på den).
+    // Snurran: bladen ritas i kroppens EGEN vinkel (gångjärnet äger rörelsen, bildtweenen är borta).
     const sp2 = this._spinner
-    if (sp2 && sp2.blades && !sp2.blades.destroyed && sp2.speed > 0.0005) {
-      sp2.blades.rotation += sp2.speed * (sp2.dir || 1) * steps
-      sp2.speed *= Math.pow(0.972, steps)
-    }
+    if (sp2 && sp2.blades && !sp2.blades.destroyed) sp2.blades.rotation = sp2.body.angle
 
     // Bobo följer kulan med blicken. Via `toLocal` så den yttre containerns läge
     // räknas bort gratis — riggens `look` vill ha punkten i sin FÖRÄLDERS rymd.
@@ -1164,8 +1185,9 @@ export default {
       x: b.velocity.x + (dx / d) * SPIN_PUSH + (-dy / d) * tang * 4.2,
       y: b.velocity.y + (dy / d) * SPIN_PUSH + (dx / d) * tang * 4.2,
     })
-    sp.speed = clamp(sp.speed + 0.34, 0, 0.62) * (tang > 0 ? 1 : 1)
-    sp.dir = tang
+    // Kulan sätter fart på rotorn (samma riktning som den kastar kulan åt) — kulans egen impuls ovan
+    // är OFÖRÄNDRAD och läggs en enda gång; rotorn får sin fart via gångjärnet, inte en andra knuff.
+    Body.setAngularVelocity(sp.body, clamp(sp.body.angularVelocity + tang * SPIN_KNUFF, -SPIN_MAX, SPIN_MAX))
     ctx.services.audio.tone({ freq: 520, dur: 0.12, type: 'sawtooth', vol: 0.12, slideTo: 900 })
     ripple(ctx.fxLayer, SPIN.x, SPIN.y, { color: COLORS.teal, maxR: 58, alpha: 0.5, duration: 0.35 })
   },
@@ -1242,10 +1264,7 @@ export default {
     ctx.progress.complete() // vinstljud + beröm + konfettiregn (delat) + stjärna
 
     // Maskinen går igång: snurran rusar, fenornas gummiband blixtrar.
-    if (this._spinner) {
-      this._spinner.speed = 0.62
-      this._spinner.dir = 1
-    }
+    if (this._spinner?.body) Body.setAngularVelocity(this._spinner.body, SPIN_MAX)
     for (const fin of this._fins) {
       if (fin.view && !fin.view.destroyed) pop(fin.view, { scale: 1.16 })
     }
@@ -1367,6 +1386,9 @@ export default {
 
     gsap.killTweensOf(this._root)
     this._basFalt = null // ~30 k floats — släpps med spelet, inte med appen
+    this._spinner?.unbind?.()
+    this._spinner?.led?.ta()
+    this._spinner = null
     this._phys?.destroy()
     ctx?.services?.voice?.cancel()
     this._root?.destroy({ children: true })

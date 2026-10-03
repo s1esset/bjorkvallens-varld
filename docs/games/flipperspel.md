@@ -28,7 +28,7 @@
 Ett mörkt arkad-flipperbord mot en stjärnnatt. En glansig vit kula faller nedåt mot **två
 stora orange paddlar** längst ner. Jag tappar **vänster skärmhalva** → vänster paddel slår
 upp, **höger halva** → höger paddel. *(§1 skrevs 2026-06-30; sedan 2026-08-06 har bordet även
-snurra, studsfenor, tunnel och tre ritade dynetyper — se §5.)* Paddlarna är **kinematiska kroppar** (`phys.kinematisk`, R2):
+snurra (bladen på ett gångjärn, F1), studsfenor, tunnel och tre ritade dynetyper — se §5.)* Paddlarna är **kinematiska kroppar** (`phys.kinematisk`, R2):
 posen räknas från pivån varje bildruta och kroppen går dit i fysiksteget med förflyttningen
 som fart (högst 0,25 rad/steg), så de svingar snabbt upp och fjädrar tillbaka — och eftersom de
 har fart *kickar* de kulan på riktigt (rörelsemängd, plus den skriptade kicken som golv).
@@ -140,6 +140,21 @@ passiva en gång tända**.
   är inte byggt.
 
 ## 5. Status / loggar
+
+- 2026-10-03 ✅ **Snurran är ett gångjärn (FYSIKPLAN F1, D16 B2)**: bladen var en bild som `_spinHit` vred
+  runt med en egen `speed`-tween. Nu sitter de på en **rotor** — en dynamisk cirkel fastnålad i navet med
+  `phys.gangjarn(rotor, {x: SPIN.x, y: SPIN.y})` — och bladens `rotation` läser rotorns `angle` varje
+  bildruta. Kulans träff ger rotorn `±SPIN_KNUFF` (0,34 rad/steg, tak `SPIN_MAX` 0,62) med
+  `Body.setAngularVelocity`; `frictionAir 0,028` klingar av den med exakt gamla 0,972/steg (mätt 0,567
+  mot 0,567 efter 20 steg) och under `SPIN_VILA` (0,0008) står den still. Firandet sätter 0,62.
+  ⚠️ **Rotorn har ingen kollision (`mask: 0`) — den statiska skivan `'spinner'` står kvar som kulans yta.**
+  Provat först: själva skivan som dynamisk kropp i gångjärnet. Mätt (`scripts/_dag-flipperspel.mjs`, samma
+  fall, 10 lägen): ledens positionskorrektion skjuter skivan tillbaka upp i kulan → +30 % studs (utfart
+  −5,76 mot −4,49 px/steg), max Δ 5,8 px/steg och 431 px olikt läge efter 140 steg. Ett lösare gångjärn
+  (styvhet 0,05) gav rätt studs men släpper skivan runt några px. En cirkel är lika rund snurrande som
+  stilla, så ytan behöver inte vara i leden. Med rotorn är kulans utfart och läge **bit för bit** HEAD:s
+  (Δ 0), `_spinHit`s impuls på kulan är oförändrad och läggs en gång, och `hinderUrFysik` (läser bara
+  statiska kroppar) ser skivan som förut. Paddlarna och dynorna är orörda.
 
 - 2026-10-02 ✅ **Paddlarna är kinematiska (FYSIKPLAN R2)**: de statiska paddelkropparna fick sin pose
   skriven med `setPosition`/`setAngle` utan fart varje bildruta, så en kula som paddeln svepte in i

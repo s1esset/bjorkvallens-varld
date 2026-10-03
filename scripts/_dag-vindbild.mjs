@@ -8,12 +8,14 @@
 //   sapbubblor         `_blow(ctx, fans[0], 700, 260)` (en puff från vänster fläkt)
 //   bowling            `_autoHelp(ctx)`             (vindbyn välter käglorna)
 //   fallskarmen        ingen handling — skikten blåser av sig själva (nivån sätts till 4)
+//   kla-efter-vadret   `_applyWeather('bla', true)` (blåsigt väder, D14)
+//   enhorningen-flyger ingen handling — uppvindspelarna föds längs banan (D14)
 // Skärmdump: .test-shots/_dag-vind-<id>.png · MÄTNING 0 konsolfel över två rundor med exit mitt i vinden.
 import { chromium } from 'playwright'
 
 const ID = process.argv[2]
 const URL = process.argv.includes('--url') ? process.argv[process.argv.indexOf('--url') + 1] : 'http://localhost:5173'
-const VANTA = { spindelhjalten: 900, 'enhorningen-elvira': 900, 'flugan-pa-nasan': 450, sapbubblor: 350, bowling: 600, fallskarmen: 1500 }
+const VANTA = { spindelhjalten: 900, 'enhorningen-elvira': 900, 'flugan-pa-nasan': 450, sapbubblor: 350, bowling: 600, fallskarmen: 1500, 'kla-efter-vadret': 2500, 'enhorningen-flyger': 3500 }
 if (!(ID in VANTA)) { console.log('ange spel-id'); process.exit(2) }
 let fel = 0
 const ok = (namn, villkor, detalj = '') => {
@@ -41,6 +43,7 @@ try {
         else if (id === 'sapbubblor') g._blow(ctx, g._fans[0], 700, 260)
         else if (id === 'bowling') g._autoHelp(ctx)
         else if (id === 'fallskarmen') g._loadLevel?.(ctx, 4)
+        else if (id === 'kla-efter-vadret') g._applyWeather('bla', true)
         return 'ok'
       } catch (e) { return String(e).slice(0, 160) }
     }, ID)

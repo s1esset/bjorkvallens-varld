@@ -310,10 +310,12 @@ export function byggFonster() {
       if (snap) ljus.alpha = look.ljus
     },
 
-    // dt = ticker.deltaTime (bildrutor à 1/60 s), t = sekunder sedan start.
-    update(dt, t) {
+    // dt = ticker.deltaTime (bildrutor à 1/60 s), t = sekunder sedan start, luft = luftens styrka vid
+    // fönstret (vader.js, ett Vindfalt: stiltje ≈ 0, frisk by ≈ 1,4). Allt som rör sig i vinden här
+    // — moln, löv, träd, gardiner, kruka — läser samma tal, så en by syns i fönstret när den nått hit.
+    update(dt, t, luft) {
       if (ute.destroyed) return
-      const wind = st.wind
+      const wind = luft ?? st.wind * 0.5
       if (ute.alpha < 1) ute.alpha = Math.min(1, ute.alpha + dt * 0.06)
       ljus.alpha += (st.ljusMal - ljus.alpha) * Math.min(1, dt * 0.06)
 
@@ -321,16 +323,17 @@ export function byggFonster() {
 
       for (const c of moln) {
         if (!c.visible) continue
-        c.x += c._fart * (0.5 + wind * 3.2) * dt
+        c.x += c._fart * (0.5 + wind * 3.6) * dt
         if (c.x > x + w + 90) c.x = x - 90
       }
 
       // Trädet: lugn gunga, i blåst en tydlig böj som kommer i vindpuffar.
-      const puff = 0.6 + 0.4 * Math.sin(t * 0.9 + 1.3)
-      trad.rotation = Math.sin(t * (1.1 + wind * 2.6)) * (0.012 + 0.08 * wind * puff) + wind * 0.05 * puff
-      gardinV.rotation = Math.sin(t * 0.9) * 0.008 + wind * Math.sin(t * 2.1 + 1) * 0.03
-      gardinH.rotation = Math.sin(t * 0.9 + 2) * -0.008 + wind * Math.sin(t * 2.3) * -0.03
-      kruka.rotation = Math.sin(t * 1.6) * 0.012 + wind * Math.sin(t * 3.1) * 0.05
+      // Trädet lutar åt vindens håll (åt höger) och darrar i det; gardinerna vajar ut åt samma håll.
+      trad.rotation = Math.sin(t * (1.1 + wind * 2.6)) * (0.012 + 0.045 * wind) + wind * 0.1
+      // (gardinernas fäste sitter i överkanten: negativ vinkel svänger nederkanten åt HÖGER)
+      gardinV.rotation = Math.sin(t * 0.9) * 0.008 - wind * (0.05 + 0.03 * Math.sin(t * 2.1 + 1))
+      gardinH.rotation = Math.sin(t * 0.9 + 2) * -0.008 - wind * (0.05 + 0.03 * Math.sin(t * 2.3))
+      kruka.rotation = Math.sin(t * 1.6) * 0.012 + wind * (0.05 + 0.05 * Math.sin(t * 3.1))
 
       if (regn[0].visible) {
         for (const d of regn) {
@@ -354,11 +357,12 @@ export function byggFonster() {
       }
       if (lov[0].visible) {
         for (const l of lov) {
-          l._ph += 0.07 * dt
-          l.x += l._fart * dt
-          l.y += Math.sin(l._ph) * 1.1 * dt
+          l._ph += (0.04 + 0.05 * wind) * dt
+          // i stiltje sjunker lövet sakta, i en by far det iväg (förut: samma fart hela tiden)
+          l.x += l._fart * (0.3 + 0.8 * wind) * dt
+          l.y += Math.sin(l._ph) * 1.1 * dt + (0.16 + 0.34 * Math.max(0, 1 - wind)) * dt
           l.rotation = Math.sin(l._ph * 0.8) * 1.2
-          if (l.x > x + w + 16) {
+          if (l.x > x + w + 16 || l.y > y + h - 34) {
             l.x = x - 16
             l.y = y + 10 + Math.random() * (h - 60)
           }

@@ -18,7 +18,9 @@ import { bounceIn, pop, wiggle, sparkle, floatText, ripple } from '../../lib/fee
 import { drawIcon } from '../../lib/artikoner.js'
 import { COLORS } from '../../lib/theme.js'
 import { byggElvira, CX } from './figur.js'
-import { byggRum, byggStreck, byggNypa, byggFonster, repY } from './rum.js'
+import { byggRum, byggStreck, byggNypa, byggFonster, repY, WIN } from './rum.js'
+import { nyttVader, stallVader, stegaVader, luftVid, plaggVinkel } from './vader.js'
+import { byggVaderbild } from './vaderbild.js'
 
 // Fötternas underkant ligger på 616 -> hon står PÅ mattan (rum.js FLOOR_Y = 606).
 const GROUND_Y = 606
@@ -163,6 +165,7 @@ export default {
     this._ambT = 1200 // ms till nästa väder-ambient (fågel/regn/vind)
     this._payoff = null
     this._lastWeather = ctx.progress.get().custom?.lastWeather || null
+    this._vader = nyttVader('sol') // luften i rummet: ett Vindfalt som byar drar genom (vader.js)
 
     this._root = new Container()
     ctx.stage.addChild(this._root)
@@ -208,6 +211,9 @@ export default {
     this._root.addChild(byggStreck())
     this._fonster = byggFonster()
     this._root.addChild(this._fonster.view, this._fonster.ljus)
+    // Vindstrimmor + löv i rummet: bakom plaggen och Elvira (de läggs till efter), aldrig träffbara.
+    this._vaderbild = byggVaderbild(this._vader, ctx.view)
+    this._root.addChild(this._vaderbild.view)
   },
 
   // Ett tryck på Elvira: hon skrattar och hoppar till. (Zonernas träffytor ligger över henne, så
@@ -365,6 +371,8 @@ export default {
       gsap.to(this._bgColor, { r: to.r, g: to.g, b: to.b, duration: 0.6, ease: 'sine.inOut', onUpdate: sätt })
     }
     this._fonster.apply(w.look, snap)
+    stallVader(this._vader, key, snap)
+    this._vaderbild?.stall(key, snap)
     this._ambT = 1200 // mjuk start på nya vädrets ambient
   },
 
@@ -672,22 +680,17 @@ export default {
     inner.rotation = Math.sin(t * p.frekv * 0.5) * p.ampR * styrka
   },
 
-  // Plaggen på strecket gungar från klädnypan — lugnt i vila, kraftigt i blåst; det som hålls
-  // i handen hänger rakt.
+  // Plaggen på strecket hänger i sin nypa och LÄSER luften där de hänger (vader.js): rakt ner i
+  // stiltje, utsvängda åt höger när en by drar förbi — strecket först, sedan Elvira, sedan fönstret.
+  // Det som hålls i handen hänger rakt.
   _gungaPlagg(sec) {
-    const vind = this._weather?.look.wind || 0
     const held = this._drag.active?.view
-    const k = Math.min(1, sec * 10)
+    const k = Math.min(1, sec * 8)
     for (const v of this._items) {
       if (!v || v.destroyed || v._wxWorn) continue
       const hang = v._wxHang
       if (!hang || hang.destroyed) continue
-      let mal = 0
-      if (v !== held) {
-        const t = this._t
-        mal = Math.sin(t * (1.15 + vind * 1.5) + v._wxPh) * (0.035 + vind * 0.09)
-          + vind * 0.04 * Math.sin(t * 0.7 + v._wxPh * 0.5)
-      }
+      const mal = v === held ? 0 : plaggVinkel(this._vader, v.x, v.y, v._wxPh)
       hang.rotation += (mal - hang.rotation) * k
     }
   },
@@ -699,7 +702,12 @@ export default {
     const sec = ticker.deltaMS / 1000
     this._t += sec
 
-    this._fonster.update(dt, this._t)
+    // Luften: byn föds i vänsterkanten och drar åt höger. I blåst hörs varje by som ett sus.
+    const bytte = stegaVader(this._vader, sec)
+    const fonsterLuft = luftVid(this._vader, WIN.x + WIN.w / 2, WIN.y + WIN.h / 2)
+    this._fonster.update(dt, this._t, fonsterLuft.s)
+    this._vaderbild.update(sec)
+    if (bytte && this._weather?.key === 'bla') this._vindPuff(ctx)
     this._stepObehag(sec)
     this._gungaPlagg(sec)
 
@@ -745,17 +753,25 @@ export default {
       a.tone({ freq: rnd(240, 340), dur: rnd(1.0, 1.6), type: 'sine', vol: 0.05, slideTo: rnd(180, 240) })
       this._ambT = rnd(3800, 6000)
     } else if (k === 'bla') {
-      // Vindpuff: en låg ton som stiger och dör ut, ibland två i rad.
-      const f = rnd(170, 250)
-      a.tone({ freq: f, dur: rnd(1.1, 1.7), type: 'sine', vol: 0.05, slideTo: f * rnd(1.3, 1.7) })
-      if (Math.random() < 0.4) a.tone({ freq: f * 1.5, dur: rnd(0.7, 1.1), type: 'sine', vol: 0.03, slideTo: f * 1.1, delay: rnd(0.5, 0.9) })
-      this._ambT = rnd(2800, 4600)
+      // Susen följer byarna (se _update → _vindPuff); tidtabellen här är bara en reserv.
+      this._vindPuff(ctx)
     } else {
       const f = rnd(1900, 2500)
       a.tone({ freq: f, dur: 0.07, type: 'sine', vol: 0.05, slideTo: f * 1.25 })
       a.tone({ freq: f * 1.2, dur: 0.06, type: 'sine', vol: 0.04, slideTo: f * 0.9, delay: 0.09 })
       this._ambT = rnd(2600, 4800)
     }
+  },
+
+  // Ett vindsus: en låg ton som stiger och dör ut, ibland två i rad. Kommer när en by föds i blåst
+  // (byn syns i bilden samtidigt) och drar ut tidtabellen så att ambienten inte lägger ett sus till.
+  _vindPuff(ctx) {
+    const a = ctx.services.audio
+    const rnd = (lo, hi) => lo + Math.random() * (hi - lo)
+    const f = rnd(170, 250)
+    a.tone({ freq: f, dur: rnd(1.1, 1.7), type: 'sine', vol: 0.05, slideTo: f * rnd(1.3, 1.7) })
+    if (Math.random() < 0.4) a.tone({ freq: f * 1.5, dur: rnd(0.7, 1.1), type: 'sine', vol: 0.03, slideTo: f * 1.1, delay: rnd(0.5, 0.9) })
+    this._ambT = 6000
   },
 
   destroy(ctx) {
@@ -774,6 +790,8 @@ export default {
     ctx?.services?.voice?.cancel?.()
     // Fönstrets mask måste lossas innan noderna rivs.
     this._fonster?.destroy()
+    this._vaderbild?.destroy()
+    this._vader?.falt?.destroy()
     this._root?.destroy({ children: true })
   },
 }

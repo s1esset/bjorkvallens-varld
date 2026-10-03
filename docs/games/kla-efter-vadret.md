@@ -100,8 +100,28 @@ Kort sagt: en *fin, varm omsorgs-loop med snygg scen*, men slutledningen är tun
   *Not 2026-09-23:* ambienten finns redan som stämda toner (`_playAmbient`, :688) och snäppet
   likaså. Det som återstår är de riktiga klippen, och de kräver SFX-pipelinen (MOSS nere).
 
+- [Lätt] Vindstrimmorna i rummet (grå-blå, alfa ≤ 0,5) läses svagt mot den beige tapeten — löven och plaggen bär blåsten. Höj strimmornas alfa om de ska synas för en 3-åring (kritik D14).
+
 ## 5. Status / loggar
 
+- 2026-10-03 💨 **Blåsten är ett fält, inte en sinus per sak** (F4, D14 kluster B1; ej provkört i webbläsare — bara
+  `check` + en Node-mätning; orkestreraren testar). Varför: vinden var `Math.sin(t · (1,15 + vind·1,5))` på plaggen,
+  en annan sinus på trädet, en tredje på gardinen — ingenting hängde ihop och en by NÅDDE aldrig något. Nu finns
+  EN luft (`vader.js`, ett `Vindfalt` med form `fn`, spelet äger tiden): `luft(x) = bas + by · klockkurva` där byn
+  föds i vänsterkanten och drar åt höger över strecket → Elvira → fönstret. Allt läser samma fält:
+  ① **plaggen på strecket** (`plaggVinkel`: rakt ner i stiltje, utsvängda åt höger i by, tak `MAX_VINKEL` 0,72 rad;
+  det som hålls i handen hänger rakt; träffytan ligger kvar i `it`, bara det inre barnet svänger), ② **vindstrimmor +
+  8 löv i rummet** (`vaderbild.js`, bara löv i blåst; blåa strimmor syns i proportion till luften, osynliga i stiltje),
+  ③ **fönstret** (`rum.js update(dt, t, luft)`: träd, gardiner, kruka, moln och löv läser samma tal — byn syns där
+  när den hunnit dit; löven sjunker i stiltje). Varje by i blåst får ett sus (`_vindPuff`, `audio.tone`) i stället för
+  en fristående ambient-timer. Per väder (`VADER`): sol/snö stiltje, regn måttlig, blåst bas 0,45 + by 0,95 var 4,4 s.
+  ⚠️ **Klädstrecket är INTE ett `Rep`** (FYSIKPLAN §5.5 sa "om det finns") — det är ritad statisk geometri (`rum.js
+  byggStreck`), plaggen hänger i fasta nypor — så "rör inte dess steg" gällde inget; repet står stilla. Ett `Rep`
+  vore en egen punkt (T3).
+  **Mätt (Node):** `plaggVinkel` över 40 s för fem plagg på strecket — sol −0,19…0, regn −0,36, snö −0,13, **blåst
+  −0,71** (aldrig över taket 0,72); byar per 40 s: 4 / 5 / 3 / 9. Ett löv som släpps vid x −100 korsar x 1300 efter
+  **2,8 s i blåst**, 5,1 s i regn, 15 s i sol, och når inte alls fram i snö; alla löv respawnar i rummet vid x > höger
+  kant eller y > 760 (inget ligger kvar utanför bild).
 - 2026-10-01 🧺 **Kläderna hänger på riktigt, och rummet finns** (nattkörning, ej provkört i
   webbläsare — bara `check` kördes; orkestreraren testar). Varför: plaggen låg på en genomskinlig
   hyllpanel (P0 ASSETS), figuren var fem rektanglar mot en enfärgad vägg, och spelet var bland

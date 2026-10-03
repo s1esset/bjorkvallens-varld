@@ -29,6 +29,7 @@ import { topLightFill } from '../../lib/form.js'
 import { drawIcon } from '../../lib/artikoner.js'
 import { randomFrom } from '../../lib/swedish.js'
 import { pase } from '../../lib/variation.js'
+import { Ytvag } from '../../lib/ytvag.js'
 
 // --- Duschvattnet (lib/vatska.js) -----------------------------------------
 const FLUID_MAX = 240        // partikeltak
@@ -91,6 +92,17 @@ const RENARE_TONER = [523.25, 587.33, 659.25, 783.99, 880, 1046.5, 1174.66, 1318
 const RENARE_PAUS_MS = 90 // flera klumpar i samma svep = en ton, inte en kvarn
 // Badsaken flyter i vattenlinjen vid karets vänstra ände (långt från verktygens hemplatser).
 const BADSAK_POS = { x: 400, y: 486 }
+// Badets yta (lib/ytvag.js, F5): ett höjdfält över karets vatten. Duschstrålen som når vattenlinjen
+// slår upp vågor, avslutets skak ger en stor, och badsaken guppar och lutar på vågen den ligger på.
+const VAG = {
+  x0: 372, x1: 908, // karets inre vattenbredd
+  ytY: 495, // vattenlinjen (== vattenranden i _buildTub och skimret i _update)
+  max: 6, // utslagstak i px — ryms i vattenrandens ±13 px
+  stotPerDropp: 0.1, // fart in per droppe som når linjen (ENSTAKA droppar, summerade per bildruta)
+  tak: 4, // högst så många droppar räknas per bildruta
+  avslut: 4, // avslutets skak: en stor stöt i mitten + två vid sidorna
+  badsakGain: 3.5, // badsaken är långt från strålen: vågen där är ~1 px, så den överdrivs i guppet
+}
 
 export default {
   id: 'tvatta-djuret',
@@ -189,7 +201,16 @@ export default {
     // att mäta för sig (dölj allt annat, räkna pixlar).
     this._findLayer = new Container()
     this._findLayer.eventMode = 'none'
-    this._root.addChild(this._clean, this._badsakLayer, this._mudLayer, this._foamLayer, this._sudsLayer, this._tubFx, this._findLayer)
+    // Badets våg (egen Graphics, ritas om BARA medan ytan rör sig) — över djuret och skimret.
+    this._vagG = new Graphics()
+    this._vagG.eventMode = 'none'
+    this._yta = new Ytvag({ n: 41, x0: VAG.x0, x1: VAG.x1, ytY: VAG.ytY, sprid: 0.2, k: 0.021, damp: 0.985, max: VAG.max, stotKlamma: true, vilaTrosk: 0.2 })
+    this._vagAktiv = false // en stöt har kommit och ytan har inte stannat än
+    this._vagForeY = new Float32Array(FLUID_MAX) // förra bildrutans y per partikel (nedslagsdetektion)
+    // Badsaken ligger i ett eget lager som får gunga: den egna `liv()`-tweenen äger saken själv.
+    this._badsakLayer.pivot.set(BADSAK_POS.x, BADSAK_POS.y)
+    this._badsakLayer.position.set(BADSAK_POS.x, BADSAK_POS.y)
+    this._root.addChild(this._clean, this._badsakLayer, this._mudLayer, this._foamLayer, this._sudsLayer, this._tubFx, this._vagG, this._findLayer)
 
     this._fluid = new FluidWorld({
       max: FLUID_MAX,
@@ -1284,6 +1305,7 @@ export default {
       if (pa && !inne[i] && !this._resolving) this._rinseAt(ctx, { x: f.x[i], y: f.y[i] }, 44)
       inne[i] = pa
     }
+    this._vagNedslag(f)
 
     // Karets avlopp: utan det växer pölen tills taket nås, och då börjar duschen
     // återanvända sina EGNA partiklar mitt i luften och tunnas ut medan barnet spolar.
@@ -1291,11 +1313,75 @@ export default {
     this._fluidView.update()
   },
 
+  // Droppar som just passerat vattenlinjen nedåt inom karet = EN summerad stöt per bildruta i
+  // ytan, vid deras medel-x (en stöt per droppe vore en konstant kraft, ~36× — minnet).
+  _vagNedslag(f) {
+    const prev = this._vagForeY
+    let n = 0
+    let sx = 0
+    for (let i = 0; i < f.count; i++) {
+      const y0 = prev[i]
+      const y1 = f.y[i]
+      prev[i] = y1
+      if (y0 < VAG.ytY && y1 >= VAG.ytY && y1 - y0 < 40 && f.x[i] > VAG.x0 && f.x[i] < VAG.x1) {
+        n++
+        sx += f.x[i]
+      }
+    }
+    if (n > 0) this._vagStot(sx / n, VAG.stotPerDropp * Math.min(n, VAG.tak))
+  },
+
+  _vagStot(x, kraft) {
+    if (!this._yta) return
+    this._yta.stot(x, kraft)
+    this._vagAktiv = true
+  },
+
+  // Stegar badets yta; ritar om bara medan den rör sig (plus en sista gång). I vila: ingenting.
+  _vagUpdate(ms) {
+    if (!this._vagAktiv || !this._yta) return
+    const om = this._yta.uppdatera(ms)
+    if (om) this._ritaVag()
+    else if (!this._yta.rorlig) this._vagAktiv = false
+  },
+
+  _ritaVag() {
+    const g = this._vagG
+    const y = this._yta
+    if (!g || g.destroyed) return
+    g.clear()
+    // Linjen tonar med vågens höjd (full vid 1,5 px): en platt vit linje ska aldrig poppa in innan
+    // vågen hunnit växa, och den tonar ut av sig själv när ytan lägger sig.
+    let m = 0
+    if (y.pa) for (let i = 0; i < y.n; i++) m = Math.max(m, Math.abs(y.h[i]))
+    const syn = Math.min(1, m / 1.5)
+    if (syn > 0.02) {
+      const xa = VAG.x0 + 4
+      const xb = VAG.x1 - 4
+      // Vattenbandet strax under ytan, sedan en ljus ytlinje ovanpå.
+      y.path(g, { x0: xa, x1: xb, steg: 12 })
+      for (let x = xb; x >= xa; x -= 12) g.lineTo(x, VAG.ytY + 9 + y.hojd(x) * 0.6)
+      g.closePath().fill({ color: 0xcdeffb, alpha: 0.28 * syn })
+      y.path(g, { x0: xa, x1: xb, steg: 12 })
+      g.stroke({ width: 3, color: 0xffffff, alpha: 0.7 * syn, cap: 'round', join: 'round' })
+    }
+    // Badsaken rider på vågen: gupp + lutning efter ytans lutning (lagret, inte saken — liv() äger den).
+    const lag = this._badsakLayer
+    if (lag && !lag.destroyed) {
+      const bx = BADSAK_POS.x
+      const h = y.avvikelse(bx)
+      const lut = (y.avvikelse(bx + 15) - y.avvikelse(bx - 15)) / 30
+      lag.position.y = BADSAK_POS.y + h * VAG.badsakGain
+      lag.rotation = clamp(lut * VAG.badsakGain * 1.5, -0.3, 0.3)
+    }
+  },
+
   _update(ctx, tk) {
     if (!this._alive) return
     const dt = Math.min(2.5, tk.deltaMS / 16.67)
 
     this._vattenTick(ctx, dt)
+    this._vagUpdate(tk.deltaMS)
     this._sudsTick(tk.deltaMS)
 
 
@@ -1471,6 +1557,10 @@ export default {
     // Djuret skakar av sig vatten + en ring vattendroppar.
     shake(this._clean, { intensity: 10, duration: 0.5 })
     burst(ctx.fxLayer, 640, 430, { count: 18, colors: [0x9ed8f5, 0xeaf6ff] })
+    // Skaket slår upp badet: en stor våg i mitten och två mindre mot kanterna (badsaken guppar).
+    this._vagStot(640, VAG.avslut)
+    this._vagStot(520, VAG.avslut * 0.5)
+    this._vagStot(760, VAG.avslut * 0.5)
     sparkle(ctx.fxLayer, 560, 380, { count: 8 })
     sparkle(ctx.fxLayer, 760, 420, { count: 8 })
     ctx.services.audio.sample('djur_' + this._type.sample) // tyst fallback om klippet saknas
@@ -1591,6 +1681,8 @@ export default {
     this._fluid = null
     this._karVaggar = []
     this._suds = []
+    this._yta = null
+    this._vagAktiv = false
     this._root?.destroy({ children: true })
     this._root = null
   },

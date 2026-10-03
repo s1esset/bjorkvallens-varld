@@ -145,6 +145,15 @@ nås (idle-vink + auto-städ), och att fel-drag är mjukt (bubbla). Lerklumpar/s
 
 ## 5. Status / loggar
 
+- 2026-10-03 ✅ **Badet svarar på duschen (F5, `lib/ytvag.js`)**: karets vattenyta är ett höjdfält (41 punkter,
+  x 372–908, vattenlinjen y 495, tak 6 px mot vattenrandens ±13). Droppar ur duschstrålen som passerar vattenlinjen
+  nedåt summeras till EN stöt per bildruta vid deras medel-x (en stöt per droppe vore en konstant kraft ~36×);
+  djurets skak vid avslutet ger en stor våg i mitten + två mot kanterna. Vågen ritas som ett genomskinligt vattenband
+  + ljus ytlinje (`_vagG`, bara medan ytan rör sig — noll omritning i vila, mätt). Badsaken (borste/båt/anka) guppar och
+  lutar på vågen: lagret `_badsakLayer` (pivot i saken) bär vågen, `liv()` äger sakens egen y — de två skriver aldrig
+  samma egenskap. Vågen är ~1 px vid sakens x 400 när strålen är i mitten, så gupp/lutning har en gain (3,5) — avslutets
+  skak ger 6 px. Badets bubblor/skimmer (`_tubFx`) och duschvätskan rördes inte. Inga nya repliker. Mät: `node scripts/_tvattavagprobe.mjs`.
+
 - 2026-10-01 🎨 **Leran ser ut som lera** (nattplan): varje fläck var cirkel + två bulor + tre
   prickar, alltså en rad chokladkakor på ett rutnät. Nu ritar `_paintFlake` en oregelbunden,
   flikig stänkform (7–9 punkter, mjuk kontur via kvadratiska steg, `lerForm`), olika storlek,

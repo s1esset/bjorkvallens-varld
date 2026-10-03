@@ -44,6 +44,7 @@ med tre grundfärger, en hink att tömma i och Bobo som beställer.
 - **Färgblandning**: partiklarna har egna färger och smittar varandra vid kontakt via en
   blandningstabell (röd+gul=orange, röd+blå=lila, gul+blå=grön, allt annat=brunt). Man SER
   färgen svepa genom vätskan när man häller.
+- **Isbytta** (2026-10-03): en plåthink på bänken till höger om hinken. Tryck → en isbit flyger i en båge till glaset under kranen och plumsar i. Isen FLYTER på saften (nedsänkt ~65 %), guppar när man trycker på glaset eller rycker i det, hasar åt andra hållet när glaset dras, och stannar alltid i glaset. Högst tre per glas — en fjärde får den äldsta att smälta bort.
 - **Droppstorlek**: en knapp med tre droppar växlar liten/lagom/stor klick — leksaksläget.
 - **Spill** rinner ner genom gallret och försvinner. Inget går sönder, inget kan misslyckas.
 
@@ -62,7 +63,7 @@ strunta i beställningen hur länge som helst och bara leka.
 
 ## 3. Vad gör det lättjefullt / tunt
 
-- Bara tre grundfärger i kranen — ingen vit/vatten att späda med, ingen is, inget sugrör.
+- Bara tre grundfärger i kranen — ingen vit/vatten att späda med, inget sugrör. ✅ ~~ingen is~~ (isbytta 2026-10-03, §5).
 - ✅ ~~Bobo är bara ett svävande huvud.~~ Han har kropp sedan 2026-10-02 (§5).
 - Bobo beställer men har ingen egen historia (blir han törstig? har han en favoritfärg?).
 - Ingen kolsyra, inga bubblor i saften, ingen skvalp-ljudmatta — ljudet är ton + SFX.
@@ -96,6 +97,14 @@ strunta i beställningen hur länge som helst och bara leka.
 - [Enkel] Bobos blick (`look`) räknar från den gamla huvudmitten — huvudet sitter nu ~31 px högre med kroppen, så blicken siktar en aning fel (kritiken 2026-10-02).
 
 ## 5. Status / loggar
+
+- 2026-10-03 · **Isbitar som flyter på saften (FYSIKPLAN F6a, kund 1, D16 B1).** Ny fil `src/games/saftbaren/is.js` (ren fysik, ingen Pixi/gsap — samma kod körs i Node) + isbytta/vyer/ljud i `index.js`.
+  **Varför egna enkla kroppar och inte matter:** saftbaren har ingen `PhysicsWorld`, och isen bor i ett glas som flyttas, bärs och lutas 126° av spelets egna tweens. I världsrymd hade glasväggarna blivit teleporterande kinematiska kroppar (tunnling, is som rymmer). Isen bor i stället i glasets EGET system (origo = foten, som `_stats`/`_carryAll`) och klämms mot innerväggarna varje steg — den KAN inte lämna glaset. Glasets rörelse kommer in som tröghet (en impuls per bildruta), lutningen som roterad tyngd. Gränssnittet mot vätskan är ändå F6a: varje isbit bär ett `body` ({position, angle}) som `fluid.foljKroppar(null, …)` läser, så isen trycker undan saft som en riktig kloss (saften knuffar aldrig tillbaka — F6b byggs inte).
+  **Flyt:** ytan räknas ur MÄNGDEN saft (partiklar · 87 px² + det isen trängt undan, delat på innerbredden) — de översta partiklarnas höjd skakar flera px och fick isen att pumpa (7 px gungning). Uppdrift = nedsänkning · 1,55 · tyngd, kritiskt dämpad → stöt, gungning, vila på ~1 s.
+  **Saftens volym är helig (mätt):** kolliderarna är CIRKLAR (en roterad låda löser ansikte för ansikte och kastade ut hörnpartiklar), radien KRYMPER mot väggar och botten så att zonerna aldrig överlappar (vätskepartiklarna håller `pr` från väggen OCH från isen — trängre och de pressas ut genom glaset), växer högst 0,6 px/bildruta, finns bara medan glaset står still (≥ 10 bildrutor, 0 av 72 slumpade lyft förlorade en partikel utan is, 1–2 av 24 med kolliderare på under lyftet) och inte alls medan isen flyger, smälter eller glaset lutar (hällningen går lika bra med is: +70 mot +67 partiklar i målglaset). Följd: i ett grunt glas ligger isen bara ovanpå (ingen undanträngning), i ett djupt trycker den undan ~4–8 px yta.
+  **Spelets egen quirk (fanns förut, orört):** `_prefill` spawnar hörnpartiklar (−49, −36) som pressas ut genom väggens hörn — 13 rader ger 102 av 104 kvar efter 2,5 s. Ingenting med isen att göra, men en mätning som räknar världens partiklar måste vänta ~6 s (utpressade partiklar kullas först vid y > 1080).
+  **Mått:** `node scripts/_dag-saftbaren.mjs` (Node, 6 sektioner med kontrollrader; 0 röda i 6 helkörningar + 12 körningar av stress-delen med nästan fulla glas). Hink-träffytan krympte från ±80 till ±66 (den ritade hinken inkl. handtag är ±66) för att isbytta (96 px bred träff, 1190–1286) ska hålla 24 px avstånd.
+  **Nya repliker:** "Plums! En isbit i saften!" (första isbiten per omgång) · "Tryck på isbytta, så plumsar det en isbit i glaset!" (tredje tomgångstipset). Båda saknar klipp tills `npm run voice` körts.
 
 - 2026-10-02 · **Bobo får en kropp + baren får djup (FYSIKPLAN §5.4 + L2, F4/B2).** (1) Gästen byggs nu `makeKaraktar({ r: 58, kropp: true })` i stället för `r: 74, kropp: false`: han står med fötterna på samma hylla som barnets egen figur (`_buildGastHylla` byggs alltid; riggens fötter ligger 2,34·r under huvudmitten → `m.y = GAST_FOT_Y - BOBO_Y - BOBO_FOT`, ~199 px hög). Drain-rutan (centrum 1140,330, 190×190) täcker fortfarande munnen (huvudmitt nu y≈269). Blicken följer glas/kran och `react('jubel')` används även för Bobo (relativa hopp i figurens egen nod, så spelets hopp i hållaren lägger sig ovanpå). (2) L2: tapet med ränder och varmt lampljus (staplade ellipser, ingen radiell gradient), kakelvägg i förband bakom glasen (ljus med flit så saften lyser) med träklistlist, hyllans skugga/konsoler/flasketiketter, och i förgrunden en bänkkant med glans och skugga, plankpanel med fogar och en mässingsfotlist. Inga nya texturbakningar (cachade `verticalFill`/`cylinderFill`). Y-lägen för glas, galler, kran, spak och droppknapp orörda. Omätt i webbläsare — titta på skärmdumpen: kakelfogarna får inte konkurrera med glasen.
 

@@ -13,7 +13,8 @@ import { lerpColor } from '../../lib/scene.js'
 import { makeKaraktar } from '../../lib/karaktarer.js'
 import { figurForOmgang, arEgen, presentera } from '../../lib/egnafigurer.js'
 import { Button } from '../../lib/Button.js'
-import { pop, puff, sparkle, burst , kvittera} from '../../lib/feedback.js'
+import { pop, puff, sparkle, burst , kvittera, liv} from '../../lib/feedback.js'
+import { Isvarld, ritaIsbit, ISBIT_HALV } from './is.js'
 
 // --- färgvärlden -----------------------------------------------------------
 // Index i den här listan ÄR partikelns färg (world.pal[i]).
@@ -116,6 +117,10 @@ const HALL_Y = SAFE_Y // så högt lyfts ett glas man håller i (aldrig kvar på
 const RAIL_Y = 150 // kranens skena
 const SPOUT_Y = 236 // där saften lämnar pipen
 const HINK_X = 1100
+// Isbytta står på bänken till höger om hinken. Träffytan (96 px) sträcker sig till 1286 — två px
+// förbi bildkanten på 16:9 — och står 24 px från hinkens träffyta (hinkens är ±66, som den ritade
+// hinken inkl. handtag; den var ±80, alltså 14 px bredare än bilden).
+const ISBYTTA_X = 1238
 const BOBO_X = 1160
 const BOBO_Y = 300
 // Barnets egen figur har en HEL kropp (Bobo är bara ett huvud som svävar vid väggen), så den
@@ -175,6 +180,8 @@ const MOUTH_DX = Math.round(-IN_TOP * Math.sin(TILT)) // 178
 // mot mynningen utan att tömma den på golvet — så drickandet behåller sina egna tal.
 const SERVE_TILT = 1.05
 const SERVE_OFFS = 205
+// Isklingor: en stämd pentatonisk skala (C-dur), högt och kort som glas mot glas.
+const ISKLANG = [1047, 1175, 1319, 1568, 1760]
 const DROPP = [
   { scale: 1.0, threshold: 0.56 },
   { scale: 1.38, threshold: 0.42 },
@@ -207,6 +214,9 @@ export default {
     this._toneT = 0
     this._dropp = 1
     this._mixT = 0 // kylning mellan två färgutrop (ms, performance.now)
+    this._isT = 0 // isbitarnas vilo-liv (s)
+    this._isKlinkT = 0 // kylning mellan två isklingar (ms, performance.now)
+    this._isSagt = false // "Plums!" sägs bara första isbiten per omgång
 
     this._root = new Container()
     ctx.stage.addChild(this._root)
@@ -259,12 +269,21 @@ export default {
     this._bubbelL.interactiveChildren = false
     this._root.addChild(this._bubbelL)
 
+    // Isbitarna flyter i saften: över vätskan och bubblorna, UNDER glasets framsida (glansen ska
+    // ligga över isen precis som över saften).
+    this._isL = new Container()
+    this._isL.eventMode = 'none'
+    this._isL.interactiveChildren = false
+    this._root.addChild(this._isL)
+
     this._frontL = new Container()
     this._propL = new Container()
     this._root.addChild(this._frontL, this._propL)
 
     this._buildGlasses()
+    this._buildIsvarld(ctx)
     this._buildHink()
+    this._buildIsbytta(ctx)
     this._buildGrateFront()
     this._buildKran(ctx)
     this._buildLever(ctx)
@@ -303,6 +322,14 @@ export default {
     gsap.killTweensOf(this._kran || {})
     gsap.killTweensOf(this._lever || {})
     if (this._bobo) gsap.killTweensOf(this._bobo)
+    this._is?.destroy() // river isbitarnas kolliderare i vätskan och deras vyer
+    this._is = null
+    this._isbytta?.kuber?.forEach((c) => c._fxLiv?.kill())
+    if (this._isbytta?.inner) {
+      this._isbytta.inner._fxPopTl?.kill()
+      gsap.killTweensOf(this._isbytta.inner.scale)
+    }
+    this._isbytta = null
     this._kar?.destroy() // river riggens alla tweens (idle, blink, humör, reaktion) — eller barnets egen figur
     this._kar = null
     this._gast = 'bobo'
@@ -487,12 +514,156 @@ export default {
     g.y = GRATE_Y
     g.eventMode = 'static'
     g.cursor = 'pointer'
-    g.hitArea = new Rectangle(-80, -128, 160, 140)
+    g.hitArea = new Rectangle(-66, -128, 132, 140)
     g.on('pointertap', () => this._onHinkTap())
     this._frontL.addChild(g)
     this._hink = g
     // hinken suger — den blir aldrig full
     this._hinkDrain = { x: HINK_X, y: GRATE_Y - 60 }
+  },
+
+  // ------------------------------------------------------------ isbitar ---
+
+  // Isbitarna lever i `is.js` (ren fysik: flyter på saftytan, tröghet i glaset, aldrig ut ur det,
+  // trycker undan saft via foljKroppar). Här bor bara vyerna och ljuden.
+  _buildIsvarld(ctx) {
+    const audio = ctx.services.audio
+    this._is = new Isvarld({
+      glas: () => this._glasses || [],
+      varld: this._world,
+      geom: { halvBredd: IN_W / 2, topp: IN_TOP, botten: IN_BOT },
+      krok: {
+        skapaVy: (k) => {
+          const c = new Container()
+          const ink = new Graphics()
+          ritaIsbit(ink, ISBIT_HALV)
+          c.addChild(ink)
+          c.position.set(k.wx, k.wy)
+          // under flygningen ligger isen OVANPÅ allt (den passerar glasens framsidor); vid landningen
+          // flyttas den ner i saften, under glasets glans
+          this._propL.addChild(c)
+          k.vyn = c
+          k.ink = ink
+          k.sq = 0 // squash-and-stretch (1 → 0)
+        },
+        rivVy: (k) => {
+          if (k.vyn && !k.vyn.destroyed) k.vyn.destroy({ children: true })
+          k.vyn = null
+          k.ink = null
+        },
+        paLand: (k) => {
+          if (k.vyn && !k.vyn.destroyed) this._isL.addChild(k.vyn)
+          k.sq = 0.5
+          audio.tone({ freq: 1568, dur: 0.05, type: 'triangle', vol: 0.12 })
+        },
+        paPlums: (k) => {
+          k.sq = 1
+          const g = k.g
+          const y = Number.isFinite(g._isNiva) ? g._isNiva : k.wy
+          audio.tone({ freq: 420, slideTo: 230, dur: 0.15, type: 'sine', vol: 0.3 })
+          audio.tone({ freq: 1319, dur: 0.06, type: 'triangle', vol: 0.12, delay: 0.05 })
+          if (this._propL && !this._propL.destroyed) puff(this._propL, k.wx, y, { count: 6, color: PAL[g._dom]?.hex ?? 0xdff5ff })
+        },
+        paKlink: (k, styrka) => {
+          const nu = performance.now()
+          if (nu - this._isKlinkT < 70) return
+          this._isKlinkT = nu
+          k.sq = Math.max(k.sq || 0, 0.5 * styrka)
+          audio.tone({ freq: ISKLANG[k.id % ISKLANG.length], dur: 0.07, type: 'triangle', vol: 0.08 + 0.2 * styrka })
+        },
+        paSmalt: (k) => {
+          audio.tone({ freq: 880, slideTo: 520, dur: 0.2, type: 'sine', vol: 0.16 })
+          if (this._propL && !this._propL.destroyed) puff(this._propL, k.wx, k.wy, { count: 4, color: 0xdff5ff })
+        },
+      },
+    })
+  },
+
+  // Isbytta: en plåthink med tre isbitar som sticker upp. Fristående föremål på bänken (ingen bricka),
+  // träffytan 96×140. Ett tryck kastar en isbit mot glaset under kranen.
+  _buildIsbytta(ctx) {
+    const c = new Container()
+    c.x = ISBYTTA_X
+    c.y = GRATE_Y
+    const inner = new Container()
+    c.addChild(inner)
+    // skugga på bänken (egen nod utanför `inner` så den inte pulserar med hinken)
+    const sk = new Graphics()
+    sk.ellipse(0, 3, 40, 7).fill({ color: 0x000000, alpha: 0.2 })
+    c.addChildAt(sk, 0)
+    // insidan (mörk) och isbitarna — kroppen ritas ÖVER deras nedre del
+    const bak = new Graphics()
+    bak.ellipse(0, -58, 36, 8).fill(0x2f6f8f)
+    inner.addChild(bak)
+    const kuber = []
+    for (const [x, y, r, sk2] of [[-17, -78, -0.22, 0.74], [14, -84, 0.2, 0.7], [-1, -66, 0.05, 0.66]]) {
+      const k = new Container()
+      k.position.set(x, y)
+      k.rotation = r
+      k.scale.set(sk2)
+      const ink = new Graphics()
+      ritaIsbit(ink, ISBIT_HALV)
+      k.addChild(ink)
+      inner.addChild(k)
+      kuber.push(ink)
+      liv(ink, { bob: 2.2, sway: 0.05, duration: 2.1 + kuber.length * 0.35 })
+    }
+    const kropp = new Graphics()
+    kropp.moveTo(-38, -58).lineTo(38, -58).lineTo(28, 0).lineTo(-28, 0).closePath().fill(0x6bb7d6)
+    kropp.moveTo(-38, -58).lineTo(-26, -58).lineTo(-17, 0).lineTo(-28, 0).closePath().fill({ color: 0xffffff, alpha: 0.22 })
+    kropp.moveTo(24, -58).lineTo(38, -58).lineTo(28, 0).lineTo(17, 0).closePath().fill({ color: 0x2f6f8f, alpha: 0.28 })
+    kropp.moveTo(-34, -34).lineTo(34, -34).stroke({ width: 5, color: 0x4f9bbd })
+    kropp.moveTo(-31, -14).lineTo(31, -14).stroke({ width: 5, color: 0x4f9bbd })
+    // en liten snöflinga på hinken
+    for (let i = 0; i < 3; i++) {
+      const a = (i * Math.PI) / 3
+      kropp.moveTo(-Math.cos(a) * 9, -24 - Math.sin(a) * 9).lineTo(Math.cos(a) * 9, -24 + Math.sin(a) * 9).stroke({ width: 2.5, color: 0xffffff })
+    }
+    kropp.roundRect(-42, -66, 84, 12, 6).fill(0x8fcde6)
+    kropp.roundRect(-42, -66, 84, 4, 2).fill({ color: 0xffffff, alpha: 0.5 })
+    inner.addChild(kropp)
+    c.eventMode = 'static'
+    c.cursor = 'pointer'
+    c.hitArea = new Rectangle(-48, -124, 96, 144)
+    c.on('pointertap', () => this._onIsTap(ctx))
+    this._frontL.addChild(c)
+    this._isbytta = { view: c, inner, kuber }
+  },
+
+  _onIsTap(ctx) {
+    this._idle = 0
+    if (!this._is || !this._isbytta) return
+    const g = this._glasses[nearestIndex(this._kran.x)] // glaset under kranen
+    this._is.slapp(g, { x: ISBYTTA_X - 4, y: GRATE_Y - 92 })
+    pop(this._isbytta.inner, { scale: 1.1 })
+    this._isNot = ((this._isNot ?? -1) + 1) % ISKLANG.length
+    ctx.services.audio.tone({ freq: ISKLANG[this._isNot], dur: 0.09, type: 'triangle', vol: 0.24 })
+    const t = this._isbytta.view
+    sparkle(this._propL, t.x - 4, t.y - 100, { count: 4 })
+    if (!this._isSagt && !ctx.services.voice.talar) {
+      this._isSagt = true
+      ctx.services.voice.say('Plums! En isbit i saften!')
+    }
+  },
+
+  // Vyerna följer simuleringen. Allt här är direkt avläsning — inga tweens, så en isbit som
+  // rivs mitt i en rörelse lämnar inget att städa. Vilo-guppningen (en inre nod, ±1 px) tänds först
+  // när isen faktiskt ligger i saft; på botten av ett tomt glas står den stilla.
+  _isVyer(dt) {
+    this._isT += dt
+    for (const k of this._is.kuber) {
+      const c = k.vyn
+      if (!c || c.destroyed) continue
+      c.position.set(k.wx, k.wy)
+      c.rotation = k.wa
+      const m = k.smalter ? k.melt : 1
+      c.alpha = m
+      k.sq = k.sq > 0.01 ? k.sq * 0.88 : 0
+      const flyter = !k.flyg && !k.smalter && k.s > 0.2
+      k.ink.y = flyter ? Math.sin(this._isT * 2.3 + k.fas) * 1.1 : 0
+      k.ink.rotation = flyter ? Math.sin(this._isT * 1.7 + k.fas * 1.3) * 0.03 : 0
+      c.scale.set(m * (1 + 0.2 * k.sq), m * (1 - 0.2 * k.sq))
+    }
   },
 
   _buildKran(ctx) {
@@ -878,6 +1049,7 @@ export default {
 
   // Tryck-tryck: markera ett glas, tryck sedan på ett annat (eller hinken).
   _onGlassTap(g) {
+    this._is?.knuffa(g, 1.1) // ett tryck på glaset får isen att guppa
     if (this._selected === g) {
       this._deselect()
       return
@@ -1279,6 +1451,10 @@ export default {
     }
     this._carryAll()
     for (const g of this._glasses) this._syncGlass(g)
+    // isbitarna rör sig i glasens system och ger vätskan sina kolliderare — EFTER synken, FÖRE
+    // `_world.update` (som läser dem först av allt)
+    this._is.steg(dt)
+    this._isVyer(dt / 1000)
 
     this._world.update(dt)
     this._recolor()
@@ -1338,11 +1514,13 @@ export default {
     this._idle += dt
     if (this._idle > 6800 && !this._busy) {
       this._idle = 0
-      this._hint = (this._hint + 1) % 2
+      this._hint = (this._hint + 1) % 3
       ctx.services.voice.say(
         this._hint === 0
           ? 'Dra kranen till ett glas och tryck på den!'
-          : 'Tryck på ett glas och sedan på ett annat, så hälls saften över!'
+          : this._hint === 1
+            ? 'Tryck på ett glas och sedan på ett annat, så hälls saften över!'
+            : 'Tryck på isbytta, så plumsar det en isbit i glaset!'
       )
     }
   },

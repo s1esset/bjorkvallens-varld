@@ -32,6 +32,19 @@ const TILE_Y = FLOOR_Y - TILE_H / 2 // brickans mittpunkt så underkanten vilar 
 const LAST_SLOT_X = 1040 // sista brickans x — strax till vänster om klockan
 const BELL_X = 1168 // klockstolpens x
 const BELL_Y = 432 // klockans hängpunkt (svingar härifrån)
+// Klockan är en PENDEL (FYSIKPLAN F1): en kropp som hänger i öglan på ett gångjärn (`phys.gangjarn`) med
+// vridfjäder (stelare upphängning = livligare svängning än ren tyngd, som tog 1,8 s per svep) och dämpning.
+// Mätt i Node (`scripts/_dag-domino.mjs`): period 58 steg ≈ 0,97 s, amplitud 0,36 → 0,19 → 0,10 → 0,03 rad
+// per sekund, och vila (< 0,003 rad, snäpps exakt) efter ~6 s. Kroppen har INGEN kollision (mask 0): den är klockans
+// rörelse, inte ett hinder — raden och brickornas fysik är orörda.
+const BELL_PIVOT = { x: BELL_X - 44, y: BELL_Y - 2 } // öglan (= _bellObjs origo)
+const BELL_L = 56 // ögla → tyngdpunkt
+const BELL_R = 44 // kupans radie (bara tröghet — ingen kollision)
+const BELL_DENS = 0.0004
+const BELL_FA = 0.004
+const BELL_K = 0.5 // vridfjäder, rad/steg-enhet (STEG2)
+const BELL_DAMP = 0.9 // vridningsdämpning (vridfjäderns damp, inte ledens)
+const BELL_STOT = 0.085 // rad/steg i slaget från sista brickan (≈ 0,4 rad amplitud)
 const PUSH_AV = 0.12 // liten knuff förbi tipppunkten -> gravitationen välter brickan
 const STAND_ANGLE = 0.6 // |vinkel| under detta = brickan står fortfarande
 const FALL_GUARANTEE = 0.45 // s: väntar fysiken för länge på nästa bricka -> mjuk knuff-garanti
@@ -88,6 +101,9 @@ export default {
     this._running = false // kedjan faller
     this._resetting = false // mellan firande och ny bana
     this._rung = false // klockan har ringt denna omgång
+    this._lastTileW = null // sista brickans fallfart (rad/steg) när raset nådde fram
+    this._bellBody = null
+    this._bellLed = null
     this._resolving = false // firande + complete() körs (EXAKT en gång per bana)
     this._stalledAt = null // index där raset stannade vid en tom lucka (väntar på bricka)
     this._waitingStart = false // vägen är hel, väntar på att barnet puttar
@@ -207,6 +223,7 @@ export default {
     this._tick = (t) => {
       if (!this._alive) return
       this._phys.update(t.deltaMS)
+      this._stepBell()
       this._time += t.deltaMS / 1000
       this._bobTray()
       // Bevaka den ÄKTA kedjereaktionen medan raset rullar (fysiken fäller brickorna).
@@ -273,6 +290,12 @@ export default {
     this._bellObj.position.set(-44, -2)
     this._bell.addChild(post, this._bellObj)
     this._root.addChild(this._bell)
+    // Pendeln: tyngdpunkten hänger BELL_L under öglan, fastnålad i öglan. Utan kollision (mask 0).
+    this._bellBody = this._phys.circle(BELL_PIVOT.x, BELL_PIVOT.y + BELL_L, BELL_R, {
+      density: BELL_DENS, frictionAir: BELL_FA, label: 'klocka', collisionFilter: { category: 0x0002, mask: 0 },
+    })
+    this._bellLed = this._phys.gangjarn(this._bellBody, BELL_PIVOT, { label: 'klock-ogla' })
+    this._bellLed.vridfjader({ vila: 0, k: BELL_K, damp: BELL_DAMP })
     // Lugn andning som lockar blicken mot målet.
     this._bellTween = breathe(this._bellObj, { scale: 1.06, duration: 1.1 })
 
@@ -293,6 +316,20 @@ export default {
     this._bobo.interactiveChildren = false
     this._root.addChild(this._bobo)
     this._rig.setMood('nyfiken', { direkt: true })
+  },
+
+  // Klockans vinkel kommer ur pendelns kropp (gångjärnet äger rörelsen). Ritas i kroppens egen vinkel —
+  // en stel kropp som vrids ÄR en rotation runt öglan. Under en hårsmån och stilla = exakt vila.
+  _stepBell() {
+    const b = this._bellBody
+    if (!b || !this._bellObj || this._bellObj.destroyed) return
+    if (Math.abs(b.angle) < 0.003 && Math.abs(b.angularVelocity) < 0.0006 && b.angle !== 0) {
+      Body.setAngle(b, 0)
+      Body.setPosition(b, { x: BELL_PIVOT.x, y: BELL_PIVOT.y + BELL_L })
+      Body.setVelocity(b, { x: 0, y: 0 })
+      Body.setAngularVelocity(b, 0)
+    }
+    this._bellObj.rotation = b.angle
   },
 
   // ---- Flagga längs banan (dekorativ, byggs om per nivå) -------------------
@@ -835,6 +872,7 @@ export default {
       this._stallWait = 0
       this._onTileFell(ctx, slot)
       if (nextIdx >= n - 1) {
+        this._lastTileW = Math.abs(body.angularVelocity) // sista brickans verkliga fallfart → klockans slag
         // Sista brickan nere -> klockan ringer strax.
         this._running = false
         const call = gsap.delayedCall(0.28, () => this._ringBell(ctx))
@@ -907,17 +945,16 @@ export default {
     // Liten skärm-mikroskak i takt med klock-slaget (mjuk, aldrig hård).
     shake(this._root, { intensity: 6, duration: 0.4 })
 
-    // Klockan svingar (runt sin ögla).
+    // Klockan svingar (runt sin ögla): sista brickan slår till den — pendeln får fart bort från raden
+    // (åt höger = negativ vinkelfart), 0,85–1,15 × slaget efter brickans egen fallfart, och gungar sedan
+    // ut av sig själv (vridfjäder + dämpning) tills den hänger stilla. Inget ljud per svängning.
     if (this._bellObj && !this._bellObj.destroyed) {
       this._bellTween?.kill()
       gsap.killTweensOf(this._bellObj)
-      const r0 = this._bellObj.rotation
-      gsap.timeline({ onComplete: () => { if (!this._bellObj?.destroyed) this._bellObj.rotation = r0 } })
-        .to(this._bellObj, { rotation: 0.4, duration: 0.12 })
-        .to(this._bellObj, { rotation: -0.34, duration: 0.16 })
-        .to(this._bellObj, { rotation: 0.24, duration: 0.16 })
-        .to(this._bellObj, { rotation: -0.14, duration: 0.16 })
-        .to(this._bellObj, { rotation: 0, duration: 0.16 })
+      if (this._bellBody) {
+        const v = Math.min(1, Math.max(0, (this._lastTileW ?? 0.07) / 0.1))
+        Body.setAngularVelocity(this._bellBody, -BELL_STOT * (0.85 + 0.3 * v))
+      }
     }
     // Bobo tar emot raset och hoppar av glädje. Hoppet är 52 px — mycket större än
     // riggens `jubel` (0,5·r = 20 px) — så SPELET äger y och riggen får 'stolt'.
@@ -1050,6 +1087,9 @@ export default {
     this._resetCall?.kill()
     this._startGlowTween?.kill()
     this._bellTween?.kill()
+    this._bellLed?.ta()
+    this._bellLed = null
+    this._bellBody = null
     this._rig?.destroy()
     this._rig = null
     this._killCascade()

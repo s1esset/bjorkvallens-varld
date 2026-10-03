@@ -110,6 +110,23 @@ Kort sagt: *en fin pyssel-loop med en fejkad rasfysik*, generiska brickor och en
 
 ## 5. Status / loggar
 
+- 2026-10-03 ✅ **Klockan är en pendel (FYSIKPLAN F1, D16 B2)**: svinget var en gsap-tidslinje (`rotation` 0,4 → −0,34
+  → … → 0, 0,76 s, i `_ringBell`). Nu hänger klockan i sin ögla som en kropp i ett `phys.gangjarn` med
+  `vridfjader({ k: 0,5, damp: 0,9 })` (`BELL_*` i index.js) och ritas i kroppens egen vinkel (`_stepBell`
+  skriver `_bellObj.rotation` efter varje fysiksteg). Sista brickan "slår" klockan: `_ringBell` ger kroppen
+  `−0,085 × (0,85–1,15)` rad/steg, skalat efter den sista brickans verkliga `angularVelocity` vid
+  fallögonblicket (`_lastTileW`) — första utslaget går åt höger, bort från raden. Sedan gungar den ut själv:
+  period 0,97 s, toppar 0,36 › 0,26 › 0,19 › 0,13 › … och exakt vila efter ~6 s (under 0,003 rad snäpps
+  kroppen till vinkel 0). Klockljudet är oförändrat (EN gång i `_ringBell`, `_rung`-vakten) — pendelns
+  svängningar låter ingenting, så inget kan spamma. Kroppen har **ingen kollision** (`mask 0`): den är
+  klockans rörelse, inte ett hinder, och raden/brickfysiken är orörd (Node-mätt: brickorna faller
+  **bit för bit lika med och utan** klockkroppen, max Δ 0). Bara ren tyngd gav period 1,8 s och för slö
+  svepning — därför vridfjädern. Ej byggt (räknat på geometrin, inte provat): sänka klockan så sista brickan faktiskt träffar den
+  (planen i FYSIKPLAN F1 säger "som sista brickan träffar") — kupan måste hänga ≥ 90 px lägre och krockar då
+  med Bobo och flyttar målbilden; ägarbeslutet "rör inte banorna" gäller en rak rad, men en omkomponerad
+  målscen var inte beställd. Mät: `node scripts/_dag-domino.mjs` (kontrollarm: utan vridfjäder/dämpning vilar
+  den aldrig).
+
 - 2026-09-23 ✅ **Dubbelfirandet** (v1.251.0): `_ringBell` spelade själv vinstljud och
   konfettiregn i samma tick som `complete()` — strukna; klockrepliken sägs före `complete()` och
   står kvar, klocktonerna, skaket och Bobos hopp är orörda. Ingen A-rad i snabbvinstkartan; §4

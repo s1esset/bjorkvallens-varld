@@ -10,6 +10,20 @@
 
 export const NYHETER = [
   {
+    version: '1.433',
+    fran: '1.428',
+    datum: '2026-10-03',
+    titel: 'Kullar, uppvind och vatten som skvalpar',
+    punkter: [
+      'När det blåser i Klä efter Vädret drar vindbyar genom rummet. Kläderna på strecket svänger ut, löv flyger förbi och trädet utanför fönstret böjer sig i samma by.',
+      'Rulla Bollen Hem har fått kullar och gropar i gräset från tredje banan. Kullen knuffar undan bollen och gropen drar in den. Den prickade linjen slutar där bollen kommer fram till kullen eller gropen.',
+      'I Enhörningen Flyger stiger uppvindar med vita streck, löv och gnistor ur marken. Enhörningen lyfts uppåt mot de högre ringarna.',
+      'Pölarna i Färgregn får små vågor när dropparna landar. Sedan blir de blanka igen.',
+      'Badvattnet i Tvätta Djuret svarar på duschen med vågor, och badleksaken guppar på dem. När djuret skakar sig efter badet blir det en stor våg.',
+      'I Unika Knytts vattenvärld skvalpar vattnet när världen rullar fram, när saker landar och när knyttet skuttar. Barnet kan också trycka på vattnet och få det att plaska.',
+    ],
+  },
+  {
     version: '1.427',
     fran: '1.419',
     datum: '2026-10-03',

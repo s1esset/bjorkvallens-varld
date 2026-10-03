@@ -17,6 +17,7 @@ import { COLORS } from '../../lib/theme.js'
 import { randomFrom } from '../../lib/swedish.js'
 import { puff, sparkle, floatText, bounceIn, pop, squash } from '../../lib/feedback.js'
 import { figurForOmgang, presentera } from '../../lib/egnafigurer.js'
+import { HANG_L, HANG_LUFT, HANG_MIN, HANG_SPANN, HANG_STYVHET, hangStart } from './hang.js'
 
 // Rollen på grenen: ekorren (reserven) eller barnets egen figur. Fötterna står på grenen.
 const FRIEND_X = 1006
@@ -271,6 +272,11 @@ export default {
     this._hog.paSlag((post, h) => this._landa(ctx, post, h), { minSpeed: 2, maxPerFrame: 2 })
     this._hog.fysik.impactAudio(ctx.services.audio, { standard: 'gummi', vol: 0.05, minSpeed: 1.6, maxPerFrame: 1, minGapMs: 80 })
 
+    // Skaften (F1): en Graphics som ritas om varje bildruta, under frukterna och över lövverket.
+    this._stemG = new Graphics()
+    this._stemG.eventMode = 'none'
+    this._root.addChild(this._stemG)
+
     // Frukter lever i ett eget lager, framför korgen.
     this._fruitLayer = new Container()
     this._fruitLayer.eventMode = 'none'
@@ -373,7 +379,7 @@ export default {
     const m = Math.min(this._misses, 6)
     const assistA = m >= 2 ? 0.00045 * (m - 1) : 0
     for (const f of this._fruit) {
-      if (!f.body || f.caught) continue
+      if (!f.body || f.caught || f.hang) continue // en hängande frukt rörs inte av hjälpen
       const pos = f.body.position
       if (assistA > 0 && pos.y > 100 && pos.y < this._mouthY - 6) {
         const factor = clamp((bx - pos.x) / 220, -1, 1)
@@ -412,6 +418,7 @@ export default {
     this._kSensor?.till(bx, this._mouthY + 26 - this._lift)
     this._phys.update(t.deltaMS)
     this._hog?.update(t.deltaMS) // frukten i korgen faller och lägger sig (egen värld, korgens rum)
+    this._ritaSkaft()
 
     // Släpp ny frukt med jämna mellanrum (ej under firande, ej över taket).
     if (!this._busy) {
@@ -435,6 +442,12 @@ export default {
       if (f.kind === 'guld' && pos.y > -20 && this._t - (f.gnistT || 0) > 0.22) {
         f.gnistT = this._t
         sparkle(ctx.fxLayer, pos.x, pos.y, { count: 3 })
+      }
+      // Hängande frukt: skaftet släpper när tiden är ute (aldrig en miss, aldrig fångbar innan dess).
+      if (f.hang) {
+        f.hang.t -= dt
+        if (f.hang.t <= 0) this._slapp(ctx, f)
+        continue
       }
       // Nådde marken utan att fångas -> mjuk miss (aldrig straff).
       if (pos.y > this._groundY) this._missFruit(ctx, f)
@@ -489,27 +502,68 @@ export default {
 
     const r = def.fs * 0.4
     const view = makeFruit(kind, def.fs / 62)
-    view.x = x
-    view.y = -40
+
+    // F1: frukten HÄNGER först i ett skaft (en riktig pendel, `phys.pendel`) och gungar ~1,2 s innan skaftet
+    // släpper — barnet ser VARFÖR den faller och hinner flytta korgen. Skaftet fäster i en kvist under lövverket.
+    const sida = Math.random() < 0.5 ? -1 : 1
+    const { ax, ay, ank, cx, cy, angle, ankare } = hangStart({
+      x, r, sida, slump: Math.random(), andraAx: this._fruit.filter((o) => o.hang).map((o) => o.hang.ax),
+    })
+    view.x = cx
+    view.y = cy
     this._fruitLayer.addChild(view)
     bounceIn(view, { duration: 0.35 })
-    // Grenen skakar där frukten släpper + en liten bladpuff: fallet får en synlig orsak.
-    this._shakeBranch(x)
 
-    const body = this._phys.circle(x, -40, r, {
+    const fa = guld ? 0.055 : 0.03 // luftmotståndet under själva fallet
+    const body = this._phys.circle(cx, cy, r, {
       restitution: 0.32,
       friction: 0.4,
       // Guldfrukten svävar ner långsammare — ett sällsynt ögonblick som far förbi för fort
       // är ingen belöning, det är en miss barnet inte kunde göra något åt.
-      frictionAir: guld ? 0.055 : 0.03,
+      // Under hänget är luftmotståndet lågt så pendeln hinner svänga; `_slapp` sätter fallets värde.
+      frictionAir: HANG_LUFT,
       density: def.dens,
+      angle, // fästet (kroppens topp) pekar mot kvisten
       label: 'fruit',
     })
-    Body.setAngularVelocity(body, (Math.random() - 0.5) * 0.12) // gullig långsam snurr
+    const led = this._phys.pendel({ x: ax, y: ay }, body, { langd: HANG_L, styvhet: HANG_STYVHET, damp: 0, ankare })
     this._phys.link(body, view)
     // Korgkanten knuffar nu med rörelsemängd (R2) — taket håller en knuffad frukt kvar i banan (P0).
     this._phys.fartTak(body, FRUKT_FART)
-    this._fruit.push({ body, view, kind, caught: false, s: def.fs / 62, r })
+    this._fruit.push({
+      body, view, kind, caught: false, s: def.fs / 62, r, fa,
+      hang: { led, ax, ay, ank, t: HANG_MIN + Math.random() * HANG_SPANN },
+    })
+  },
+
+  // Skaftet släpper: pendeln tas bort, fallets luftmotstånd tillbaka, grenen skakar och en bladpuff.
+  _slapp(ctx, f) {
+    const h = f.hang
+    if (!h) return
+    f.hang = null
+    h.led.ta()
+    if (f.body) f.body.frictionAir = f.fa
+    this._shakeBranch(h.ax)
+    puff(ctx.fxLayer, h.ax, h.ay, { count: 4, color: 0x5aa752 })
+    ctx.services.audio.tone({ freq: 1180, slideTo: 620, dur: 0.07, type: 'triangle', vol: 0.09 })
+  },
+
+  // Skaften ritas varje bildruta mellan fästet och fruktens topp (en enda Graphics, rensas om). Kvisten och bladet
+  // sitter kvar medan frukten hänger.
+  _ritaSkaft() {
+    const g = this._stemG
+    if (!g || g.destroyed) return
+    g.clear()
+    for (const f of this._fruit) {
+      const h = f.hang
+      if (!h || !f.body) continue
+      const a = f.body.angle
+      const tx = f.body.position.x + h.ank * Math.sin(a)
+      const ty = f.body.position.y - h.ank * Math.cos(a)
+      g.moveTo(h.ax, h.ay).lineTo(tx, ty).stroke({ width: 4, color: 0x6f452c, cap: 'round' })
+      g.ellipse(h.ax, h.ay - 3, 15, 6).fill(0x6f452c)
+      g.ellipse(h.ax + 11, h.ay - 9, 11, 5).fill(0x5bbf6a)
+    }
   },
 
   // ---- Kollisioner: fångst (sensor) + lekfull kant-studs (rim) -------------
@@ -560,7 +614,7 @@ export default {
       rotation: -0.006, duration: 0.09, yoyo: true, repeat: 3, ease: 'sine.inOut',
       onComplete: () => { if (!fx.destroyed) fx.rotation = 0 },
     })
-    puff(this._root, x, 108, { count: 5, color: 0x5aa752 })
+    puff(this._root, x, 108, { count: 5, color: 0x5aa752 }) // lövverket skakar och släpper några blad
   },
 
   // Ekorren önskar sig en ny sort (visas som ritad frukt i önskebubblan + sägs).

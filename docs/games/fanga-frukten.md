@@ -91,6 +91,23 @@ i en tom värld, och hjälpen gör att man knappt behöver röra korgen.
 
 ## 5. Status / loggar
 
+- 2026-10-03 ⚙️ **F1: frukten gungar i skaftet** (D16 B4, `hang.js` ny fil). Frukten föds inte längre över skärmkanten
+  (y −40) utan HÄNGER i en kvist under lövverket (y 168): en vanlig matter-frukt i `phys.pendel` (skaft 24 px,
+  styvhet 0,92 = lite fjädrande, `damp 0`, fäste i kroppens topp) som startar utslagen åt slumpad sida (0,55–0,73 rad)
+  och gungar av tyngdkraften i 1,0–1,4 s innan `led.ta()` släpper den. Under hänget är luftmotståndet lågt (0,006; fallets
+  0,03 dämpar pendeln på ~0,5 s — mätt som kontrollarm) och `_slapp` sätter fallets värde (guld 0,055). Skaftet ritas varje
+  bildruta (`_ritaSkaft`, en Graphics mellan lövverket och fruktlagret: bruna linjen + kvist + blad), och släppet är nu
+  den synliga orsaken: grenen skakar (`_shakeBranch` flyttad hit från födseln), bladpuff vid kvisten och en kort glidande
+  ton. Hängande frukt rörs inte av fånghjälpen (`_fangSteg`), räknas inte som miss och kan inte fångas före släppet; guldfrukten
+  glittrar redan under hänget. Skaften fäster aldrig framför ekorren/figuren/önskebubblan (x 940–1072 flyttas till närmaste
+  kant) och två skaft tätare än 96 px flyttas isär. Rivning: `removeBody` tar leden (`_clearFruit`), resten rivs med `phys.destroy()`.
+  ⚠️ matters `pointB` räknas i VÄRLDSAXLAR vid skapandet och vrids sedan med kroppen: `{0, −ank}` på en kropp som redan är
+  vriden gav 15 px startfel (skaftet "sträcktes" till 17–20 px) — `hangStart().ankare` ger den vridna punkten, felet är nu 0,00 px.
+  Mätt i Node (`node scripts/_dag-fanga-frukten.mjs`): skaftlängdsfel 0,00 px, frukten sjunker ≤ 11 px under hänget, svänger över
+  lodlinjen på < 1 s, amplitud vid 1 s 15–17 px (kontroll med fallets luft: 2–6 px; utan pendel faller den 249 px); 90 släpp: alla
+  når korgens höjd, tid från ny frukt till y 570 2,88 s mot HEAD 2,53 s (hänget ger tillbaka det kortare fallet), fallfart ≤ 5,1
+  px/steg (taket 8), x 112–1153 (inget ur bild). Korgen, kanterna (R2), högen (P3), ekorren och fånghjälpen rörs inte. Omätt i webbläsare av byggaren.
+
 - 2026-10-02 ✅ **P3: frukten blir en hög i korgen (`lib/hog.js`).** `_catchFruit` förstör inte längre frukten
   (`_tuck` struken): sensorn tar den som förut, men vyn byts mot en ny UTAN markskugga i korgens lager och
   kroppen föds i en `Hog` (egen liten matter-värld i KORGENS rum, origo = munnens mitt; golv y 14, väggar ±92,
@@ -103,7 +120,7 @@ i en tom värld, och hjälpen gör att man knappt behöver röra korgen.
   nivå klar → frukten i korgen hoppar till; ny nivå → högen tonar bort. Den önskade frukten som flyger till
   barnets figur på grenen läggs INTE i korgen (den äts). Mätning: `g._nFangade` (lagda i högen denna runda)
   mot `g._hog.antal` (synliga, ≤ 8) och `g._hog.rymt` (0). Node-prov med spelets egen `_hogOpt()`: 3/4/6/8
-  fångade → 3/4/6/8 syns, 12 → 8, 0 rymt, 0 kryp på 10 s, även efter hoppet. Kvar: gungande frukt i skaftet (F1).
+  fångade → 3/4/6/8 syns, 12 → 8, 0 rymt, 0 kryp på 10 s, även efter hoppet. ~~Kvar: gungande frukt i skaftet (F1).~~ Byggt 2026-10-03, se ovan.
 
 - 2026-10-02 ⚙️ **R2: korgens kanter och sensor är kinematiska** (D7 B1). `_rimL/_rimR/_sensor` är kvar
   som matter-kroppar men flyttas av `phys.kinematisk` (`_kRimL/_kRimR/_kSensor`, `maxFart` 26 px/steg):

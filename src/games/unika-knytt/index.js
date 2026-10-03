@@ -828,7 +828,11 @@ export default {
     // Tap-tap-vägen ut på golvet (steg 5): ett nyss tryckt knytt hoppar dit trycket landade.
     else if (this._fas === 'bygga') this._hyllliv?.golvTryck(p)
     // Ett sovande knytt vaknar av VILKET tryck som helst (§1 "sover", steg 4).
-    else if (this._fas === 'avtack' && (this._knytt?.lage === 'sover' || this._knytt?.lage === 'somnig')) this._knytt.vakna()
+    else if (this._fas === 'avtack') {
+      if (this._knytt?.lage === 'sover' || this._knytt?.lage === 'somnig') this._knytt.vakna()
+      // Ett tryck på vattenvärldens mark plaskar: marken skvalpar, en ring och en plopp (F5).
+      this._cer?.vattenTryck(p.x, p.y)
+    }
   },
 
   // Verktyget äger stegningen (inklusive den roliga överfyllningen: burken vänder sig upp

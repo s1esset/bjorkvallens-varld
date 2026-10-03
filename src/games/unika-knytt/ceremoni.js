@@ -26,6 +26,7 @@ import { lerpColor } from '../../lib/scene.js'
 import { FONT, shade, tint } from '../../lib/theme.js'
 import { bounceIn, burst, landa, liv, pop, puff, ripple, sparkle, squash, stadFx } from '../../lib/feedback.js'
 import { Emitter } from '../../lib/partiklar.js'
+import { Ytvag } from '../../lib/ytvag.js'
 import { byggKnytt } from './knytt.js'
 import { rekvisitaOrdning, REKVISITA, SNURR_VARV_S } from './kupan.js'
 
@@ -90,6 +91,7 @@ const MARK_PLATS = [{ x: 186, s: 96 }, { x: 430, s: 76 }, { x: 900, s: 88 }]
 const MELLAN_PLATS = [{ x: 862, y: 356, s: 72 }, { x: 424, y: 336, s: 62 }]
 const HIMMEL_PLATS = [{ x: 400, y: 220, s: 86 }, { x: 890, y: 196, s: 66 }]
 const PROP_TONER = [392, 466, 523, 659] // en stämd trappa, ett steg per föremål som landar
+const PLOPP = [523, 587, 659, 784, 880] // plopp i vattnet: pentatonisk, glider en oktav ned
 
 // ---- steg 4 (poleringsrundan 2026-09-10): knyttet efter födseln ------------------------
 // Namnskylten står NEDTILL, som docen alltid sagt: en träskylt på en stolpe i marken framför
@@ -371,6 +373,10 @@ export function byggCeremoni(opts = {}) {
   let aggFarg = aggMal
   let sugKorn = []
   let stoftFlod = null
+  // Vattenvärldens mark skvalpar (FYSIKPLAN F5): ett Ytvag-höjdfält på markens överkant. Finns bara
+  // i 'vatten'. `vaken` = fältet rör sig — grinden för både stegningen och omritningen, så en stilla
+  // vattenyta kostar noll och aldrig ritas om. `omritn` räknar omritningarna (sondens kvitto).
+  let vag = null // { yta, body, kant, vaken, omritn }
   let knytt = null
   let knyttHall = null
   // Knyttet LÄMNAS ÖVER till index.js i samma andetag som `'klar'` fyras — det är
@@ -1246,21 +1252,104 @@ export function byggCeremoni(opts = {}) {
     const hall = new Container()
     hall.position.set(AGG.x, MARK_Y)
     hall.eventMode = 'none'
-    const g = new Graphics().rect(-900, 0, 1800, 190).fill(groundFill(ton.mark, { light: 0.14, dark: 0.28 }))
-    g.eventMode = 'none'
-    // En vågig ljus överkant, så marken inte möter luften i en spikrak linje och inte
-    // heller är EN kvantiserad ton över hela nedre tredjedelen.
-    const kant = new Graphics()
-    kant.moveTo(-900, 4)
-    for (let x = -900; x <= 900; x += 60) kant.lineTo(x, 4 + Math.sin(x * 0.012) * 6)
-    kant.lineTo(900, 26).lineTo(-900, 26).closePath()
-    kant.fill(tint(ton.mark, 0.28))
-    kant.eventMode = 'none'
-    hall.addChild(g, kant)
+    if (ton.nyckel === 'vatten') {
+      byggVag(hall)
+    } else {
+      const g = new Graphics().rect(-900, 0, 1800, 190).fill(groundFill(ton.mark, { light: 0.14, dark: 0.28 }))
+      g.eventMode = 'none'
+      // En vågig ljus överkant, så marken inte möter luften i en spikrak linje och inte
+      // heller är EN kvantiserad ton över hela nedre tredjedelen.
+      const kant = new Graphics()
+      kant.moveTo(-900, 4)
+      for (let x = -900; x <= 900; x += 60) kant.lineTo(x, 4 + Math.sin(x * 0.012) * 6)
+      kant.lineTo(900, 26).lineTo(-900, 26).closePath()
+      kant.fill(tint(ton.mark, 0.28))
+      kant.eventMode = 'none'
+      hall.addChild(g, kant)
+    }
     markLag.addChild(hall)
     hall.scale.set(0.02, 1)
-    spara(gsap.to(hall.scale, { x: 1, duration: 0.52, ease: 'back.out(1.4)' }))
+    spara(gsap.to(hall.scale, {
+      x: 1,
+      duration: 0.52,
+      ease: 'back.out(1.4)',
+      // Vattnet har rullat ut över hela marken — ett enda skvalp i mitten.
+      onComplete: () => plask(AGG.x, 1.8),
+    }))
     sfx('whoosh')
+  }
+
+  // ---- vattenvärldens skvalpande mark (F5) --------------------------------------
+  // Markens överkant är samma vågiga linje som i de andra världarna (sinus) PLUS höjdfältets
+  // avvikelse. I vila är fältet exakt noll och bilden är identisk med den gamla; en stöt sätter
+  // det i gungning och `tick` ritar om ytan bara medan det rör sig.
+  function byggVag(hall) {
+    const body = new Graphics()
+    const kant = new Graphics()
+    body.eventMode = 'none'
+    kant.eventMode = 'none'
+    hall.addChild(body, kant)
+    vag = { yta: new Ytvag({ n: 61, x0: -900, x1: 900, ytY: 0, max: 8 }), body, kant, vaken: false, omritn: 0 }
+    ritaVag()
+  }
+
+  function ritaVag() {
+    if (!vag || vag.body.destroyed || vag.kant.destroyed) return
+    const { yta, body, kant } = vag
+    vag.omritn++
+    const y = (x) => 4 + Math.sin(x * 0.012) * 6 + yta.hojd(x)
+    body.clear()
+    body.moveTo(-900, y(-900))
+    for (let i = 1; i < yta.n; i++) {
+      const x = yta.xI(i)
+      body.lineTo(x, y(x))
+    }
+    body.lineTo(900, 190).lineTo(-900, 190).closePath()
+    body.fill(groundFill(ton.mark, { light: 0.14, dark: 0.28 }))
+    // Det ljusa bandet följer vattenytan (en tunn remsa under linjen), så skvalpet läses i kanten.
+    kant.clear()
+    kant.moveTo(-900, y(-900))
+    for (let i = 1; i < yta.n; i++) {
+      const x = yta.xI(i)
+      kant.lineTo(x, y(x))
+    }
+    for (let i = yta.n - 1; i >= 0; i--) {
+      const x = yta.xI(i)
+      kant.lineTo(x, y(x) + 20)
+    }
+    kant.closePath()
+    kant.fill(tint(ton.mark, 0.28))
+  }
+
+  /**
+   * En stöt i vattnet vid skärm-x. Positivt = något slår ned. Bara vattenvärlden svarar (annars
+   * returneras false). Taket: ett vatten som redan gungar kraftigt tar inte emot mer — då kan
+   * ett otåligt finger aldrig pumpa det mot taket, och fältet klämmer ändå själv på ±8 px.
+   */
+  function plask(x, kraft) {
+    if (!levande || !vag || vag.body.destroyed || !Number.isFinite(x)) return false
+    const { yta } = vag
+    const lokalX = x - AGG.x
+    const c = Math.round((lokalX - yta.x0) / yta.dx)
+    if (Math.abs(yta.v[Math.max(0, Math.min(yta.n - 1, c))]) > 1.4) return true
+    yta.stot(lokalX, kraft)
+    vag.vaken = true
+    return true
+  }
+
+  /**
+   * Ett tryck på vattnet (index.js `_tomtTryck` i den färdiga världen): en stöt, en ring på ytan
+   * och en liten plopp i en stämd ton. Falskt = trycket landade inte på vattnet (eller världen är
+   * inte vatten) och spelets vanliga kvitto står ensamt.
+   */
+  function vattenTryck(x, y) {
+    if (!levande || !vag || vag.body.destroyed) return false
+    if (!(y > MARK_Y - 50)) return false
+    plask(x, 1.6)
+    ripple(fx, x, MARK_Y + 6, { color: tint(ton.mark, 0.6), maxR: 70, duration: 0.55 })
+    const f = PLOPP[(Math.random() * PLOPP.length) | 0]
+    ton1({ freq: f, dur: 0.16, type: 'sine', vol: 0.1, slideTo: f * 0.5 })
+    return true
   }
 
   function byggProps() {
@@ -1335,6 +1424,7 @@ export function byggCeremoni(opts = {}) {
           if (skugga) skugga.alpha = 1
           ton1({ freq: PROP_TONER[i], dur: 0.2, type: 'triangle', vol: 0.16 })
           if (luft < 0.4) puff(fx, mal.x, mal.y, { count: 5, color: tint(ton.mark, 0.3) })
+          if (luft < 0.4) plask(mal.x, 0.7 + plats.s / 120) // vattenvärlden skvalpar när något landar
           gorLiv(spec.rorelse, livNod, hall, mal.x)
         },
       })
@@ -1397,6 +1487,8 @@ export function byggCeremoni(opts = {}) {
     }))
     ton1(nere ? { freq: 523, dur: 0.9, type: 'sine', vol: 0.12, slideTo: 196 } : { freq: 262, dur: 0.6, type: 'triangle', vol: 0.14, slideTo: 659 })
     sfx(nere ? 'soft' : 'pling')
+    // Solen sjunker ned mot vattnet — när den når horisonten gungar det till.
+    if (nere) strax(1.0, () => { if (himla?.nere) plask(himla.x, 1.8) })
     pa('sol', { nere })
     return nere ? 'nere' : 'uppe'
   }
@@ -1507,6 +1599,9 @@ export function byggCeremoni(opts = {}) {
     strax(0.5, () => {
       knytt?.setLage?.('glad')
       knytt?.hoppa?.(3) // tre glädjeskutt, och dess EGET fyrtonsmotiv
+      // Varje landning gungar vattnet. Skutten tar 1/3,1 s var (knytt.js); knyttet styr dem själv,
+      // så det här är bara en bildlig följeslagare med samma takt.
+      for (let i = 1; i <= 3; i++) strax(i / 3.1, () => plask(AGG.x, 0.8))
     })
     // 2,15 s och inte 1,5 — talet är satt av RÖSTEN, inte av rytmen, så rör det inte utan
     // att räkna om. `pa('klar')` når `_fardigt`, som kallar `ctx.progress.complete()`, som
@@ -1554,6 +1649,7 @@ export function byggCeremoni(opts = {}) {
     folieFrys = null
     stoftFlod?.destroy()
     stoftFlod = null
+    vag = null
     // Masken nollas INNAN den maskade noden rivs (docens §6 Folien).
     if (folieSvep) {
       if (!folieSvep.destroyed) folieSvep.mask = null
@@ -1762,6 +1858,13 @@ export function byggCeremoni(opts = {}) {
       folieBand.x = -FOND.halvB * 1.4 + q * FOND.halvB * 2.8
     }
 
+    // Vattnets skvalp: stegas och ritas om BARA medan det rör sig, sedan står det blickstilla.
+    if (vag?.vaken) {
+      if (vag.body.destroyed) vag.vaken = false
+      else if (vag.yta.uppdatera(ms)) ritaVag()
+      else if (!vag.yta.rorlig) vag.vaken = false
+    }
+
     if (!overlamnat && knytt?.tick && knyttHall && !knyttHall.destroyed) {
       const p = pekare && Number.isFinite(pekare.x)
         ? { x: pekare.x - knyttHall.x, y: pekare.y - knyttHall.y }
@@ -1781,6 +1884,7 @@ export function byggCeremoni(opts = {}) {
     tweens = []
     stoftFlod?.destroy()
     stoftFlod = null
+    vag = null
     deg?.destroy()
     facit?.destroy()
     deg = null
@@ -1810,6 +1914,8 @@ export function byggCeremoni(opts = {}) {
     destroy,
     visaNamn,
     solTryck,
+    plask,
+    vattenTryck,
     /** DEV-krok för `_knyttlyftprobe` N6: frys svepets fas på `p` (0..1), eller släpp med null. */
     frysFolie(p) { folieFrys = Number.isFinite(p) ? p : null },
     get fas() { return FAS[fasIx]?.namn || 'vila' },
@@ -1823,5 +1929,12 @@ export function byggCeremoni(opts = {}) {
     get solPlats() { return himla ? { x: himla.x, y: himla.y, r: himla.r } : null },
     get solY() { return himla && !himla.hall.destroyed ? himla.hall.y : null },
     get solNere() { return !!himla?.nere },
+    /** Vattnets skvalp för sonden: rör det sig nu, antal omritningar hittills, störst utslag (px). */
+    get skvalp() {
+      if (!vag || vag.body.destroyed) return null
+      let m = 0
+      for (let i = 0; i < vag.yta.n; i++) m = Math.max(m, Math.abs(vag.yta.h[i]))
+      return { vaken: vag.vaken, rorlig: vag.yta.rorlig, omritn: vag.omritn, maxH: m }
+    },
   }
 }

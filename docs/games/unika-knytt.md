@@ -681,7 +681,21 @@ två tecken redan nu.
 * ✅ **BYGGT 2026-09-10 (steg 5):** En bärskål på bänkens vänstra ände — dra ett smultron till ett knytt i ett bo (eller tryck på skålen, sedan på boet): det gapar, tuggar tre gånger och rapar en gnista.
 * [Deep] Kamera-parallax i boden via `lib/kamera.js` när flikraden växer förbi fem.
 
+- [Lätt] Vattnets skvalp av knyttets tre glädjeskutt följer en fast takt (1/3,1 s) i stället för en signal från `knytt.js` — avbryts skutten gungar vattnet ändå (kosmetiskt, kritik D14).
+
 ## 5. Status / loggar
+
+- 2026-10-03 ✅ **Vattenvärldens mark skvalpar (FYSIKPLAN F5, `lib/ytvag.js`).** I den färdiga världen (ceremoni.js
+  `byggMark`, bara `ton.nyckel === 'vatten'`) är markens överkant nu sinuslinjen + ett `Ytvag`-höjdfält (61 punkter
+  över 1 800 px, tak ±8 px); marken och det ljusa bandet under ytan (följer vågen) ritas om BARA medan fältet rör sig
+  (`vaken` → `uppdatera()` → `ritaVag()`, plus en sista) och står blickstilla i vila — noll stegning och noll omritning.
+  Stötar (alltid EN per händelse, aldrig per bildruta): världen rullat ut (1,8) · varje markföremål som landar
+  (0,7 + storlek/120) · knyttets tre glädjeskutt (0,8 var, samma 1/3,1 s-takt som `knytt.js`) · solen som sjunker
+  till horisonten (1,8) · ett tryck på marken i den färdiga världen (index.js `_tomtTryck` → `vattenTryck`: stöt 1,6,
+  en ring på ytan och en plopp i en pentatonisk ton som glider en oktav ned). Tak: tar inte emot mer stöt vid
+  |fart| > 1,4 på träffpunkten. Knyttet, ägget och ceremonins faser är orörda; kupans mark (förhandsvisningen) är
+  oförändrad. Mätt i Node (ceremonin byggd mot en stub-canvas): `skvalp` visar `vaken/rorlig/omritn/maxH`, ~3–6 s efter
+  sista stöten står ytan still (omritn +0 på 2 s), skog ger `skvalp === null`. Inga nya repliker.
 
 - 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): prövad och ren, ingen kod rörd.
   `_fardigt` firar bara via `complete()`, och allt som sägs efter den (`_sag`, `_sagNamn`,

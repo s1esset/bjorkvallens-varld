@@ -14,6 +14,38 @@ Format:
 
 ---
 
+## 2026-10-02 → 10-03 — Dag- och nattkörning över resten av FYSIKPLAN (D1–D16 + N1 + L) · v1.450.0
+
+**Byggt** (obevakat, en headless Opus-session per fas med Sonnet-byggare, en commit per id, v1.361 → v1.450,
+96 id committade): omgång 1 och 1b klara (T2-resten, R1-baslinjen, P2 `vippa` i 7 spel, P4 `landa` i 4);
+hela omgång 2 (pekavbrott + pekar-id-vakt K1–K3, kinematiska kroppar R2 + fjädrande ytor P1, R3–R6, O2,
+F9-överlägget); omgång 3 (G1 grepp, G2 pekspår, G8 vev, F1 leder, F10 kugghjul med last); omgång 4
+(F3 brytbart, P3 högen, O1 mjuk mesh, F4 vind i 9 spel, F5 ytvågor i 3, F6a följ kroppar, F8 inspelning,
+G3a skuggvärld, U3 variation i 6 spel, F1-kunderna i 7 spel). **N1:** två nya spel — Bläckfisken Otto
+och Vattenballongerna (89 spel). Hela listan: FYSIKPLAN §2 (Byggt-rader) och §3 "Läge efter körningen".
+
+**Mätt:** varje id `natt.mjs prova` + skärmdump + arbetsorderns sond (41 `scripts/_dag-*.mjs`).
+Slutgrinden (L): `check` 0 fel · `build` OK · `test:all` 89/89 (en loggvarning: popcornkalaset
+`fysik-svalt` ×1). `npm run voice`: 3 nya klipp (D15: 55).
+
+**Skuret** (mätningen fällde premissen): K4 och O3 (M4 utan utslag — <1 pekrörelse per ruta, `Rep.steg`
+0 anrop i vila), O2 i zackes-biltvatt (`area` fanns redan). Villkorade ordrar orörda: T5, M5, F2, F6b,
+F7, G3b, G3c, G4, G5, G6; omgång 5 (storbarn) byggs inte enligt Ä3.
+
+**Kvot:** veckan 71 → 99 % för D1–D16 + N1 (~207 USD listpris; N1–D16 82 % Sonnet). Per fas av 5h-fönstret:
+lib-faser 11–18 procentenheter, spelfaser 10–33 (D9 33, D16 28 — långa byggare med
+stora cacheläsningar). Varje fas ≈ 1–3 veckoprocent. D16 stannade på veckotaket och provades i L.
+
+**Läxor:** ⓵ drivarens omstart nollställer `forbrukning.json` — spara den före omstart (eller låt
+drivaren lägga till). ⓶ ett veckotak på 97 % lämnar för lite marginal för en slutfas; L fick vänta till
+veckans återställning. ⓷ byggda-men-oprovade id överlever en kvotpaus fint: nästa session provar och
+committar dem på ~4 min.
+
+**Öppet:** de villkorade ordrarna ovan; doc-drift från D13/D14 (kvarvarande kunder, se FYSIKPLAN §6);
+ägarbeslut i project-status oförändrade.
+
+---
+
 ## 2026-10-02 (natt) — Nattkörning över FYSIKPLAN: omgång 0 nästan hel, omgång 1 utom tre T2-spel · v1.359.0
 
 **Byggt** (obevakat, 9 faser à en headless Opus-session med Sonnet-byggare, en commit per spel/lib, v1.288 → v1.359):

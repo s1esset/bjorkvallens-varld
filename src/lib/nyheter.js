@@ -10,6 +10,21 @@
 
 export const NYHETER = [
   {
+    version: '1.441',
+    fran: '1.434',
+    datum: '2026-10-03',
+    titel: 'Mer att upptäcka, och spelen minns',
+    punkter: [
+      'I Plask i Vattnet kan en sak som sjunker landa på en sak som flyter. Det som flyter trycks ner i vattnet och guppar upp igen.',
+      'Trollkarlens Blandning har fått nya saker att blanda fram: regn, blomma och blixt. Det finns också nya vägar till saker barnet redan hittat. Boken ger nya mål varje gång.',
+      'Trädgården i Plantera Frön minns blommorna barnet odlat. De står kvar längs kanterna och vaggar när barnet trycker på dem.',
+      'Siffertåget kan nu också åka baklänges, så barnet räknar ner. Vagnarna kör med olika last: paket, bananer eller ballonger.',
+      'I Loopdjuren dyker två nya block upp när barnet spelat ett tag: maracas som skakar djuret och en klocka som ekar.',
+      'Parken i Valpens Bajs blommar där barnet har städat. Blommorna finns kvar nästa gång.',
+      'I Vakna, pappa! somnar och vaknar Pappa på olika sätt varje gång. Han vänder sig, mumlar eller kisar med ett öga.',
+    ],
+  },
+  {
     version: '1.433',
     fran: '1.428',
     datum: '2026-10-03',

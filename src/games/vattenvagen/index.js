@@ -33,6 +33,7 @@ import { cylinderFill, sphereFill, topLightFill, verticalFill, verticalFillAlpha
 import { BLEED_X, BLEED_Y } from '../../lib/view.js'
 import { randomFrom, shuffle } from '../../lib/swedish.js'
 import { Vev } from '../../lib/vev.js'
+import { Vattenhjul, ritaHjul } from './hjul.js'
 
 // --- rutnäts-geometri (designkoordinater 1280×720) ---
 const CELL = 120
@@ -63,6 +64,15 @@ const VENTIL_HIT = 60
 // Så mycket MEDURS rotation (rad) som behövs för att vattnet ska vara fullt på. Fyra knuffar
 // (ett kvarts varv var) är ett helt varv — alltså lite mer än nog.
 const OPPEN_VINKEL = 0.9 * 2 * Math.PI
+
+// --- vattenhjulet (F6a: hjul.js) — hänger under kranens rör, strålen snurrar det ---
+// Navet sitter 38 px till höger om strålens mittlinje, så skovelspetsarna (radie 33) sträcker sig 5 px in i
+// strålen (som syns ~±12 px bred) och bara snuddar den: närmare (24–30 px) dämmer hjulet upp vattnet på en
+// vågrät skovel, längre bort (≥ 42) når strålen inte skovlarna. Höjden håller hjulets underkant ovanför
+// rutnätets översta brunnar (y 142) och dess topp under ventilens rör (y 56). Mätt i
+// `scripts/_dag-vattenvagen-hjul.mjs`.
+const HJUL_DX = 38
+const HJUL_Y = 108
 
 // --- rör-modell: portar = öppna sidor (T=topp, R=höger, B=botten, L=vänster) ---
 const ROT = { T: 'R', R: 'B', B: 'L', L: 'T' } // medurs 90°
@@ -365,6 +375,9 @@ function makeVentil(vx, vy, sourceX) {
   return { root, wrap, hjul }
 }
 
+// Hjulklapparnas toner: stämd pentatonisk skala (C-dur), lågt och mjukt.
+const HJUL_TONER = [523, 587, 659, 784, 880]
+
 export default {
   id: 'vattenvagen',
   titleSv: 'Vattenvägen',
@@ -395,6 +408,7 @@ export default {
       if (!this._alive) return
       const p = this._root.toLocal(e.global)
       kvittera(ctx.fxLayer, p.x, p.y, ctx.services.audio, { color: 0x9fdcf5 })
+      this._stotaHjul(ctx, p) // ett tryck på väggen vid hjulet knuffar det
     })
     this._root.addChild(fangare)
 
@@ -480,6 +494,8 @@ export default {
     this._paPa = false // vattnet har satts på (ventilen öppnad nog)
     this._ventilHint = null
     this._klickT = 0
+    this._hjul = null // vattenhjulet { fys, view, rot, wrap }
+    this._hjulKlickT = 0
 
     this._level = Math.max(1, ctx.progress.get().highestLevel | 0)
 
@@ -517,6 +533,7 @@ export default {
     this._clearGlow()
     this._clearVentilHint()
     this._killAll()
+    this._rivHjul()
     this._vev?.destroy() // lyssnarna av FÖRE ytan rivs
     this._vev = null
     this._ventil = null
@@ -608,6 +625,7 @@ export default {
     tap.eventMode = 'none'
     this._propLayer.addChild(tap)
     this._tapY = GRIDY0 - 112 // pipens mynning: där vattnet föds
+    this._byggHjul(ctx)
 
     // Muggar + plantor (mål). Två muggar när vägen förgrenas.
     const two = plan.mugCols.length > 1
@@ -1278,6 +1296,7 @@ export default {
     }
 
     this._flow(ctx, dt)
+    this._stegHjul(dt) // FÖRE vätskan: den läser skovlarnas läge först av allt
     this._fluid.update(dt)
     this._fluidView.update()
     this._readMug(ctx)
@@ -1430,6 +1449,70 @@ export default {
     squash(m.wrap, { intensity: 1.3 })
     gsap.to(m.stam.scale, { x: 1 + 0.025 * steg, y: 1 + 0.07 * steg, duration: 0.5, ease: 'back.out(2.4)' })
     sparkle(ctx.fxLayer, m.x + m.lean * (m.hw * 0.6 + 12), m.y - 34 - 96 * (1 + 0.07 * steg), { count: 3 })
+  },
+
+  // ---- vattenhjulet ----
+  // Hjulet hänger i en mässingsstång under kranens rör. All fysik bor i `hjul.js` (matter-kropp +
+  // gångjärn + skovlar som kolliderare i vätskan + vattnets moment); här bor bilden och ljudet.
+  _byggHjul(ctx) {
+    const BRASS = 0xe0a93a
+    const brassEdge = shade(BRASS, 0.5)
+    const x = this._sourceX + HJUL_DX
+    const y = HJUL_Y
+    const view = new Container()
+    view.position.set(x, y)
+    view.eventMode = 'none'
+    const fast = new Graphics()
+    fast.ellipse(4, 10, 40, 38).fill({ color: 0x000000, alpha: 0.16 })
+    // stången från hjulets axel upp mot rörets undersida, med ett litet fäste överst
+    fast.roundRect(-5, -54, 10, 54, 4).fill(cylinderFill(BRASS, { axis: 'x' })).stroke({ width: 3, color: brassEdge })
+    fast.roundRect(-11, -60, 22, 11, 5).fill(cylinderFill(BRASS, { axis: 'x' })).stroke({ width: 3, color: brassEdge })
+    const wrap = new Container()
+    const rot = new Graphics()
+    ritaHjul(rot)
+    wrap.addChild(rot)
+    view.addChild(fast, wrap)
+    this._propLayer.addChild(view)
+    // Vilo-guppning på ett inre barn (axeln står still, hjulet "andas" ±1 px)
+    this._liv(wrap, { bob: 1.2, sway: 0, duration: 2.8, phase: Math.random() })
+    const audio = ctx.services.audio
+    const fys = new Vattenhjul({
+      x,
+      y,
+      vatska: this._fluid,
+      // En mjuk klapp var 60:e grad när det går fort nog att höras som ett hjul (glesat: ≥ 90 ms).
+      onKlick: (n) => {
+        if (!this._alive || Math.abs(fys.fart) < 0.02 || this._clock - this._hjulKlickT < 90) return
+        this._hjulKlickT = this._clock
+        audio.tone({ freq: HJUL_TONER[((n % 5) + 5) % 5], dur: 0.05, type: 'triangle', vol: 0.06 })
+      },
+    })
+    this._hjul = { fys, view, rot, wrap, x, y }
+  },
+
+  _stegHjul(dt) {
+    const h = this._hjul
+    if (!h) return
+    h.fys.steg(dt)
+    if (!h.rot.destroyed) h.rot.rotation = h.fys.vinkel
+  },
+
+  // Ett tryck på väggen nära hjulet: en knuff åt det håll man tryckte (vänster om navet → moturs).
+  _stotaHjul(ctx, p) {
+    const h = this._hjul
+    if (!h || !this._alive) return
+    if (Math.hypot(p.x - h.x, p.y - h.y) > 56) return
+    h.fys.stota(p.x < h.x ? -1 : 1, 0.07)
+    squash(h.wrap, { intensity: 0.5 })
+    ctx.services.audio.tone({ freq: 784, dur: 0.07, type: 'triangle', vol: 0.18 })
+  },
+
+  _rivHjul() {
+    const h = this._hjul
+    this._hjul = null
+    if (!h) return
+    h.fys.destroy() // kolliderarna ur vätskan, gångjärnet, fysikvärlden
+    this._killViewTweens(h.wrap) // bilden rivs med lagret (_propLayer) vid banbyte/exit
   },
 
   // ---- ventilen (lib/vev.js, G8) ----
@@ -1727,6 +1810,7 @@ export default {
     this._vev?.destroy()
     this._vev = null
     this._drag?.destroy()
+    this._rivHjul()
     this._fluidView?.destroy()
     this._fluid?.destroy()
     this._fluidView = null

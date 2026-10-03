@@ -18,6 +18,8 @@ Funkar bra: rör-vrid-mekaniken är begriplig och taktil, vattnet längs polylin
 muggen + blomningen är en mjuk och tydlig belöning, och no-fail (läckage i stället för fail)
 är elegant. En gedigen liten "Where's My Water" för småttingar.
 
+**Vattenhjulet (2026-10-03):** ett träskovelhjul hänger i en mässingsstång under kranens rör, strax till höger om strålen. Står kranen stängd står hjulet; vrider barnet på ventilen och strålen kommer snurrar hjulet moturs (~0,6 varv/s), skovlarna delar strålen så det stänker, och när vattnet stängs snurrar det ut på ~3 s. Ett tryck på väggen vid hjulet knuffar det (vänster om navet moturs, höger medurs).
+
 *(Skärmdump: kran upptill, 4×3-rutnät med ett vertikalt rör, mugg + planta nedtill, tom rörbricka.)*
 
 ## 2. Ursprunglig plan & tankeprocess
@@ -107,6 +109,13 @@ en enda förplacerad linje, och vars auto-hjälp gärna spelar klart åt barnet.
   *Blockerad så länge MOSS är nere (glugget finns som stämd ton, :969).*
 
 ## 5. Status / loggar
+
+- 2026-10-03 · **Vattenhjul som snurrar av strålen (FYSIKPLAN F6a, kund 2, D16 B1).** Ny fil `src/games/vattenvagen/hjul.js` (ren fysik, samma kod körs i Node) + vy/ljud i `index.js`. Ventilen (D9) är orörd.
+  **Premissen "gångjärn" prövad:** spelet hade ingen `PhysicsWorld` (ventilen är en egen integrator, G8). Hjulet får en liten egen: en matter-kropp (cirkel i navet, `isSensor`, ingen tyngd, inga väggar) fastnålad med `phys.gangjarn`, `frictionAir` 0,02 som lager — en värld per bana, rivs vid banbyte/exit. Skovlarna (6 lådor 20×8 på radie 13–33 + nav) är kolliderare i vätskan via `fluid.foljKroppar(phys, …)` (F6a), och `clearColliders()` vid banbyte lägger tillbaka dem på sig själv.
+  **Vad som SAKNAS i libbet och därför bor lokalt:** vätskan knuffar aldrig en kropp (F6b är inte byggd), så det som får hjulet att gå är `_koppla()` i `hjul.js`: i `phys.beforeStep` läser den partiklarnas fart (`fluid.vx/vy`) i skovelringen och lägger ett vridmoment (Δω → `body.torque = Δω / (invTröghet · STEG2)`). Motstånd mot RELATIV fart (partikel minus skovelns egen fart där den ligger) — samma tal driver hjulet och bromsar det när det går fortare än vattnet; instabilt över ~0,5 i koppling (K 3,0 gav pumpning), vilket är skälet till K = 0,2. **Förslag: lyft till `lib/vatska.js` som F6b om fler spel vill ha det.**
+  **Två fällor mätta:** (1) navet 24 px från strålen dämde upp vatten på en vågrät skovel (pool 1,7 partiklar), och en vattenpelare i vila ger noll moment i ett rent fartmått → hjulet stannade med vatten på sig 3 av 8 körningar. Därför `VIKT`: vatten som ligger på en skovel (fart < 1,2 px/steg) väger — 8 av 8 körningar går nu hela vägen. (2) 38 px (spetsarna 5 px in i strålen som syns ±12 px bred) ger 0,5–0,7 varv/s och 96–100 % av dropparna kvar till källrörets mynning; ≥ 42 px når strålen inte skovlarna.
+  **Mått:** `node scripts/_dag-vattenvagen-hjul.mjs` (Node, 5 sektioner med kontrollrader, 6 helkörningar gröna). Webbläsarsonden `_dag-vattenvagen.mjs`/`_natt-vattenvagen.mjs` är inte körda av byggaren (orkestreraren gör det) — hjulet ligger över rutnätet (y 75–141, brunnarna börjar på 142) och ändrar inget i brädet.
+  **Begränsning:** hjulet är ingen träffyta (ett 96 px-mål 38 px från strålen skulle överlappa den översta radens brunnar och ventilen — P0-avståndet håller inte). Knuffen går via väggfångaren som redan svarar på varje tryck. Inga nya repliker.
 
 - 2026-10-02 **Ventilen efter webbläsarsonden + kritiken (D9).** `_dag-vattenvagen` 30/30, 0 konsolfel.
   Fyra rättningar: ⓵ pilen vid ventilen släcktes av samma tryck som fullbordade vägen (`_resetIdle`

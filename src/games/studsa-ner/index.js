@@ -18,9 +18,10 @@
 // (matter.js + Pixi v8), exit-säkert.
 import { Container, Graphics, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
-import { PhysicsWorld, Body } from '../../lib/physics.js'
+import { PhysicsWorld, Body, STEG2 } from '../../lib/physics.js'
 import { Vindfalt } from '../../lib/vind.js'
 import { buildAutomat } from './automat.js'
+import { SNURRA, snurrAntal, valjPlatser, ritaSnurra } from './snurror.js'
 import { makeBoll } from '../../lib/foremal.js'
 import { sparkle, puff, floatText, breathe, pop } from '../../lib/feedback.js'
 import { randomFrom } from '../../lib/swedish.js'
@@ -120,7 +121,9 @@ export default {
     this._balls = [] // { body, view, settled }
     this._pegBodies = []
     this._pegViews = []
+    this._snurror = [] // propellrarna bland pinnarna (snurror.js): { body, led, blad, nav, skugga, halv }
     this._dividerBodies = []
+    this._lastTick = 0
     this._lastHit = 0
     this._lastVoice = 0
 
@@ -136,6 +139,7 @@ export default {
     this._binFills = [] // fickornas fyllnads-grafik (för "slukande" squash)
     this._dropX = DESIGN_W / 2
 
+    this._audio = ctx.services.audio
     this._root = new Container()
     ctx.stage.addChild(this._root)
 
@@ -148,6 +152,8 @@ export default {
     // ingen konstig/förstärkt tyngdkraft, myntet faller naturligt.
     this._phys = new PhysicsWorld({ gravityY: 1.0, walls: ['floor', 'left', 'right'] })
     this._unbind = this._phys.onCollision((e) => this._onCollision(ctx, e))
+    // Snurrornas varvtalstak per FAST fysiksteg (P0: ett blad får aldrig slunga ett mynt ur bild).
+    this._avSnurr = this._phys.beforeStep(() => this._snurraSteg())
     // Fläktens vind (lib/vind.js, F4) byggs med fläkten i _buildFan — den stegar själv per FAST fysiksteg.
 
     this._buildStatic(ctx)
@@ -544,6 +550,7 @@ export default {
   _buildPegs(ctx, rows) {
     for (const b of this._pegBodies) this._phys.removeBody(b)
     this._pegBodies = []
+    this._clearSnurror()
     for (const c of [...this._pegLayer.children]) { gsap.killTweensOf(c.scale); c.destroy({ children: true }) }
     this._pegViews = []
 
@@ -551,19 +558,90 @@ export default {
     const rowGap = 46
     const colGap = 112
     const marginX = 150
+    const platser = []
     for (let row = 0; row < rows; row++) {
       const y = top + row * rowGap
       const offset = row % 2 ? colGap / 2 : 0
-      for (let x = marginX + offset; x <= ctx.width - marginX; x += colGap) {
-        const body = this._phys.circle(x, y, 10, { isStatic: true, restitution: 0.5, friction: 0.1, label: 'peg' })
-        this._pegBodies.push(body)
-        const peg = this._makePeg()
-        peg.x = x
-        peg.y = y
-        peg._base = { x, y }
-        this._pegLayer.addChild(peg)
-        this._pegViews.push(peg)
-      }
+      for (let x = marginX + offset; x <= ctx.width - marginX; x += colGap) platser.push({ x, y, row })
+    }
+    // F1: några pinnplatser byts mot en snurra (nya platser varje nivå). Aldrig översta raden (under
+    // tratten) eller nedersta (ovanför fickorna): minst en pinnrad finns kvar åt vardera hållet.
+    const snurrPlatser = valjPlatser(platser.filter((p) => p.row >= 1 && p.row <= rows - 2), snurrAntal(rows))
+    const bytta = new Set(snurrPlatser)
+    for (const { x, y } of platser.filter((p) => !bytta.has(p))) {
+      const body = this._phys.circle(x, y, 10, { isStatic: true, restitution: 0.5, friction: 0.1, label: 'peg' })
+      this._pegBodies.push(body)
+      const peg = this._makePeg()
+      peg.x = x
+      peg.y = y
+      peg._base = { x, y }
+      this._pegLayer.addChild(peg)
+      this._pegViews.push(peg)
+    }
+    for (const p of snurrPlatser) this._addSnurra(p.x, p.y)
+  },
+
+  // En snurra: lätt stång + gångjärn + kullagerbroms (snurror.js förklarar varför och taken).
+  _addSnurra(x, y) {
+    const body = this._phys.rectangle(x, y, SNURRA.L, SNURRA.T, {
+      density: SNURRA.DENSITET, frictionAir: SNURRA.LUFT, friction: 0.05, restitution: 0.6,
+      chamfer: { radius: SNURRA.T / 2 }, label: 'snurra',
+    })
+    const led = this._phys.gangjarn(body, { x, y }) // styvhet 1, damp 0: ett stelt stift (damp ≠ 0 bromsar stel rotation)
+    // Konstant bromsmoment = SNURRA.BROMS rad/steg² på bladet (τ = Δω / (1/I · STEG2)): vilar på exakt noll.
+    led.motor({ fart: 0, maxMoment: SNURRA.BROMS / (body.inverseInertia * STEG2) })
+    const v = ritaSnurra()
+    v.blad.position.set(x, y)
+    v.skugga.position.set(x, y)
+    v.nav.position.set(x, y)
+    this._pegLayer.addChild(v.skugga, v.blad, v.nav)
+    this._phys.link(body, v.blad)
+    this._snurror.push({ body, led, ...v, halv: 0 })
+  },
+
+  _clearSnurror() {
+    for (const sp of this._snurror) {
+      this._phys.removeBody(sp.body) // tar leden och länken med
+      if (sp.nav && !sp.nav.destroyed) gsap.killTweensOf(sp.nav.scale)
+    }
+    this._snurror = []
+  },
+
+  // Per fast fysiksteg: varvtalstaket (en stöt kan aldrig ge mer än MAX_VF).
+  _snurraSteg() {
+    if (!this._alive) return
+    for (const sp of this._snurror) {
+      const w = sp.body.angularVelocity
+      if (Math.abs(w) > SNURRA.MAX_VF) Body.setAngularVelocity(sp.body, Math.sign(w) * SNURRA.MAX_VF)
+    }
+  },
+
+  // Ett mynt slog i en snurra: samma stigande pinn-melodi (triangelvåg, så den skiljer sig från träknopparna),
+  // navet studsar till och en liten puff — snurran går sedan själv.
+  _snurraSlag(ctx, spin, ballBody) {
+    const sp = this._snurror.find((s) => s.body === spin)
+    if (!sp || sp.nav.destroyed) return
+    const ball = this._balls.find((bl) => bl.body === ballBody)
+    const n = ball ? (ball._pegHits = (ball._pegHits || 0) + 1) : 1
+    const freq = PEG_SCALE[Math.min(n - 1, PEG_SCALE.length - 1)]
+    ctx.services.audio.tone({ freq, dur: 0.11, type: 'triangle', vol: 0.15 })
+    ctx.services.audio.tone({ freq: freq * 1.5, dur: 0.09, type: 'sine', vol: 0.06, delay: 0.05 })
+    gsap.killTweensOf(sp.nav.scale)
+    gsap.fromTo(sp.nav.scale, { x: 1.7, y: 1.7 }, { x: 1, y: 1, duration: 0.34, ease: 'back.out(2.2)' })
+    puff(this._root, sp.body.position.x, sp.body.position.y, { count: 3, color: 0xffd35c })
+  },
+
+  // Medan en snurra går runt knäpper den vid varje halvt varv (kullager) — rörelsen hörs ända tills den
+  // vilar. Tak: ett knäpp var 90 ms över alla snurror.
+  _snurraLiv() {
+    const nu = performance.now()
+    for (const sp of this._snurror) {
+      const h = Math.floor(sp.body.angle / Math.PI)
+      if (h === sp.halv) continue
+      sp.halv = h
+      if (Math.abs(sp.body.angularVelocity) < 0.05 || nu - this._lastTick < 90) continue
+      this._lastTick = nu
+      this._audio?.tone({ freq: 1320, dur: 0.025, type: 'sine', vol: 0.05 })
     }
   },
 
@@ -893,6 +971,7 @@ export default {
     // Trattens grafik följer väggarnas faktiska (kinematiska) läge, aldrig fingret rakt av.
     if (this._kFunL && this._funnel && !this._funnel.destroyed) this._funnel.x = this._kFunL.bas.x + FUNNEL_DX
     this._fanDraw(t.deltaMS)
+    this._snurraLiv()
 
     for (const ball of this._balls) {
       if (ball.settled) continue
@@ -1056,6 +1135,16 @@ export default {
     for (const pair of e.pairs) {
       const a = pair.bodyA
       const b = pair.bodyB
+      const spin = a.label === 'snurra' ? a : b.label === 'snurra' ? b : null
+      if (spin) {
+        const mynt = spin === a ? b : a
+        if (mynt.label === 'ball' && mynt.speed > 1.2) {
+          this._lastHit = now
+          this._snurraSlag(ctx, spin, mynt)
+          break
+        }
+        continue
+      }
       const hitsPeg = a.label === 'peg' || b.label === 'peg'
       if (!hitsPeg) continue
       const pegBody = a.label === 'peg' ? a : b
@@ -1161,6 +1250,11 @@ export default {
 
     this._avTratt?.()
     this._avTratt = null
+    this._avSnurr?.()
+    this._avSnurr = null
+    for (const sp of this._snurror || []) if (sp.nav && !sp.nav.destroyed) gsap.killTweensOf(sp.nav.scale)
+    this._snurror = []
+    this._audio = null
     this._kFunL?.destroy()
     this._kFunR?.destroy()
     this._kFunL = this._kFunR = null

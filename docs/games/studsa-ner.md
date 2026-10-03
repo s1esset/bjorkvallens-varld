@@ -66,8 +66,8 @@ livlös rekvisita.
 - ✅ ~~**[Quick] Special-mynt & special-fickor.**~~ Stjärnfickan klar 2026-09-23 (v1.251.0): ungefär var femte
   nivå (aldrig den första) bär målfickan guldkant, en ritad stjärna och guldglöd, och ett mynt i
   den fyller TVÅ mätarsteg med en egen stjärnklang (:460, :908). Studsmyntet är inte byggt.
-- **[Quick] Rörliga pinnar/snurror.** Någon enstaka liten snurrande pinne eller en vimpel som
-  myntet studsar mot — ger banan karaktär och varierar varje fall.
+- ✅ ~~**[Quick] Rörliga pinnar/snurror.**~~ Klar 2026-10-03 (F1, `snurror.js`): 1–3 propellrar bland pinnarna
+  (se §5). *(Vimpeln är INTE byggd — en rörlig sort räcker tills snurrorna visat sig bära.)*
 
 ### Juice
 - ✅ ~~**[Quick] Pinn-melodi.**~~ Redan byggd 2026-07-01 (`PEG_SCALE` :83) — uppdagat 2026-09-23.
@@ -88,6 +88,26 @@ livlös rekvisita.
   blockerade — MOSS nere.)*
 
 ## 5. Status / loggar
+
+- 2026-10-03 ⚙️ **F1: snurror bland pinnarna** (D16 B4, `snurror.js` ny fil). På nivåns pinngitter byts 1–3 pinnplatser
+  (5 rader → 1, 6 → 2, 7 → 3; aldrig översta raden under tratten, aldrig nedersta, minst 150 px mellan två) mot en
+  PROPELLER: en lätt stång 56×11 (`density` 0,0015, ≈ 0,9 mot myntets 2,5) fastnålad mitt i platsen med
+  `phys.gangjarn(kropp, {x,y})` (styvhet 1, damp 0 — damp ≠ 0 bromsar stel rotation) och en kullagerbroms
+  `led.motor({ fart: 0, maxMoment })` = 0,0016 rad/steg² konstant (Coulomb-friktion: den vilar på EXAKT noll, en ren
+  luftbromsning når aldrig dit) plus `frictionAir` 0,01. Ett mynt som slår i ena bladet vrider den; fysiken avgör hur
+  fort; sedan kör kullagret ut den på ~1,7 s och den står stilla. Taken (P0): `MAX_VF` 0,26 rad/steg (≈ 2,5 varv/s,
+  bladspets ≤ 7 px/steg) klämt i `beforeStep` (`_snurraSteg`, avregistreras i `destroy`); bromsen är 100× svagare än
+  myntets tyngdmoment så en snurra aldrig kan hålla fast ett mynt; spetsen går 34 px från närmaste pinnyta så den inte
+  kan nudda en pinne. Bilden: tre egna noder (`ritaSnurra`) — skugga och nav står still, bladet (röd/blå halva så
+  vridningen syns) roterar med kroppen via `phys.link`. Ljud: ett mynt i en snurra klättrar upp samma pinnmelodi
+  (`PEG_SCALE`, triangelvåg + en kvint ovanför, skiljer sig från träknopparna), navet studsar till + guldpuff, och
+  medan den går runt knäpper den vid varje halvt varv (1320 Hz, högst ett knäpp per 90 ms över alla snurror). Rivs i
+  `_buildPegs` (`removeBody` tar leden och länken) och i `destroy`. Fläktens vind (`filter` släpper bara mynt) och
+  tratten rörs inte. Mätt i Node (`node scripts/_dag-studsa-ner.mjs`): stöt → vinkelfart 0,256 (taket) → vila på
+  1,7 s, navdrift 0,000 px; kontrollarmar: utan broms/luft snurrar den kvar vid 0,26 efter 700 steg, utan gångjärn
+  lämnar bladet navet 736 px; hårda slag 14–24 px/steg aldrig över taket; 60 mynt på ett 7-radsbräde med 3 snurror:
+  60/60 når fickorna (HEAD 60/60), 0 ute, toppfart 14,2 px/steg (HEAD 14,4), fallets medeltid 4,5 s (HEAD 4,7 —
+  inom brus: snurrorna sakta inte ner märkbart). Omätt i webbläsare av byggaren.
 
 - 2026-10-02 ⚙️ **R2: tratten är kinematisk** (D7 B1). `_funnelL/_funnelR` är kvar som matter-kroppar
   men flyttas av `phys.kinematisk` (`_kFunL/_kFunR`, `FUNNEL_FART` 16 px/steg). `_positionFunnel(fx, bar)`:

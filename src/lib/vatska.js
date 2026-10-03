@@ -251,12 +251,41 @@ export class FluidWorld {
 
   clearColliders() {
     this.colliders = []
+    if (this._foljare) for (const h of this._foljare) h._glom()
+  }
+
+  // Kolliderare som FÖLJER matter-kroppar (FYSIKPLAN F6a) — slut på `c.x = body.position.x` för
+  // hand i varje spel. Kropparna ägs av `phys` (PhysicsWorld); vätskan läser dem, den knuffar dem
+  // aldrig (reaktionskraft = F6b, byggs inte).
+  //
+  //   const fk = this._fluid.foljKroppar(this._phys, [{ body, form: { type: 'circle', r: 34 } }])
+  //   fk.lagg({ body, form, nar: (b) => b.position.y > 300, bar: { w: 100, h: 120 } })
+  //   fk.ta(body)   // kroppen försvinner ur spelet
+  //
+  // form   { type:'circle', r, dx, dy } | { type:'box', w, h, dx, dy, angle } — eller en LISTA av
+  //        sådana (ett glas = botten + två sidor). dx/dy/angle ligger i kroppens EGET system och
+  //        vrids med body.angle. Utan form blir det ingen kolliderare (bara `bar`).
+  // nar    (body) => bool — kolliderarna finns bara medan den är sann (förval: alltid). En kropp
+  //        som inte längre är aktuell lämnar ingen spöke kvar i vätskan.
+  // bar    { w, h, dx, dy, upp } — kärlet BÄR sin vätska: partiklarna i innerrutan (kroppens
+  //        system, `upp` px högre än rutan) följer kroppens förflyttning OCH vridning, annars
+  //        sveper väggarna förbi dem och vattnet blir stående i luften. EN ÄGARE PER PARTIKEL
+  //        (samma regel som saftbaren._carryAll): den kärlruta partikeln ligger DJUPAST inne i.
+  //
+  // Synkas EN gång i början av varje `update()` — alltså efter att spelet kört `phys.update()`,
+  // då kropparna står där matter lämnade dem. Förvalet rör inget som inte anropat metoden.
+  foljKroppar(phys, lista = []) {
+    const h = new KroppFoljare(this, phys)
+    for (const e of lista) h.lagg(e)
+    ;(this._foljare ||= []).push(h)
+    return h
   }
 
   // --- simulering ---
 
   update(deltaMS) {
     if (!this._alive) return
+    if (this._foljare) for (const h of [...this._foljare]) h.sync() // kopia: en följare kan stoppa sig själv mitt i varvet
     const FIXED = 1000 / 60
     let d = Math.min(deltaMS || FIXED, 100)
     // Snäpp (se PhysicsWorld.update): vsync-jitter runt 16,67 ms ger 0- och 2-stegsrutor → ryck.
@@ -584,6 +613,190 @@ export class FluidWorld {
     this._alive = false
     this.count = 0
     this.colliders = []
+    this._foljare = null
+  }
+}
+
+// Följer matter-kroppar åt en `FluidWorld` — se `foljKroppar`. Ingen Pixi, inga timers, ingen
+// egen klocka: allt sker i `sync()`, som världen anropar i början av varje `update()`.
+class KroppFoljare {
+  constructor(vatska, phys) {
+    this._v = vatska
+    this._phys = phys || null
+    this._recs = []
+    this._alive = true
+  }
+
+  get antal() {
+    return this._recs.length
+  }
+
+  // Lägg till en följd kropp. Returnerar posten; `rec.coll` är första kolliderarens objekt medan
+  // kroppen är aktiv, annars null (så ett spel kan fråga "tränger den undan vatten nu?").
+  lagg({ body, form = null, nar = null, bar = null } = {}) {
+    if (!this._alive || !body) return null
+    const delar = form ? (Array.isArray(form) ? form : [form]) : []
+    const rec = {
+      body,
+      delar,
+      nar,
+      bar,
+      cs: null, // kolliderarna, i samma ordning som `delar`
+      last: null, // förra poseringen { x, y, a } — bara när kroppen var aktiv
+      get coll() {
+        return this.cs ? this.cs[0] : null
+      },
+    }
+    this._recs.push(rec)
+    return rec
+  }
+
+  ta(body) {
+    const i = this._recs.findIndex((r) => r.body === body)
+    if (i < 0) return
+    this._tom(this._recs[i])
+    this._recs.splice(i, 1)
+  }
+
+  rensa() {
+    for (const r of this._recs) this._tom(r)
+    this._recs = []
+  }
+
+  // Avregistrera helt: tar kolliderarna och lämnar världens lista.
+  stoppa() {
+    if (!this._alive) return
+    this.rensa()
+    this._alive = false
+    const l = this._v._foljare
+    if (l) {
+      const i = l.indexOf(this)
+      if (i >= 0) l.splice(i, 1)
+    }
+  }
+
+  _tom(r) {
+    if (r.cs) for (const c of r.cs) this._v.removeCollider(c)
+    r.cs = null
+    r.last = null
+  }
+
+  // Världens `clearColliders()` har redan tömt listan — släpp bara referenserna.
+  _glom() {
+    for (const r of this._recs) {
+      r.cs = null
+      r.last = null
+    }
+  }
+
+  sync() {
+    if (!this._alive) return
+    if (this._phys && this._phys._alive === false) {
+      this.stoppa()
+      return
+    }
+    const v = this._v
+    const recs = this._recs
+    // 1. Vilka är aktiva, och var står de nu?
+    const nu = new Array(recs.length)
+    let bar = 0
+    for (let k = 0; k < recs.length; k++) {
+      const r = recs[k]
+      const b = r.body
+      const p = b.position
+      const aktiv = Number.isFinite(p.x) && Number.isFinite(p.y) && (!r.nar || r.nar(b))
+      if (!aktiv) {
+        if (r.cs || r.last) this._tom(r)
+        nu[k] = null
+        continue
+      }
+      nu[k] = { x: p.x, y: p.y, a: b.angle || 0 }
+      if (r.bar && r.last) bar++
+    }
+    // 2. Bär vätskan: bara om någon bärare faktiskt rört sig sedan förra synken.
+    if (bar) this._bar(recs, nu)
+    // 3. Kolliderarna dit kropparna står.
+    for (let k = 0; k < recs.length; k++) {
+      const q = nu[k]
+      if (!q) continue
+      const r = recs[k]
+      const ca = q.a ? Math.cos(q.a) : 1
+      const sa = q.a ? Math.sin(q.a) : 0
+      if (r.delar.length && !r.cs) {
+        r.cs = r.delar.map((d) => (d.type === 'box' ? v.addBox(0, 0, d.w, d.h, 0) : v.addCircle(0, 0, d.r)))
+      }
+      if (r.cs) {
+        for (let j = 0; j < r.delar.length; j++) {
+          const d = r.delar[j]
+          const c = r.cs[j]
+          const dx = d.dx || 0
+          const dy = d.dy || 0
+          c.x = q.x + (q.a ? dx * ca - dy * sa : dx)
+          c.y = q.y + (q.a ? dx * sa + dy * ca : dy)
+          if (c.type === 'box') c.angle = q.a + (d.angle || 0)
+        }
+      }
+      r.last = q
+    }
+  }
+
+  _bar(recs, nu) {
+    const w = this._v
+    const info = []
+    let rort = false
+    for (let k = 0; k < recs.length; k++) {
+      const r = recs[k]
+      const q = nu[k]
+      if (!r.bar || !q || !r.last) continue
+      const l = r.last
+      const it = {
+        bar: r.bar,
+        l,
+        q,
+        ca: Math.cos(-l.a),
+        sa: Math.sin(-l.a),
+        // förflyttningen som en stel rörelse: vrid runt kroppens förra mitt, flytta till den nya
+        dca: Math.cos(q.a - l.a),
+        dsa: Math.sin(q.a - l.a),
+        rort: q.x !== l.x || q.y !== l.y || q.a !== l.a,
+      }
+      if (it.rort) rort = true
+      info.push(it)
+    }
+    if (!rort) return
+    for (let i = 0; i < w.count; i++) {
+      let agare = null
+      let basta = 0
+      for (let k = 0; k < info.length; k++) {
+        const it = info[k]
+        const b = it.bar
+        const rx = w.x[i] - it.l.x
+        const ry = w.y[i] - it.l.y
+        const lx = rx * it.ca - ry * it.sa - (b.dx || 0)
+        const ly = rx * it.sa + ry * it.ca - (b.dy || 0)
+        const hw = b.w / 2
+        const hh = b.h / 2
+        const dSida = hw - Math.abs(lx)
+        const dTopp = ly + hh + (b.upp || 0)
+        const dBotten = hh - ly
+        if (dSida <= 0 || dTopp <= 0 || dBotten <= 0) continue
+        const djup = Math.min(dSida, dTopp, dBotten)
+        if (djup > basta || (djup === basta && agare && it.q.y > agare.q.y)) {
+          basta = djup
+          agare = it
+        }
+      }
+      if (!agare || !agare.rort) continue
+      const { l, q, dca, dsa } = agare
+      let rx = w.x[i] - l.x
+      let ry = w.y[i] - l.y
+      w.x[i] = q.x + rx * dca - ry * dsa
+      w.y[i] = q.y + rx * dsa + ry * dca
+      rx = w.px[i] - l.x
+      ry = w.py[i] - l.y
+      w.px[i] = q.x + rx * dca - ry * dsa
+      w.py[i] = q.y + rx * dsa + ry * dca
+    }
   }
 }
 

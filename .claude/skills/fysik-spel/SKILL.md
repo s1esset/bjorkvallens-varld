@@ -305,6 +305,14 @@ till sammanhängande vätska. Samma enheter som resten av repot: **px/steg**, fa
   partiklarna på en bildruta, och innehållet blir stående kvar i luften. Flytta både
   `x/y` och `px/py` på partiklarna inuti — och ge varje partikel EN ägare, annars stjäl ett
   glas som flyger förbi innehållet ur ett som står stilla. Se `_carryAll()` i `saftbaren`.
+- **Hinder som följer matter-kroppar (F6a):** `const fk = fluid.foljKroppar(phys, [{ body, form, nar?, bar? }])` →
+  handtag `fk.lagg(post)` (returnerar posten, `post.coll` = hindret just nu eller `null`) · `fk.ta(body)` ·
+  `fk.rensa()` · `fk.stoppa()`. `form` = `{type:'circle',r,dx,dy}` | `{type:'box',w,h,dx,dy,angle}` (eller en LISTA: glas =
+  botten + två sidor; offsets i kroppens eget system, vrids med `body.angle`). `nar(body)` = hindret finns bara medan den är
+  sann (inget spöke). `bar:{w,h,dx,dy,upp}` = kärlet BÄR sin vätska (förflyttning + vridning, EN ägare per partikel, djupast
+  vinner). Synkas en gång i början av `fluid.update()` — kalla `phys.update()` FÖRE den. Förstörd `phys` stoppar följaren.
+  Vätskan läser kropparna, den knuffar dem aldrig (reaktionskraft = F6b, ej byggd). Opt-in: utan anropet är allt som förut.
+  Mät: `node scripts/_foljprobe.mjs` (port bit-identisk med handsynk · bär ≥ 90 % mot 0 % utan `bar` · ägare · livscykel).
 - Uppmätt i riktig Chrome (headless, mjukvaru-GL) på 1280×720: solvern kostar **0,25 ms/bildruta
   vid 200 partiklar · 0,54 vid 400 · 1,12 vid 800 · 5,3 vid 3000**, renderingen ≈0,02 ms JS
   (resten är GPU, filtret körs i halv upplösning). Full 60 fps hela vägen. **400–600 partiklar

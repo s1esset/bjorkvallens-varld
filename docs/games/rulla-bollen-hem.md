@@ -62,7 +62,7 @@ Banorna trappar svårighet (rak → vinkel → hörn/studs → vind → hinder) 
   (`tapPower: 0.62`, 2026-07-01) — uppdagat 2026-10-02.
 
 ### Variation & överraskning
-- **[Quick] Rikare banor.** Fler/varierade hinder (svängande grind, rörlig studsdyna, en
+- **[Quick] Rikare banor.** ✅ ~~svängande grind~~ byggd 2026-10-02 (F1, `grind.js`). Kvar: fler/varierade hinder (rörlig studsdyna, en
   tunnel/ramp) och en "samla stjärnor på vägen"-variant så planen blir en bana, inte ett
   fält. Behåll fri start/målinfart-filtret.
 - **[Medium] Bonusmål.** Ibland en extra ⭐ eller en vän att rulla förbi på vägen hem för extra
@@ -101,6 +101,28 @@ Banorna trappar svårighet (rak → vinkel → hörn/studs → vind → hinder) 
 
 ## 5. Status / loggar
 
+- 2026-10-02 · **Svängande grind (F1, D16 kluster B3)** — ej provkörd i webbläsare (bara `check` + Node-mätning; orkestreraren testar).
+  En randig slagbom med motvikt och stolpe (`grind.js` fysik, `grindbild.js` bild) sitter på ett **gångjärn** (`phys.gangjarn`) i
+  planens övre eller nedre kant — den kant som ligger närmast målets höjd, nära målet men aldrig i det — och drivs av en **motor**
+  (`g.motor`, momenttaket kapat) längs en mjuk klocka: stängd 0,25 s, öppnar sig 0,9 s, står öppen 1,4 s, viker tillbaka 1,1 s (period 3,6 s).
+  Barnet tajmar skottet; en boll som slår i grinden studsar som mot en kloss (milt trätoc + puff, stolpen poppar).
+  **Aldrig ett stopp:** längden 190 mot planens 560 lämnar alltid ≥ 370 px fri körfil (bollen är 112), luckan kommer inom ≤ 1,5 s (mätt),
+  grindens fart är kapad (spetsen ≤ ~6 px/steg → en stilla boll som knuffas får högst ~10), vinkeln spärras hårt (aldrig över planen)
+  och motorn kan inte skjuta iväg bollen — ligger den i vägen stannar grinden mot den och klockan släpper den inom en halv period.
+  Tyngdpunkten ligger i gångjärnet (en BALLAST-sensor bakom leden, inne i kanten): ett gångjärn 100 px från tyngdpunkten fick matters
+  lösare att skena. Plankan börjar 52 px från leden — annars skar dess hörn kanten och grinden satt fast vid φ 0,12 (mätt).
+  **Var den passar:** layouterna ur spelets egna funktioner (`_layoutFor`/`_obstaclesForLevel` + `zonerForLevel`, 200 per bana):
+  bana 4 (index 3) och banorna 8, 9, 11, 12, 14, 15 … (varje tredje från bana 7 är utan — spelet andas ut) får en grind i 100 % av layouterna;
+  banorna 1–3 inte (där lär man sig sikta + kraft). **Banorna 5–6 (index 4–5) rymmer ingen grind utan ombyggnad** — de har klots + studsdyna
+  + kulle + grop och svepytan (y 120–310 uppe, 490–680 nere) skär något av dem i alla layouter; där hellre ingen grind än en trång bana.
+  Placeringen provar sig fram (kant × fem x-lägen) och avstår om hinder, zonkärnor (70 px), mål, start eller vindflöjeln kommer i svepytan.
+  Zonerna, hindren och banans layout är orörda (grinden läggs EFTER dem), och pricklinjen räknar — som med hindren — inte med grinden.
+  **MÄTT** (`node scripts/_dag-rulla-grind.mjs 200`, Node, spelets `Grind`/`grindForLevel`): kontrollarm död motor = grinden står stilla och luckan
+  försvinner (24 s); φ 0…1,22, period 3,60 s (med och utan vind 0,11), gångjärnsglapp 0,000 px, 0 NaN; hårda skott (fart 26, 96 st) ger aldrig
+  mer fart än bollen kom med, φ −0,06…1,25 inom spärren 1,30, grinden är tillbaka på klockan ≤ 0,02 rad inom 2 s; STÄNGD grind: 32 av 32 bollar förbi
+  körfilen; 200 skott mot målet (hem uppe, grind uppe): HEAD 65,0 % mål → med grind 29,5 % (45 % av HEAD) — en grind kostar skott, banan går att lösa
+  och 4-stopps-trappan (glid hem) går igenom grinden som genom hinder (bollen är en sensor).
+  Ny replik: "En grind! Vänta tills den svänger undan."
 - 2026-10-03 · **Kullar och gropar som kraftzoner (F4, D14 kluster B1)** — ej provkört i webbläsare (bara `check` +
   Node-mätning; orkestreraren testar). ⚠️ **Premissen höll inte:** orderns "backar och gropar … synliga i trädgården
   från natten" fanns INTE — `tradgard.js` är bara dekor (häck, hus, träd, rabatt) och planen hade inga zoner alls.

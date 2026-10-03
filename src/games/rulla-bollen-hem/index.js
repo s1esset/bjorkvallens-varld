@@ -48,6 +48,8 @@ import { verticalFill, bage } from '../../lib/form.js'
 import { buildGarden } from './tradgard.js'
 import { zonAcc, iZon, sensorRadie, zonerForLevel } from './zoner.js'
 import { byggZon } from './zonbild.js'
+import { Grind, grindForLevel } from './grind.js'
+import { byggGrind } from './grindbild.js'
 
 // Layout i designkoordinater (1280×720).
 const FIELD = { x: 60, y: 120, w: 1160, h: 560, r: 32 }
@@ -222,6 +224,7 @@ export default {
     this._obstacleBodies = []
     this._obstacleViews = []
     this._zoner = [] // { typ, x, y, r, body, vy, rec, inne }
+    this._grind = null // F1: svängande grind (grind.js) — { fys, vy }
     this._lastZon = -1
     this._previewBounds = { ...PREVIEW_BOUNDS }
     this._home = { x: 1060, y: 400, r: 110 }
@@ -653,6 +656,33 @@ export default {
     }
   },
 
+  // ---- Grinden (grind.js, F1) -----------------------------------------------
+
+  _buildGrind(spec) {
+    const fys = new Grind(this._phys, spec, { fas: Math.random() * Math.PI * 2 })
+    const vy = byggGrind(spec)
+    vy.rot.scale.set(0.6)
+    vy.rot.alpha = 0
+    this._obsLayer.addChild(vy.skugga, vy.rot, vy.stolpe)
+    gsap.to(vy.rot.scale, { x: 1, y: 1, duration: 0.35, ease: 'back.out(2)' })
+    gsap.to(vy.rot, { alpha: 1, duration: 0.25 })
+    gsap.to(vy.skugga, { alpha: 1, duration: 0.25 })
+    // Bilden följer kroppen (läge + vinkel) — skuggan hålls i ljusets riktning, alltså inte vriden med armen.
+    this._phys.link(fys.body, vy.rot, (v, b) => vy.synk(v, b))
+    vy.rot.position.set(fys.body.position.x, fys.body.position.y) // rätt läge redan första bildrutan
+    vy.rot.rotation = fys.body.angle
+    vy.synk(vy.rot, fys.body)
+    this._grind = { fys, vy, spec }
+  },
+
+  _clearGrind() {
+    const g = this._grind
+    if (!g) return
+    this._grind = null
+    g.fys.destroy() // gångjärn, motor och kropp
+    g.vy.stada()
+  },
+
   _loadLevel(ctx, level) {
     if (!this._alive) return
     this._mode = 'aim'
@@ -678,6 +708,12 @@ export default {
     // Terräng: kullar och gropar (fria från start, mål och hinder).
     this._clearZoner()
     this._buildZoner(zonerForLevel(level, { home: lay.home, start: lay.start, hinder, plan: WALL }))
+
+    // Grinden (F1): en svängande slagbom nära målet — bara på banor där den får plats utan att ta något annat i anspråk.
+    // Aldrig över start, mål, hinder eller zonernas kärnor, och alltid en fri körfil förbi (grind.js).
+    this._clearGrind()
+    const grindSpec = grindForLevel(level, { home: lay.home, start: lay.start, hinder, zoner: this._zoner, plan: WALL })
+    if (grindSpec) this._buildGrind(grindSpec)
 
     // Yta + boll för banan (uppdaterar friktion, studs, pricklinjens damp + studs, emoji).
     this._surfaceIdx = this._surfaceForLevel(level)
@@ -714,6 +750,7 @@ export default {
       else if (this._ballKey === 'heavy') hints.push('En tung boll – ge den en extra knuff!')
       if (this._windPreview !== 0) hints.push('Det blåser lite på banan – sikta så vinden hjälper dig.')
       if (this._obstacleBodies.length) hints.push('Akta hindren och rulla runt dem!')
+      if (this._grind) hints.push('En grind! Vänta tills den svänger undan.')
       if (this._zoner.some((z) => z.typ === 'kulle')) hints.push('En kulle! Rulla med lite extra fart.')
       if (this._zoner.some((z) => z.typ === 'grop')) hints.push('En grop! Bollen rullar ner i den.')
       if (hints.length) {
@@ -1109,6 +1146,19 @@ export default {
         }
         continue
       }
+      if (other.label === 'grind') {
+        // Grinden ger efter en aning och svänger vidare — bollen studsar som mot en kloss, med ett milt trätoc.
+        if (this._t - this._lastBounce > BOUNCE_THROTTLE) {
+          const spd = Math.hypot(this._ballBody.velocity.x, this._ballBody.velocity.y)
+          if (spd > 1.5) {
+            this._lastBounce = this._t
+            ctx.services.audio.tone({ freq: 294, dur: 0.12, type: 'triangle', vol: 0.14, slideTo: 262 })
+            if (this._ball && !this._ball.destroyed) puff(ctx.fxLayer, this._ball.x, this._ball.y, { count: 4 })
+            if (this._grind && !this._grind.vy.stolpe.destroyed) pop(this._grind.vy.stolpe, { scale: 1.18 })
+          }
+        }
+        continue
+      }
       if (other.label === 'wall' || other.label === 'block') {
         if (this._t - this._lastBounce > BOUNCE_THROTTLE) {
           const spd = Math.hypot(this._ballBody.velocity.x, this._ballBody.velocity.y)
@@ -1181,6 +1231,7 @@ export default {
 
     this._clearObstacles()
     this._clearZoner()
+    this._clearGrind() // före phys.destroy(): river leden, motorn och kroppen
 
     if (this._bg && !this._bg.destroyed) this._bg.off('pointertap', this._onBgTap)
     if (this._ball && !this._ball.destroyed) {

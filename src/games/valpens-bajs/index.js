@@ -17,6 +17,7 @@ import { drawIcon } from '../../lib/artikoner.js'
 import { COLORS } from '../../lib/theme.js'
 import { groundFill } from '../../lib/form.js'
 import { Pekspar, kastSteg } from '../../lib/pekspar.js'
+import { pase } from '../../lib/variation.js'
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
 
@@ -52,6 +53,19 @@ const FLUGOR_MAX = 4
 // Parkens finish: blommor som slår ut och fåglar som lyfter (ritade ikoner, inga emoji).
 const FIN_BLOMMOR = [[360, 330], [640, 312], [920, 336], [520, 652], [820, 662]]
 const FIN_FAGLAR = [[180, 230], [470, 300], [760, 290]]
+// Parken MINNS: där en hög städats spirar en blomma (och en grön tuva), och den står kvar i nästa
+// runda och nästa gång spelet öppnas (sparnyckeln `parkblommor`, lista av [x, y, sort, färg, storlek]).
+// Är parken full (BLOMMOR_MAX) spirar inget nytt — närmaste blomma hejar i stället, så inget sparat
+// försvinner. Allt animeras i tickern (inga tweens att riva).
+const BLOMMOR_MAX = 60
+const BLOM_TON_DROJ_S = 0.5 // spirtonen väntar in tunnans glufs/correct/jubel så den hörs
+const BLOMMA_VAXER_S = 0.7 // sekunder att växa upp
+const BLOMMA_DROJ_S = 0.34 // väntan innan den spirar (högen hinner ner i tunnan först)
+const BLOMSORTER = 5
+const BLOM_TONER = [523.25, 587.33, 659.25, 783.99, 880, 1046.5] // C-durs pentatonik: n:te blomman i rundan
+// Har berättaren redan sagt "blommorna är kvar" denna appsession? (modulnivå: överlever omöppning)
+let parkHalsad = false
+const BLOM_AVSTAND = 44 // minsta avstånd mellan två blommors fötter
 
 export default {
   id: 'valpens-bajs',
@@ -85,6 +99,10 @@ export default {
     this._wanderTimer = 0
     this._saidScoop = false
     this._meter = { v: 0 }
+    this._blommor = [] // parkens blommor: { bl, art, x, y, rec, fas, grow, bump }
+    this._blomPase = pase([0, 1, 2, 3, 4]) // sorterna lottas ur en påse: alla syns innan någon återkommer
+    this._tid = 0
+    this._vag = 0 // finishens blomvåg (1 → 0)
     this._level = Math.max(0, ctx.progress.get().highestLevel | 0)
 
     this._root = new Container()
@@ -97,6 +115,14 @@ export default {
 
     // 2) Parkdekor (rent pynt).
     this._buildDecor()
+
+    // 2b) Parkens blommor (minns förra gångerna) — bakom ring, valp och högar, aldrig träffbara.
+    this._parkLayer = new Container()
+    this._parkLayer.sortableChildren = true
+    this._parkLayer.eventMode = 'none'
+    this._parkLayer.interactiveChildren = false
+    this._root.addChild(this._parkLayer)
+    this._laddaPark(ctx)
 
     // 3) Insläppszonens glödring (mål-markör).
     const ring = new Graphics().circle(DROP.x, DROP.y, DROP.r).stroke({ width: 6, color: COLORS.yellow, alpha: 0.5 })
@@ -151,6 +177,14 @@ export default {
   mount(ctx) {
     this._idle = 0
     ctx.services.voice.say(this.voiceIntro)
+    // Parken minns: har den blommor från förr säger berättaren det efter introt.
+    // Bara en gång per appsession (modulflaggan överlever omöppning av spelet).
+    if (this._blommor.length && !parkHalsad) {
+      parkHalsad = true
+      ctx.narTyst(() => {
+        if (this._alive) ctx.services.voice.say('Titta, blommorna är kvar!')
+      })
+    }
   },
 
   // ---- Nivå-skalning ------------------------------------------------------
@@ -719,6 +753,7 @@ export default {
     }
     if (best) {
       best._taken = true
+      best._hem = { x: best.x, y: best.y } // här låg den — här spirar blomman
       const idx = this._poops.indexOf(best)
       if (idx >= 0) this._poops.splice(idx, 1)
       this._carry = best
@@ -857,6 +892,7 @@ export default {
   _autoScoopPile(ctx, pile) {
     if (!this._alive || this._resolving || pile._taken || pile.destroyed) return
     pile._taken = true
+    pile._hem = { x: pile.x, y: pile.y }
     this._autoBusy = true
     this._clearFlies(ctx, pile, true)
     ctx.services.audio.sfx('whoosh')
@@ -953,6 +989,7 @@ export default {
     if (this._binLid && !this._binLid.destroyed) pop(this._binLid) // locket "glufsar"
 
     this._lovaCheer(ctx, kast)
+    this._sprout(ctx, pile)
     if (kast) {
       // Bonus: ett kast rakt i munnen får lite extra — en uppåtgående treklang (C5-E5-G5) och mer glitter.
       ;[523.25, 659.25, 783.99].forEach((freq, i) => ctx.services.audio.tone({ freq, dur: 0.12, type: 'triangle', vol: 0.14, delay: 0.1 + i * 0.08 }))
@@ -991,6 +1028,9 @@ export default {
     if (this._carry && !this._carry.destroyed && this._scooper && !this._scooper.destroyed) {
       this._carry.position.set(this._scooper.x, this._scooper.y + (this._scoopArt?.y || 0))
     }
+
+    // Parkens blommor: växer upp, vaggar i vila, vinkar i finishen (ingen tween — bara tickern).
+    this._blomTick(tk.deltaMS / 1000)
 
     // Högar i kastbåge (bonus) — före `_resolving`-spärren så en flygande hög alltid hinner landa.
     if (this._flyg.length) this._stegFlyg(ctx, dt)
@@ -1133,6 +1173,7 @@ export default {
     }
     if (this._bin && !this._bin.destroyed) wiggle(this._bin)
     this._parkFinish(ctx)
+    this._vag = 1 // hela parkens blommor vinkar
 
     ctx.progress.complete()
     this._level += 1
@@ -1264,6 +1305,116 @@ export default {
         ease: 'power2.inOut',
         onComplete: () => { if (!fc.destroyed) fc.rotation = 0 },
       }))
+    }
+  },
+
+  // ---- Parken som minns ---------------------------------------------------
+
+  // Läs sparade blommor (sparnyckeln `parkblommor`) och plantera dem utan firande, en efter en
+  // med liten fördröjning så parken "vaknar". Okända/trasiga poster hoppas över.
+  _laddaPark(ctx) {
+    const lagrat = ctx.progress.get().custom?.parkblommor
+    if (!Array.isArray(lagrat)) return
+    let i = 0
+    for (const r of lagrat) {
+      if (this._blommor.length >= BLOMMOR_MAX) break
+      if (!Array.isArray(r) || r.length < 5 || !r.every((v) => Number.isFinite(v))) continue
+      const [x, y, sort, farg, stor] = r
+      this._planteraBlomma(clamp(x, 120, 1100), clamp(y, 310, 670), clamp(sort | 0, 0, BLOMSORTER - 1), farg ? 1 : 0, clamp(stor | 0, 0, 2), -0.1 - i * 0.045)
+      i++
+    }
+  },
+
+  _planteraBlomma(x, y, sort, farg, stor, grow) {
+    const { bl, art } = ritaBlomma(sort, farg, stor)
+    bl.position.set(x, y)
+    bl.zIndex = y
+    bl.visible = false
+    bl.scale.set(0)
+    this._parkLayer.addChild(bl)
+    const b = { bl, art, x, y, rec: [Math.round(x), Math.round(y), sort, farg, stor], fas: Math.random() * Math.PI * 2, grow, bump: 0 }
+    this._blommor.push(b)
+    return b
+  },
+
+  // En ledig plats nära högens plats: första försöket rakt under högen, sedan lätt förskjutet.
+  _blomPlats(x, y) {
+    let bast = null
+    let bd = -1
+    for (let i = 0; i < 8; i++) {
+      const px = clamp(x + (i ? (Math.random() - 0.5) * 92 : 0), 130, 1090)
+      const py = clamp(y + (i ? (Math.random() - 0.5) * 52 : 0), 318, 668)
+      let d = Infinity
+      for (const b of this._blommor) d = Math.min(d, Math.hypot(b.x - px, (b.y - py) * 1.6))
+      if (d >= BLOM_AVSTAND) return { x: px, y: py }
+      if (d > bd) {
+        bd = d
+        bast = { x: px, y: py }
+      }
+    }
+    return bast
+  },
+
+  // En hög är städad: en blomma spirar där den låg, och sparas. Full park → närmaste blomma hejar.
+  _sprout(ctx, pile) {
+    if (!this._alive || !this._parkLayer || this._parkLayer.destroyed) return
+    const hem = pile._hem || { x: pile.x, y: pile.y }
+    const nr = Math.min(this._collected, BLOM_TONER.length) - 1 // n:te blomman i rundan → n:te tonen
+    const ton = BLOM_TONER[Math.max(0, nr)]
+    if (this._blommor.length >= BLOMMOR_MAX) {
+      let n = null
+      let nd = Infinity
+      for (const b of this._blommor) {
+        const d = Math.hypot(b.x - hem.x, b.y - hem.y)
+        if (d < nd) {
+          nd = d
+          n = b
+        }
+      }
+      if (n) {
+        n.bump = 1
+        sparkle(ctx.fxLayer, n.x, n.y - 36, { count: 6 })
+      }
+      ctx.services.audio.tone({ freq: ton, dur: 0.16, type: 'sine', vol: 0.12, delay: BLOM_TON_DROJ_S })
+      return
+    }
+    const forst = this._blommor.length === 0
+    const sort = this._blomPase.nasta()
+    const p = this._blomPlats(hem.x, hem.y + 14)
+    this._planteraBlomma(p.x, p.y, sort, Math.floor(Math.random() * 2), Math.floor(Math.random() * 3), -BLOMMA_DROJ_S / BLOMMA_VAXER_S)
+    ctx.progress.setCustom('parkblommor', this._blommor.map((b) => b.rec))
+    ctx.services.audio.tone({ freq: ton, dur: 0.16, type: 'sine', vol: 0.12, delay: BLOM_TON_DROJ_S })
+    ctx.services.audio.tone({ freq: ton * 2, dur: 0.1, type: 'triangle', vol: 0.05, delay: BLOM_TON_DROJ_S + 0.07 })
+    ctx.later(BLOMMA_DROJ_S, () => {
+      if (this._alive) sparkle(ctx.fxLayer, p.x, p.y - 30, { count: 5 })
+    })
+    if (forst) {
+      // Köas efter Lovas jubel och övrigt tal (narTyst), i stället för att tystas av `talar`.
+      ctx.narTyst(() => {
+        if (this._alive && !this._resolving) ctx.services.voice.say('Titta, en blomma växer!')
+      })
+    }
+  },
+
+  _blomTick(dt) {
+    this._tid += dt
+    if (this._vag > 0) this._vag = Math.max(0, this._vag - dt / 2.2)
+    for (const b of this._blommor) {
+      if (!b.bl || b.bl.destroyed) continue
+      if (b.grow < 1) {
+        b.grow = Math.min(1, b.grow + dt / BLOMMA_VAXER_S)
+        const g = Math.max(0, b.grow)
+        b.bl.visible = g > 0
+        const u = g - 1
+        b.bl.scale.set(g >= 1 ? 1 : Math.max(0, 1 + 2.9 * u * u * u + 1.9 * u * u))
+      }
+      if (b.grow <= 0) continue
+      // Eget vagg i vila (egen fas per blomma) + vinkvåg över parken när rundan firas.
+      b.art.rotation = Math.sin(this._tid * 1.4 + b.fas) * 0.045 + Math.sin(this._tid * 7 - b.x * 0.012) * 0.14 * this._vag
+      if (b.bump > 0) {
+        b.bump = Math.max(0, b.bump - dt / 0.5)
+        b.art.scale.set(1 + 0.4 * Math.sin(b.bump * Math.PI))
+      }
     }
   },
 
@@ -1428,6 +1579,7 @@ export default {
     }
     if (this._dogTail && !this._dogTail.destroyed) gsap.killTweensOf(this._dogTail)
 
+    this._blommor = []
     gsap.killTweensOf(this._root)
     ctx?.services?.voice?.cancel?.()
     this._root?.destroy({ children: true })
@@ -1448,4 +1600,102 @@ function ritaBen() {
   g.eventMode = 'none'
   c.addChild(g)
   return c
+}
+
+// En ritad blomma med foten i origo: skugga + grön tuva (står still), och en `art` som vaggar med
+// `fig` inuti (bär storleken). Fem sorter med egen silhuett; `farg` väljer mellan två nyanser.
+const BLOMMA_PALETT = [
+  [0xffffff, 0xffd6e6], // tusensköna
+  [0xff6b9d, 0xff9a4a], // tulpan
+  [0xffd23f, 0xffb02e], // solros
+  [0x6a8dff, 0xa27bff], // blåklocka
+  [0xff4d4d, 0xff7a5c], // vallmo
+]
+const BLOMMA_STORLEK = [0.85, 1, 1.15]
+
+function ritaBlomma(sort, farg, stor) {
+  const bl = new Container()
+  const s = BLOMMA_STORLEK[stor] || 1
+  const mark = new Graphics()
+  mark.ellipse(0, 3, 17, 5).fill({ color: COLORS.shadow, alpha: 0.16 })
+  mark.ellipse(0, 1, 14, 4.5).fill({ color: 0x4fae51, alpha: 0.7 })
+  for (const dx of [-8, -2, 6]) {
+    mark.moveTo(dx, 1).quadraticCurveTo(dx + (dx < 0 ? -3 : 3), -6, dx + (dx < 0 ? -5 : 5), -10)
+      .stroke({ width: 2.5, color: 0x6ac96a, cap: 'round' })
+  }
+  mark.scale.set(s)
+  bl.addChild(mark)
+
+  const art = new Container()
+  const fig = new Container()
+  fig.scale.set(s)
+  art.addChild(fig)
+  bl.addChild(art)
+
+  const c = BLOMMA_PALETT[sort % BLOMMA_PALETT.length][farg ? 1 : 0]
+  const gron = 0x4fae51
+  const g = new Graphics()
+  const H = [50, 44, 64, 52, 46][sort % 5]
+  const stjalk = (lutning) => {
+    g.moveTo(0, 0).quadraticCurveTo(lutning, -H / 2, 0, -H).stroke({ width: 4.5, color: gron, cap: 'round' })
+  }
+  const blad = (riktning, y, l) => {
+    g.moveTo(0, y).quadraticCurveTo(riktning * l * 0.6, y - l * 0.9, riktning * l, y - l * 0.55)
+      .quadraticCurveTo(riktning * l * 0.5, y + 2, 0, y).fill(0x6ac96a)
+  }
+  if (sort === 0) {
+    // Tusensköna: åtta smala kronblad runt en gul mitt.
+    stjalk(3)
+    blad(-1, -10, 20)
+    blad(1, -16, 16)
+    for (let k = 0; k < 8; k++) {
+      const a = (k / 8) * Math.PI * 2
+      g.ellipse(Math.cos(a) * 11, -H + Math.sin(a) * 11, 8, 4.5).fill(c)
+    }
+    g.circle(0, -H, 7).fill(0xffd35c)
+  } else if (sort === 1) {
+    // Tulpan: en kopp med tre spetsar.
+    stjalk(-3)
+    blad(-1, -8, 24)
+    blad(1, -12, 22)
+    g.moveTo(-13, -H + 6).quadraticCurveTo(-16, -H - 14, -8, -H - 22)
+      .lineTo(0, -H - 10).lineTo(8, -H - 22).quadraticCurveTo(16, -H - 14, 13, -H + 6)
+      .quadraticCurveTo(0, -H + 18, -13, -H + 6).fill(c)
+    g.moveTo(-5, -H).quadraticCurveTo(-7, -H - 12, -3, -H - 17).stroke({ width: 2.5, color: 0xffffff, alpha: 0.4, cap: 'round' })
+  } else if (sort === 2) {
+    // Solros: tolv kronblad runt en stor brun mitt, hög stjälk med två stora blad.
+    stjalk(4)
+    blad(-1, -16, 28)
+    blad(1, -28, 26)
+    for (let k = 0; k < 12; k++) {
+      const a = (k / 12) * Math.PI * 2
+      g.ellipse(Math.cos(a) * 17, -H + Math.sin(a) * 17, 10, 5.5).fill(c)
+    }
+    g.circle(0, -H, 11).fill(0x7a4a2a)
+    g.circle(-3, -H - 3, 3).fill({ color: 0xffffff, alpha: 0.25 })
+  } else if (sort === 3) {
+    // Blåklocka: en nickande klocka på en böjd stjälk.
+    g.moveTo(0, 0).quadraticCurveTo(-6, -H * 0.6, 8, -H).stroke({ width: 4, color: gron, cap: 'round' })
+    blad(-1, -8, 20)
+    g.moveTo(-2, -H + 4).quadraticCurveTo(-8, -H + 12, -14, -H + 18)
+      .quadraticCurveTo(8, -H + 26, 26, -H + 18).quadraticCurveTo(20, -H + 10, 18, -H + 2)
+      .quadraticCurveTo(8, -H - 8, -2, -H + 4).fill(c)
+    g.ellipse(6, -H + 21, 15, 4).fill({ color: 0xffffff, alpha: 0.25 })
+  } else {
+    // Vallmo: fem runda kronblad kring en mörk mitt.
+    stjalk(-2)
+    blad(1, -10, 22)
+    for (let k = 0; k < 5; k++) {
+      const a = (k / 5) * Math.PI * 2 - Math.PI / 2
+      g.circle(Math.cos(a) * 10, -H + Math.sin(a) * 10, 10).fill(c)
+    }
+    g.circle(0, -H, 6).fill(0x3a2a2a)
+    for (let k = 0; k < 6; k++) {
+      const a = (k / 6) * Math.PI * 2
+      g.circle(Math.cos(a) * 9, -H + Math.sin(a) * 9, 1.5).fill(0xffd35c)
+    }
+  }
+  g.eventMode = 'none'
+  fig.addChild(g)
+  return { bl, art }
 }

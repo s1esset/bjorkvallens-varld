@@ -99,8 +99,8 @@ Allt programmatiskt, flugor flyttas i tickern (ingen GSAP → exit-säkra), depo
   nedsläpp fanns redan.
 
 ### Progression
-- **[Medium] "Ren park"-känsla.** För varje hög som städas: en liten blomma/grön fläck spirar
-  där den låg, så planen blir synligt finare över rundan — konkret progress utöver mätaren.
+- ✅ ~~**[Medium] "Ren park"-känsla.**~~ Klar 2026-10-03 (U3) — parken blommar där den städats och
+  minns det över sessioner; se §5.
 
 ### Karaktär & berättelse
 - ✅ ~~**[Deep] Lova i scenen.**~~ Redan byggd (grinden, `_lovaCheer`; byggd 2026-08-06, se §5) —
@@ -120,6 +120,19 @@ Allt programmatiskt, flugor flyttas i tickern (ingen GSAP → exit-säkra), depo
 
 ## 5. Status / loggar
 
+- 2026-10-03 🌼 **U3: parken minns — den blommar där den städats** (`index.js`, `_sprout`/`_laddaPark`/
+  `_blomTick`, `ritaBlomma`). Varje hög som hamnar i tunnan lämnar en grön tuva och en blomma på
+  platsen där den LÅG (`pile._hem`, satt vid upplockningen — för hand och med auto-skyffel). Fem sorter
+  med egen silhuett (tusensköna, tulpan, solros, blåklocka, vallmo) lottas ur en `pase` (U1) så alla
+  syns innan någon återkommer; färg (2) och storlek (3) slumpas, platsen nuddas undan från grannar
+  (≥ 44 px). Blommorna står kvar i nästa runda OCH sparas i `custom.parkblommor` (lista av
+  `[x, y, sort, färg, storlek]`; `hogar` och övriga nycklar är oförändrade) — vid nästa mount "vaknar"
+  parken (blommorna växer upp en och en) och berättaren säger "Titta, blommorna är kvar!". Tak 60:
+  är parken full spirar inget nytt, närmaste blomma hejar (studs + gnistor) — inget sparat tas bort.
+  Blommorna växer med en `back`-kurva, vaggar i vila med egen fas och vinkar i en våg över parken
+  när rundan firas — allt i tickern (inga tweens), `eventMode='none'` (träffar aldrig skyffel/valp).
+  n:te blomman i rundan spelar n:te tonen i en C-durs-pentatonik. Första blomman någonsin: "Titta, en
+  blomma växer!". Kastet (D9) är orört. Syns efter EN hög (första högen i första rundan).
 - 2026-10-02 🎯 **D9/G2: kast ur skyffeln (bonus)** (`lib/pekspar.js`). Släpps skyffeln MED FART medan den bär en
   hög (≥ 11 px/steg ≈ 660 px/s, tak 22) flyger högen i en båge (`_kasta` → `_stegFlyg` i tickern,
   tyngdkraft 0,22 px/steg², ritningen snurrar) i stället för att tappas där den är. Går bågen in i

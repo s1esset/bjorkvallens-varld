@@ -42,6 +42,7 @@ import { Button } from '../../lib/Button.js'
 import { burst, kvittera, pop, puff, ripple, sparkle, wiggle } from '../../lib/feedback.js'
 import { COLORS, PLAYFUL } from '../../lib/theme.js'
 import { randomFrom, shuffle } from '../../lib/swedish.js'
+import { nastaVariant, pase } from '../../lib/variation.js'
 
 const ANS_H = 320
 const LAGEN = 5           // fem vakenlägen; `_vaken` går 0 … 4
@@ -136,6 +137,17 @@ const ROST = {
 
 const REGN_SLINGA = 'vaknapappa-regn'
 
+// SÖMNSTEGEN 2–4 har tre sätt var (läge 1 = djupsömn och 5 = gäspningen är fasta ändar). Varje
+// gång han går upp ett läge lottas nästa sätt ur en PÅSE (lib/variation.js): alla tre syns innan
+// något återkommer, och samma sätt kommer aldrig två gånger i rad — inte heller över omgångarna.
+// Mätaren, takten och verkan är oförändrade; det som varierar är MINEN, rörelsen, lätet och
+// berättarens replik. I läge 3 växlar dessutom VILKET öga som är öppet.
+const LAGE_SATT = {
+  2: ['tveka', 'vand', 'mumla'],
+  3: ['lyss', 'kisa', 'spana'],
+  4: ['forvanad', 'skeptisk', 'letar'],
+}
+
 // Hur länge saken stannar kvar hos pappa innan den far hem till hyllan. Fjädern KRYPER en
 // sträcka (tre nedslag, 0,42 s isär) och hunden hinner skälla, vända sig om och prutta —
 // far de hem efter standardens 0,62 s rycks de bort mitt i sin egen mekanism.
@@ -206,6 +218,9 @@ export default {
     this._bokKvar = 3
     this._tomKnappar = 0
     this._sistLjudDx = 0
+    // Färska påsar per montering (aldrig kvar från förra gången) — och mellan omgångarna lever de.
+    this._lagePase = { 2: pase(LAGE_SATT[2]), 3: pase(LAGE_SATT[3]), 4: pase(LAGE_SATT[4]) }
+    this._ettOga = null // läge 3: vilket öga som är öppet ('v' | 'h')
 
     this._root = new Container()
     ctx.stage.addChild(this._root)
@@ -1472,7 +1487,7 @@ export default {
     this._vaken = Math.max(0, this._vaken - 1)
     const nu = this._niva()
     if (nu === forr) return
-    this._satLage(ctx, nu)
+    this._satLage(ctx, nu, { nedat: true }) // somnar om: inga uppvaknande-sätt (de äter påsens poster)
     // Repliken varannan gång: en röst som säger samma sak var nionde sekund blir tapet,
     // och bilden (månen som kryper upp igen) säger redan allt.
     this._somnRepliker += 1
@@ -1581,7 +1596,7 @@ export default {
    *    varje anrop registrerar också en evig tween i riggens ringbuffert. Den rensas numera
    *    på `tw.parent`; att den faktiskt gör det mäts med `scripts/_somnprobe.mjs`.
    */
-  _satLage(ctx, n, { tyst = false } = {}) {
+  _satLage(ctx, n, { tyst = false, nedat = false } = {}) {
     const a = this._ans
     if (!a) return
     a.liv(true, { takt: TAKT[Math.max(0, Math.min(TAKT.length - 1, n - 1))] })
@@ -1589,23 +1604,75 @@ export default {
     //    grimas täcker alltså de slutna ögonlocken helt: `blunda()` skriver på ett lager
     //    ingen ser, och han "sover" med vidöppna ögon och öppen mun.
     if (n <= 3) a.slappMin?.()
+    // Läge 3: växla vilket öga som är öppet (aldrig samma som förra gången han var här).
+    if (n === 3) this._ettOga = nastaVariant(['h', 'v'], this._ettOga)
     this._satOgon(n)
 
-    if (tyst) return
-    if (n === 2) {
+    if (tyst || nedat) return
+    const satt = this._lagePase?.[n]?.nasta()
+    if (satt) this._lageSatt(ctx, a, satt)
+  },
+
+  /** Ett av tre sätt att nå läge 2, 3 eller 4 (se `LAGE_SATT`). Samma mätare, olika show. */
+  _lageSatt(ctx, a, satt) {
+    // Ljudkällans sida; saknas den lottas en, så blicken ändå går ÅT NÅGOT håll.
+    // Tecken + minst 0,5 i styrka: nära mitten hamnar blicken annars i dödzonen (0,16) och tittar rakt fram.
+    const dx = this._sistLjudDx || 0
+    const sida = Math.sign(dx || (Math.random() < 0.5 ? -1 : 1)) * Math.max(0.5, Math.abs(dx))
+    const efter = (s, fn) => ctx.later(s, () => { if (this._alive && this._ans === a) fn() })
+    if (satt === 'tveka') {
       a.tveka({ vinkel: 0.045, varv: 2, tid: 0.24 })
       this._sagPappa(ctx, 'hmm')
       this._sag(ctx, 'Titta, han rör på sig!')
-    } else if (n === 3) {
+    } else if (satt === 'vand') {
+      // Han vänder på sig, bort från ljudet, och rullar tillbaka.
+      this._luta(ctx, sida > 0 ? -0.6 : 0.6, 0.4)
+      const tok = this._lutTok // återgången körs bara om ingen nyare lutning hunnit starta
+      efter(1.4, () => { if (this._lutTok === tok) this._luta(ctx, 0, 0.6) })
+      this._sagPappa(ctx, 'mmm')
+      this._sag(ctx, 'Han vänder på sig!')
+    } else if (satt === 'mumla') {
+      // Han muttrar i sömnen — en sur min (som bär slutna ögon) och ett litet nick.
+      a.min('sur', { hall: 0.8 })
+      this._sagPappa(ctx, 'surt')
+      this._sag(ctx, 'Hör du? Han mumlar!')
+    } else if (satt === 'lyss') {
       // Det öppnade ögat tittar på det som lät.
       a.blick(this._sistLjudDx || 0, 0.25)
       this._sagPappa(ctx, 'ehh')
       this._sag(ctx, 'Ett öga är öppet! Fortsätt.')
-    } else if (n === 4) {
+    } else if (satt === 'kisa') {
+      // Det öppna ögat tittar först åt FEL håll — och hittar sedan ljudet.
+      a.blick(-sida, 0.15)
+      efter(0.8, () => a.blick(sida, 0.25))
+      this._sagPappa(ctx, 'huh')
+      this._sag(ctx, 'Han kisar! Fortsätt.')
+    } else if (satt === 'spana') {
+      // Ögat sveper över rummet: neråt, och sedan mot ljudet.
+      a.blick(0, 0.8)
+      efter(0.7, () => a.blick(sida, 0.2))
+      a.tveka({ vinkel: 0.035, varv: 2, tid: 0.3 })
+      this._sagPappa(ctx, 'hmm')
+      this._sag(ctx, 'Ett öga tittar på dig!')
+    } else if (satt === 'forvanad') {
       a.slappMin?.()
       a.min('forvanad', { hall: 1.1 })
       a.nick()
       this._sagPappa(ctx, 'ehh')
+    } else if (satt === 'skeptisk') {
+      a.slappMin?.()
+      a.min('skeptisk', { hall: 1.3 })
+      a.tveka({ vinkel: 0.05, varv: 2, tid: 0.2 })
+      this._sagPappa(ctx, 'huh')
+    } else if (satt === 'letar') {
+      // Ingen min — bara blicken som letar efter var han är, och en nick.
+      a.slappMin?.()
+      a.blick(-0.9, 0.1)
+      efter(0.65, () => a.blick(0.9, 0.1))
+      efter(1.3, () => a.blick(0, 0))
+      a.nick({ djup: 8 })
+      this._sagPappa(ctx, 'ehh')
+      this._sag(ctx, 'Han undrar var han är!')
     }
   },
 
@@ -1617,6 +1684,7 @@ export default {
    */
   _luta(ctx, mal, tid = 0.4) {
     if (!this._alive || !this._ans) return
+    this._lutTok = (this._lutTok || 0) + 1
     this._lutTw?.kill()
     const st = { v: this._lutNu || 0 }
     this._lutTw = gsap.to(st, {
@@ -1636,7 +1704,7 @@ export default {
     const a = this._ans
     if (!a) return
     if (n <= 2) a.blunda({ v: true, h: true })
-    else if (n === 3) a.blunda({ v: true, h: false })
+    else if (n === 3) a.blunda(this._ettOga === 'v' ? { v: false, h: true } : { v: true, h: false })
     else a.blunda({ v: false, h: false })
   },
 

@@ -241,8 +241,9 @@ till bakänden av röret. Uppmätt: linsen pekar 156°, mot målet är 158°, fe
   två små snus-toner (E5 → G5) i takt med gap-pulserna, ovanpå den varma doft-tonen.
 
 **Variation**
-- **[Medium] Sömnstegen 1→5 spelas identiskt varje omgång** — samma repliker, samma miner i
-  samma ordning. Verktygsordningen och wow-läget är den enda variationen som finns.
+- ✅ ~~**[Medium] Sömnstegen 1→5 spelas identiskt varje omgång.**~~ Klar 2026-10-03 (U3) — läge
+  2, 3 och 4 har tre sätt var, lottade ur en `pase` (U1); se §5. (Verktygsordningen per hyllsida
+  lottades redan, `shuffle` `index.js:320`.)
 
 **Karaktär**
 - **[Quick] Trumpetens "luggen flyger rakt upp" är approximerad.** Spec-kortet vill ha håret
@@ -259,6 +260,18 @@ till bakänden av röret. Uppmätt: linsen pekar 156°, mot målet är 158°, fe
   i bruk samma dag de läggs i `public/audio/sfx/`. ⛔ Kräver ägarens inspelningar.
 
 ## 5. Status / loggar
+
+- 2026-10-03 🎲 **U3: sömnstegen varierar** (`LAGE_SATT`, `_lageSatt`, `_satLage`). Läge 2/3/4 hade
+  EN fast show var (min, rörelse, läte, replik). Nu tre sätt per läge, lottade ur en `pase` per läge
+  (`this._lagePase`, färsk i `init`, lever mellan omgångarna): **läge 2** tveka ("Titta, han rör på
+  sig!") · vänder på sig bort från ljudet ("Han vänder på sig!") · mumlar med sur min ("Hör du? Han
+  mumlar!") — **läge 3** blicken mot ljudet ("Ett öga är öppet! Fortsätt.") · tittar först fel håll,
+  hittar sedan ljudet ("Han kisar! Fortsätt.") · sveper neråt och sedan mot ljudet ("Ett öga tittar på
+  dig!") — **läge 4** förvånad+nick · skeptisk min+tveka · ingen min, blicken letar vänster–höger
+  ("Han undrar var han är!"). I läge 3 växlar dessutom VILKET öga som är öppet (`_ettOga`, `nastaVariant`,
+  aldrig samma som sist). Mätaren, andningstakten, `_hoj`/`_sank`-taken och verkan är orörda; djupsömn
+  (1) och gäspningen (5) är fasta ändar. Nya sätt dör med spelet (`ctx.later`, guard på `this._ans`).
+  Ej mätt i webbläsare av byggaren (körs av orkestreraren): vilka sätt som visas över flera väckningar.
 
 - 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): finalen spelade ett eget vinstljud i
   samma tick som `complete()` — struket (värdet firar). Ordningen `complete()` → "God morgon,

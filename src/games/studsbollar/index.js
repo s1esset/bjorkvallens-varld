@@ -27,6 +27,7 @@ import { groundFill } from '../../lib/form.js'
 import { randomFrom } from '../../lib/swedish.js'
 import { slumpIBand } from '../../lib/variation.js'
 import { valjEgna, byggEgenFigur, presentera } from '../../lib/egnafigurer.js'
+import { Gungkorg } from './korg.js'
 
 const FLOOR_Y = 648 // golvets ovansida (design-y)
 const LAUNCH = { x: 205, y: 512 } // avskjutningsplattans boll-position
@@ -189,9 +190,15 @@ export default {
     this._basketView.eventMode = 'none'
     this._basketGlow = new Graphics()
     this._basketGlow.eventMode = 'none'
-    this._basketView.addChild(this._basketGlow)
+    // Korgen gungar (F1): glöd + flätkorg bor i `_basketSway`, som vrids kring korgens fot —
+    // gångjärnet i fysiken (`_korg`, korg.js). `_basketView` behåller squash-tweenen (gulp).
+    this._basketSway = new Container()
+    this._basketSway.eventMode = 'none'
+    this._basketSway.addChild(this._basketGlow)
+    this._basketView.addChild(this._basketSway)
     this._root.addChild(this._basketView)
-    this._basket = { x: 950, openingY: 500, scale: 1, sensor: null, rimL: null, rimR: null }
+    this._basket = { x: 950, openingY: 500, scale: 1 }
+    this._korg = null
 
     // Mottagaren Bobo (ritad) — placeras/flyttas i _setBasket.
     this._catcher = makeCatcher()
@@ -325,12 +332,16 @@ export default {
     this._basket.scale = scale
     this._basket.openingY = openingY
 
-    // Visuell korg.
-    for (const c of [...this._basketView.children]) {
-      if (c !== this._basketGlow) c.destroy()
-    }
-    this._basketView.addChild(makeBasket(scale))
+    // Visuell korg. Bara själva korgbilden rivs — en boll som är på väg ner i korgen bor i
+    // `_basketSway` och städar sig själv.
+    if (this._korgBild && !this._korgBild.destroyed) this._korgBild.destroy({ children: true })
+    this._korgBild = makeBasket(scale)
+    this._basketSway.addChildAt(this._korgBild, 0) // under glöden, som förut
     this._basketView.position.set(x, openingY)
+    // Korgen vrids kring sin fot (marken under den) — samma punkt som gångjärnet.
+    this._basketSway.pivot.set(0, FLOOR_Y - openingY)
+    this._basketSway.position.set(0, FLOOR_Y - openingY)
+    this._basketSway.rotation = 0
 
     // Bobo står bredvid korgen och tar emot: han vinkar medan man siktar, sträcker upp
     // armarna och jublar när bollen landar. Han flyttar med korgen mellan nivåerna.
@@ -355,18 +366,9 @@ export default {
     this._basketGlow.scale.set(1)
     this._basketTween = gsap.to(this._basketGlow.scale, { x: 1.18, y: 1.18, duration: 1.2, yoyo: true, repeat: -1, ease: 'sine.inOut' })
 
-    // Fysik-kroppar: sensor i öppningen + två studskanter på korgkanten.
-    const { sensor, rimL, rimR } = this._basket
-    if (sensor) this._phys.removeBody(sensor)
-    if (rimL) this._phys.removeBody(rimL)
-    if (rimR) this._phys.removeBody(rimR)
-    this._basket.sensor = this._phys.rectangle(x, openingY + 38 * scale, 110 * scale, 44 * scale, {
-      isStatic: true,
-      isSensor: true,
-      label: 'basket',
-    })
-    this._basket.rimL = this._phys.circle(x - 70 * scale, openingY, 12 * scale, { isStatic: true, restitution: 0.55, label: 'rim' })
-    this._basket.rimR = this._phys.circle(x + 70 * scale, openingY, 12 * scale, { isStatic: true, restitution: 0.55, label: 'rim' })
+    // Fysik: sensor i öppningen + två kanter, nu EN gungande kropp på ett gångjärn (korg.js).
+    this._korg?.destroy()
+    this._korg = new Gungkorg(this._phys, { x, golvY: FLOOR_Y, oppningY: openingY, scale })
   },
 
   // ---- Redo att skjuta -----------------------------------------------------
@@ -484,7 +486,7 @@ export default {
         if (!this._alive) return
         this._shot = null
         this._flying = false
-        this._registerScore(ctx, view, { isShot: true, speed: 6 })
+        this._registerScore(ctx, view, { isShot: true, speed: 6, vx: 6 })
       },
     })
   },
@@ -630,6 +632,7 @@ export default {
     body._scored = true
     const isShot = this._shot && body === this._shot.body
     const speed = body.speed || Math.hypot(body.velocity?.x || 0, body.velocity?.y || 0)
+    const vx = body.velocity?.x || 0
     const special = body.special || null
     let view = null
     if (isShot) {
@@ -644,14 +647,19 @@ export default {
       }
     }
     this._phys.removeBody(body)
-    this._registerScore(ctx, view, { isShot, speed, special })
+    this._registerScore(ctx, view, { isShot, speed, special, vx })
   },
 
   // Gemensam "boll i korgen"-hantering (skott, fri boll eller hjälp-lobb).
-  _registerScore(ctx, view, { isShot = false, speed = 0, special = null } = {}) {
+  _registerScore(ctx, view, { isShot = false, speed = 0, special = null, vx = 1 } = {}) {
     if (!this._alive) return
-    const bx = this._basket.x
-    const by = this._basket.openingY
+    // Öppningen där den är JUST NU — korgen gungar, så effekterna följer med den.
+    const op = this._korg ? this._korg.oppning() : { x: this._basket.x, y: this._basket.openingY }
+    const bx = op.x
+    const by = op.y
+    // Bollen försvann ur fysiken i samma stund (spelet tar bort kroppen), så ingen gungning kan
+    // kasta ut den — i stället knuffar den korgen: toppen far åt bollens håll, hårdare ju snabbare.
+    this._korg?.knuff(Math.sign(vx || 1), clamp(speed / 20, 0.35, 1))
 
     // Kombo: bollar som går i korgen tätt efter varandra (en boll knuffar en boll)
     // ger en UPPÅTklättrande pling-kaskad i stället för tystade studsar.
@@ -685,7 +693,14 @@ export default {
       gsap.killTweensOf(view)
       gsap.killTweensOf(view.scale)
       this._malflykt.add(view)
-      gsap.to(view, { x: bx, y: by + 24, duration: 0.2, ease: 'power2.in' })
+      // Bollens bild flyttar in i korgens EGEN container och åker med varje gungning.
+      const sv = this._basketSway
+      if (sv && !sv.destroyed && view.parent) {
+        const lp = sv.toLocal(view.getGlobalPosition())
+        sv.addChild(view)
+        view.position.set(lp.x, lp.y)
+      }
+      gsap.to(view, { x: 0, y: 24 * this._basket.scale, duration: 0.2, ease: 'power2.in' })
       gsap.to(view.scale, {
         x: 0.2,
         y: 0.2,
@@ -871,6 +886,7 @@ export default {
     if (!this._alive) return
     const dt = t.deltaMS / 1000
     this._phys.update(t.deltaMS)
+    if (this._korg && this._basketSway && !this._basketSway.destroyed) this._basketSway.rotation = this._korg.vinkel
     // Barnets figur vid korgen följer bollen med blicken: skottet i luften, annars bollen
     // som väntar på att skjutas. I fångarens EGET rum — containern speglas per nivå.
     const fang = this._egenFang
@@ -940,6 +956,8 @@ export default {
     this._avDrift = null
     this._unbindCollision?.()
     this._launcher?.destroy()
+    this._korg?.destroy() // före phys.destroy(): river leden och kroppen
+    this._korg = null
 
     this._dropTimer?.kill()
     this._afterTimer?.kill()

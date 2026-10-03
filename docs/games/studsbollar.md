@@ -74,8 +74,8 @@ betyder något, och korgen saknar mottagare/själ.
 ### Variation & överraskning
 - ✅ ~~**[Quick] Specialbollar.**~~ Redan byggd 2026-07-01 (`index.js:36`, `SPECIAL_CYCLE`) —
   uppdagat 2026-09-23.
-- **[Quick] Varierande korgplacering** finns redan (flyttar/krymper) — lägg till att korgen
-  ibland sitter på en liten *kulle* eller gungar långsamt i sidled på högre nivåer.
+- **[Quick] Varierande korgplacering** finns redan (flyttar/krymper). ✅ ~~gungar~~ byggd 2026-10-02
+  (F1, `korg.js`: korgen vaggar på ett gångjärn). Kvar: korgen på en liten *kulle* (valfritt, [Quick]).
 
 ### Juice
 - ✅ ~~**[Quick] Stigande kombo-ljud.**~~ Redan byggd 2026-07-01 (`index.js:43`, `COMBO_SCALE` +
@@ -153,3 +153,12 @@ betyder något, och korgen saknar mottagare/själ.
 - 2026-10-01 · **Barnets egna figurer (LYFTPLAN §10, v1.285.0).** Fångaren byts per nivå (`_bytFangare`): varannan nivå står barnets EGET knytt eller kompis vid korgen inuti `_catcher` (den ritade Bobo döljs), följer bollen med blicken och jublar i `_catcherCheer` (heja / jubel). Spelet äger fortfarande den yttre containern. Sond: `scripts/_egnafigurprobe.mjs` (41/41).
 - 2026-10-02 · **U2 korg och mål-bollar inom band (FYSIKPLAN omgång 0).** Korgens x slumpas ±40 runt nivåns värde med golv 820 (nivåns första läge) och tak 1110 (en aning över nivåernas 1095); mål-bollarna på 520/650/780 slumpas ±30 vardera (grannar 130 px isär → aldrig i varandra) och hålls ≥ 40 px till vänster om korgens mitt, som förut, så ingen mål-boll poängar av sig själv. Skala, antal och specialcykel orörda. Hängande i §4: korgen på en kulle/gungande korg (F1) återstår.
 - 2026-10-02 ✅ **T2: gropbollarnas drift per fysiksteg** (v1.361.0): driften flyttad ur tickern till `phys.beforeStep` (`_driftSteg`) — 57 fps-fysiken blir 60 Hz-fysik. `_taktprobe` (seed 7, 8 s): HEAD 30 Hz slutade 80 px ifrån 60 Hz, nu identiskt.
+- 2026-10-02 · **F1 gungande korg (D16 B3).** Korgen är nu EN sammansatt kropp (två kantcirklar + sensorn, `korg.js`) på ett
+  gångjärn i marken under den (`phys.gangjarn`) med vridfjäder (`g.vridfjader`, period 0,9 s, ζ 0,22): en boll som slår i kanten eller dyker
+  ner i korgen vaggar den ~8–11 px och den fjädrar tillbaka och blir stilla på ~2 s. Spärrar: mjuk gräns (fjädern stelnar) + hård gräns
+  (vinkeln fastnar, kanten ≤ 18 px), tyngden borttagen i `beforeStep`, tyngdpunkten i gångjärnet (en ballast-sensor inne i golvet — utan den
+  skenar lösaren: 34 kg 142 px från leden gav vinkel 10²⁰⁰ på åtta steg). Kantcirklarna har `restitution 0 · friktion 1` = vad den gamla
+  statiska kanten EFFEKTIVT hade (setStatic nollade 0,55), så studsen mot kanten är oförändrad (full fart: 23,8 / 23,2 px/steg tillbaka, lika HEAD).
+  Fångade bollar: en boll som gör mål lämnar fysiken direkt (som förut) och dess bild flyttas in i korgens egen container, så den åker
+  med varje gungning; gungningen kan alltså aldrig kasta ut en fångad boll. Sond (Node): `node scripts/_dag-studsbollar-korg.mjs 600` — kontrollarm
+  = HEAD:s statiska korg (0,00 px), träffandel 47,2 % mot HEAD 46,7 % över 600 siktade skott, 0 bollar utanför bild, 0 dubbelmål, gångjärnsglapp 0,000 px.

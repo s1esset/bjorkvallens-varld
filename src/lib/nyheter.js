@@ -10,6 +10,23 @@
 
 export const NYHETER = [
   {
+    version: '1.450',
+    fran: '1.442',
+    datum: '2026-10-03',
+    titel: 'Saker som gungar, svänger och flyter',
+    punkter: [
+      'I Saftbaren flyter isbitar på saften. Barnet trycker på isbyttan för att lägga i fler.',
+      'I Vattenvägen får vattnet ett skovelhjul under kranen att snurra.',
+      'Snurrskivan i Flipperspel sitter på ett riktigt gångjärn och snurrar när kulan träffar den.',
+      'Klockan i Domino svänger som en pendel i sitt gångjärn.',
+      'Korgen i Studsbollar hänger i ett gångjärn och gungar när en boll landar i den.',
+      'I Rulla Bollen Hem svänger en grind fram och tillbaka och kommer i vägen. Barnet väntar tills den svänger undan.',
+      'Bland piggarna i Studsa Ner sitter snurror på gångjärn. Ju längre ner, desto fler.',
+      'Frukten i Fånga Frukten hänger och gungar i skaftet en stund innan den släpper.',
+      'I Spindelhjälten svajar studsknoppen på en fjäder när hjälten slår i den.',
+    ],
+  },
+  {
     version: '1.441',
     fran: '1.434',
     datum: '2026-10-03',

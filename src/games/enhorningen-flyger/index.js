@@ -23,6 +23,8 @@ import { COLORS, PLAYFUL, FONT } from '../../lib/theme.js'
 import { randomFrom, shuffle } from '../../lib/swedish.js'
 import { makeElvira } from '../../lib/figurer.js'
 import { bage } from '../../lib/form.js'
+import { nyKolumn, luftHos, uppvindSteg, KOL_HALV, KOL_BOTTEN, KOL_LUFT } from './uppvind.js'
+import { nyUppvindsvy } from './uppvindbild.js'
 import { sparkle, puff, wiggle, pop, bounceIn, breathe, floatText, burst, kvittera, liv } from '../../lib/feedback.js'
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
@@ -111,6 +113,11 @@ export default {
     this._starTws = [] // stjärnor på väg ner i säcken
     this._sackN = ctx.progress.get().custom?.stjarnor | 0 // sparat mellan rundor
     this._kinds = []
+    this._uppv = [] // uppvindspelare på banan: { vind: Vindfalt, vy, x, topY }
+    this._lyftK = 0 // hur starkt uppvinden blåser på henne just nu (0..1, mjukad)
+    this._uppPa = false // är hon i en pelare (för ljudet vid inträdet)
+    this._uppSagt = false // utropet sägs en gång per bana
+    this._wingP = 0 // vingens egen fas (flaxar snabbare i uppvind)
 
     this._root = new Container()
     ctx.stage.addChild(this._root)
@@ -139,6 +146,12 @@ export default {
     this._gate.position.set(PORT_FAR, PORT_Y)
     this._root.addChild(this._gate)
     this._applyGoal()
+
+    // Uppvindens luftpelare ligger bakom ringar och stjärnor, framför himlen.
+    this._uppLayer = new Container()
+    this._uppLayer.eventMode = 'none'
+    this._uppLayer.interactiveChildren = false
+    this._root.addChild(this._uppLayer)
 
     // Fält för ringar + stjärnor.
     this._field = new Container()
@@ -498,6 +511,9 @@ export default {
     this._dist = 0
     this._resolving = false
     this._trail.length = 0
+    this._uppSagt = false
+    this._lyftK = 0
+    this._uppPa = false
 
     // Ny himmel per nivå, och resans port långt borta igen.
     this._setSky(ctx, TIDER[L % TIDER.length])
@@ -524,9 +540,19 @@ export default {
         q.push({ type: 'star', gap: 130, y: a + (b - a) * t - Math.sin(t * Math.PI) * 80 })
       }
     }
+    let forraY = null
     for (let i = 0; i < n; i++) {
       const y = zig ? LO : HI
-      q.push({ type: 'ring', kind: kinds[i], gap: i === 0 ? 220 : i % 3 === 0 ? 280 : 380, y })
+      let ringGap = i === 0 ? 220 : i % 3 === 0 ? 280 : 380
+      // Uppvind: en luftpelare strax före en ring som sitter HÖGRE än den förra — lyft åt det håll hon
+      // ändå ska. Pelaren tar en del av ringens lucka (takten är oförändrad), toppen ligger vid ringens höjd.
+      if (forraY != null && y < forraY) {
+        const wg = Math.min(ringGap - 140, 170 + Math.random() * 60)
+        q.push({ type: 'upp', gap: wg, topY: clamp(y + (Math.random() * 40 - 20), 240, 540), halv: KOL_HALV - 6 + Math.random() * 16 })
+        ringGap -= wg
+      }
+      q.push({ type: 'ring', kind: kinds[i], gap: ringGap, y })
+      forraY = y
       zig = !zig
       // Stjärn-båge som leder från senaste ringen mot nästa rings höjd.
       if (stars > 0) arc(y, zig ? LO : HI, stars + 1)
@@ -655,11 +681,17 @@ export default {
     this._t += dt
     const uni = this._uni
     if (!uni || uni.destroyed) return
+    const speed = (this._slow ? 1.5 : 2.6) * dt
+
+    // 0. Uppvinden: pelarna glider med världen; luften vid henne läses ur samma Vindfalt som bilden ritas av.
+    const luft = this._stegaUppvind(ctx, speed, dt)
 
     // 1. Styr-input: fjäder mot fingret.
     if (this._steering) this._vy += (clamp(this._fingerY, Y_MIN, Y_MAX) - uni.y) * STEER * dt // (oförändrad flygfysik)
     // 2. Dämpning (glid-momentum).
     this._vy *= Math.pow(DAMP, dt)
+    // 2b. Uppvind: luftens fart mot hennes (motstånd relativt luften) — hon lyfts, fingret styr ändå.
+    this._vy = uppvindSteg(this._vy, luft, dt, DAMP)
     // 3. Mjuk auto-magnet mot nästa opassade ring (förlåtande sikte).
     const nextRing = this._nextRing()
     if (nextRing) {
@@ -691,12 +723,13 @@ export default {
     this._uniEmoji.scale.set(1, 1 + Math.sin(gallop) * 0.05)
     // Vingen flaxar i galoppens takt (den var en egen nod för just det, men stod still).
     const wing = this._uniEmoji._wing
-    if (wing && !wing.destroyed) wing.rotation = Math.sin(gallop) * 0.32
+    // I uppvind flaxar vingen snabbare och högre (egen fas, så takten byts utan hopp).
+    this._wingP += dt * 0.28 * (1 + 1.6 * this._lyftK)
+    if (wing && !wing.destroyed) wing.rotation = Math.sin(this._wingP) * (0.32 + 0.22 * this._lyftK)
     const aim = nextRing ? clamp((nextRing.ry - uni.y) * 0.0016, -0.13, 0.13) : 0
     this._uniEmoji.rotation = clamp(this._vy * 0.01 + aim, -0.22, 0.22)
 
     // 7. Världs-scroll.
-    const speed = (this._slow ? 1.5 : 2.6) * dt
     for (const c of this._parallax.children) {
       c.x -= speed * 0.45
       if (c.x < -150) c.x = 1430 + Math.random() * 60
@@ -770,13 +803,14 @@ export default {
       const item = this._toSpawn.shift()
       this._dist = 0
       if (item.type === 'ring') this._spawnRing(ctx, item.y, item.kind)
+      else if (item.type === 'upp') this._spawnUppvind(item)
       else this._spawnStar(ctx, item.y)
     }
 
     // Glitter-svans bakom henne när hon rör sig — tätare/bredare vid hög fart.
     this._tailT += tk.deltaMS || 16.67
-    const fast = Math.abs(this._vy) > 6
-    if ((this._steering || Math.abs(this._vy) > 1.5) && this._tailT > (fast ? 130 : 250)) {
+    const fast = Math.abs(this._vy) > 6 || this._lyftK > 0.5
+    if ((this._steering || Math.abs(this._vy) > 1.5 || this._lyftK > 0.3) && this._tailT > (fast ? 130 : 250)) {
       this._tailT = 0
       sparkle(this._tail, UNI_X - 52, uni.y + (Math.random() - 0.5) * (fast ? 40 : 24), { count: fast ? 5 : 3 })
     }
@@ -789,6 +823,77 @@ export default {
       this._idle = 0
       this._recue(ctx)
     }
+  },
+
+  // ---- Uppvind -------------------------------------------------------------
+
+  // Pelarna glider med världen (x), luften vid enhörningen läses ur `Vindfalt` (uppvind.js — samma tal
+  // som bilden ritas av) och returneras som lufthastighet (px/bildruta, ≤ 0). Reaktionen (ljud, vinge,
+  // gnistor) hänger på den mjukade styrkan `_lyftK`.
+  _stegaUppvind(ctx, speed, dt) {
+    const lista = this._uppv
+    const uni = this._uni
+    const tS = this._t / 60
+    for (let i = lista.length - 1; i >= 0; i--) {
+      const u = lista[i]
+      u.x -= speed
+      if (u.x < -(u.halv + 90)) {
+        this._rivEnUppvind(u)
+        lista.splice(i, 1)
+        continue
+      }
+      u.vind.flytta(u.x, KOL_BOTTEN)
+      u.vy.rot.x = u.x
+    }
+    const l = luftHos(lista.map((u) => u.vind), UNI_X, uni.y)
+    const w = l.w
+    this._lyftK += (l.k - this._lyftK) * Math.min(1, 0.2 * dt)
+    for (const u of lista) {
+      const o = u.vind.luftVid(UNI_X, uni.y)
+      const k = o ? Math.min(1, -o.vy / KOL_LUFT) : 0
+      u.vy.uppdatera(tS, k, clamp((SPAWN_X - u.x) / 90, 0, 1))
+    }
+    if (l.k > 0.25 && !this._uppPa) {
+      this._uppPa = true
+      this._uppInne(ctx)
+    } else if (l.k < 0.08) {
+      this._uppPa = false
+    }
+    return w
+  },
+
+  // Hon flyger in i en luftpelare: stigande klang (stämd, G4 → G5), gnistor och ett hopp av Elvira.
+  _uppInne(ctx) {
+    if (!this._alive) return
+    const au = ctx.services.audio
+    au.tone({ freq: 392, slideTo: 784, dur: 0.38, type: 'sine', vol: 0.2 })
+    au.tone({ freq: 587, slideTo: 1175, dur: 0.3, type: 'triangle', vol: 0.1, delay: 0.08 })
+    sparkle(ctx.fxLayer, UNI_X, this._uni.y + 24, { count: 6 })
+    if (this._rider && !this._rider.destroyed) pop(this._rider, { scale: 1.1 })
+    if (!this._uppSagt && !ctx.services.voice.talar) {
+      this._uppSagt = true
+      ctx.services.voice.say('Uppåt med vinden!')
+    }
+  },
+
+  _spawnUppvind(item) {
+    if (!this._alive) return
+    const vy = nyUppvindsvy(item.topY, item.halv, Math.random())
+    vy.rot.x = SPAWN_X
+    vy.uppdatera(this._t / 60, 0, 0) // före första bilden: löven ska inte stå i origo
+    this._uppLayer.addChild(vy.rot)
+    const vind = nyKolumn({ topY: item.topY, halv: item.halv, x: SPAWN_X })
+    this._uppv.push({ vind, vy, x: SPAWN_X, halv: item.halv })
+  },
+
+  _rivEnUppvind(u) {
+    u.vind?.destroy()
+    u.vy?.riv()
+  },
+
+  _rivUppvind() {
+    for (const u of this._uppv) this._rivEnUppvind(u)
+    this._uppv = []
   },
 
   _nextRing() {
@@ -1081,6 +1186,7 @@ export default {
       }
     }
     this._stars = []
+    this._rivUppvind()
   },
 
   // Ritar fart-ikonen: sköldpadda (långsamt) eller hare (snabbt). Anropas vid bygget
@@ -1158,6 +1264,7 @@ export default {
     }
     this._rings = []
     this._stars = []
+    this._rivUppvind()
     if (this._slowBtn && !this._slowBtn.destroyed) gsap.killTweensOf(this._slowBtn.scale)
 
     gsap.killTweensOf(this._root)

@@ -74,6 +74,8 @@ flyt genom nästan tom himmel, utan Elvira och utan att enhörningen lever.
   litet eget ögonblick.
 
 ### Variation & överraskning
+- ✅ ~~**[Medium] Uppvind (F4)**~~ Klar 2026-10-03: luftpelare som stiger ur marken och lyfter henne (se §5). Händelser
+  längs vägen utan att banan blir svårare — pelaren lyfter åt det håll nästa ring ändå ligger.
 - ✅ ~~**[Quick] Olika ring-typer**~~ Klar 2026-09-30: vanlig · blom · moln (1 pip) och regnbåge (2 pips,
   stigande arpeggio, gnistkaskad), var och en med egen silhuett och eget ljud. Kvar: sällsynta
   gyllene stjärnor som ger en gnistkaskad.
@@ -113,8 +115,22 @@ flyt genom nästan tom himmel, utan Elvira och utan att enhörningen lever.
   syntetblippen. ⛔ Kräver nya SFX-klipp (MOSS nere). Röst-halvan är klar: alla sex repliker
   har förgenererade klipp (kontrollerat mot manifestet 2026-09-23).
 
+- [Lätt] Medan fingret HÅLLS lyfter pelaren bara ≈ 23 px (fjädern mot fingret vinner); de 80–200 px kommer när hon glider fritt. För ett barn som håller fingret kvar bär ljud och gnistor effekten (kritik D14).
+
 ## 5. Status / loggar
 
+- 2026-10-03 ✅ **Uppvind som lyfter henne (FYSIKPLAN F4, kluster B2).** Spelet har ingen matter-värld (egen 1D-integrator),
+  så vinden är ett `Vindfalt` UTAN värld (`lib/vind.js`, `luftVid` är ren matematik) i `uppvind.js`: ett vertikalt band
+  (`vinkel −π/2`, källa vid marken, `avtag.langs 0,9` så det tonar ut mot toppen och SLUTAR där). Modellen är libbets:
+  luftens FART `w`, motstånd relativt luften — flygintegratorns `vy *= DAMP` är redan `fa·v`, så spelet lägger
+  `(1 − DAMP^dt)·w` efter dämpningen (sluthastighet = w, samma vid 30 och 60 Hz: 370,9 px båda). Mått: ett fritt flyg
+  genom en pelare lyfter 100–190 px (slow-läget upp till ~340), aldrig över pelarens topp; med fingret hållet blir
+  förskjutningen ~13 px — barnet styr alltid. Pelaren föds bara framför en ring som sitter HÖGRE än förra ringen,
+  tar en del av ringens lucka (takten oförändrad) och slumpar läge, bredd och topp (ringens höjd ±20). Bilden
+  (`uppvindbild.js`): ljus glöd, 5–7 vita/turkosa streck som stiger, 6 löv och 4 gnistor som virvlar uppåt; allt
+  tyngre/tätare när hon är i luften. Hon reagerar: vingen flaxar snabbare och högre, tät glittersvans, stigande klang
+  (G4→G5, `audio.tone`), Elvira hoppar till, en replik per bana. Alla pelare rivs i `_clearField` (rundbyte) och
+  `destroy`; ingen gsap används. Ny replik: "Uppåt med vinden!".
 - 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): `_win` spelade eget vinstljud +
   PRAISE + konfettiregn i samma tick som `complete()` — strukna (värdet firar). "Fler ringar!" kom
   på en fast 1,6 s och kapade berömmet; köar nu via `ctx.narTyst` med nivå-token. Pipsen fylls

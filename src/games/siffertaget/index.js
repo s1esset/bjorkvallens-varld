@@ -1,9 +1,12 @@
 // Siffertåget — siffer-/räknelek med tågtema (3–5 år). Ett glatt ånglok står till
 // vänster; barnet kopplar på de numrerade vagnarna genom att dra (eller tap-tap) dem till
-// rätt kopplingsplats. Två lägen som turas om:
+// rätt kopplingsplats. Tre lägen som turas om (nivå % 3):
 //   · RAD   — vagnarna 1→N hängs på i stigande ordning. Rösten FRÅGAR per steg ("Vilken
 //             vagn är nummer två?") — ingen vagn lyser från start.
 //   · LUCKA — tåget står klart men EN vagn saknas (1, _, 3). Vilken passar?
+//   · BAK   — baklänges: N först, sedan N-1 … 1 ("Nu räknar vi baklänges!"). Tutet FALLER.
+// Lasten växlar per runda (LAST_TEMAN): första rundan blandad (blomma, fisk, äpple, ankunge,
+// stjärna), därefter paket, bananer eller ballonger — varje vagn bär n likadana föremål.
 // Hjälpen kommer SENT och SYNLIGT: efter ~4 s tystnad utan att barnet rör något (eller direkt
 // efter en fel vagn) börjar den vagn som söks lysa. Fel vagn = rolig reaktion (vingel + mjukt
 // ljud + vagnen säger sitt eget nummer), aldrig ett "fel".
@@ -24,14 +27,52 @@ import { createScene } from '../../lib/scene.js'
 import { vippa } from '../../lib/vippa.js'
 import { Varld, STATION_X, STATION_HALV, GAST_HOJD, GAST_BREDD } from './varld.js'
 import { valjEgna, byggEgenFigur, presentera } from '../../lib/egnafigurer.js'
+import { pase } from '../../lib/variation.js'
 
 // Lastens ritnyckel per vagnsnummer (emoji-strängen är nyckel in i artikoner.js — föremålen
 // RITAS, de är inte glyfer). Rundans vagnar håller sig alltid inom 1–5.
 const LAST_ORD = { 1: '🌸', 2: '🐟', 3: '🍎', 4: '🐤', 5: '⭐' }
+// Lasttema per runda: 'blandad' = ett föremål per vagnsnummer (LAST_ORD), övriga = n likadana i
+// varje vagn. Teman i påse (variation.pase) — aldrig samma last två rundor i rad.
+const LAST_TEMAN = { blandad: LAST_ORD, paket: '🎁', bananer: '🍌', ballonger: '🎈' }
+const TEMA_LISTA = ['blandad', 'paket', 'bananer', 'ballonger']
+function lastNyckel(tema, n) {
+  const t = LAST_TEMAN[tema] || LAST_ORD
+  return typeof t === 'string' ? t : t[n] || t[1]
+}
 
 // Rösten. Varje replik står som en LITERAL i sin egen gren — check.mjs kan bara läsa
 // `voice.say('literal')`, och en byggd sträng får aldrig ett klipp.
-function sagaAntal(voice, n) {
+function sagaAntal(voice, n, tema) {
+  switch (tema) {
+    case 'paket':
+      switch (n) {
+        case 1: voice.say('Ett! Ett paket!'); break
+        case 2: voice.say('Två! Två paket!'); break
+        case 3: voice.say('Tre! Tre paket!'); break
+        case 4: voice.say('Fyra! Fyra paket!'); break
+        case 5: voice.say('Fem! Fem paket!'); break
+      }
+      return
+    case 'bananer':
+      switch (n) {
+        case 1: voice.say('Ett! En banan!'); break
+        case 2: voice.say('Två! Två bananer!'); break
+        case 3: voice.say('Tre! Tre bananer!'); break
+        case 4: voice.say('Fyra! Fyra bananer!'); break
+        case 5: voice.say('Fem! Fem bananer!'); break
+      }
+      return
+    case 'ballonger':
+      switch (n) {
+        case 1: voice.say('Ett! En ballong!'); break
+        case 2: voice.say('Två! Två ballonger!'); break
+        case 3: voice.say('Tre! Tre ballonger!'); break
+        case 4: voice.say('Fyra! Fyra ballonger!'); break
+        case 5: voice.say('Fem! Fem ballonger!'); break
+      }
+      return
+  }
   switch (n) {
     case 1: voice.say('Ett! En blomma!'); break
     case 2: voice.say('Två! Två fiskar!'); break
@@ -180,6 +221,9 @@ export default {
     this._resolving = false
     this._glodPa = false
     this._mode = 'rad'
+    this._tema = 'blandad' // första rundans last; sedan drar _newRound ur påsen
+    this._forraGap = null // luckläget undviker samma plats två rundor i rad
+    this._temaPase = pase(TEMA_LISTA, 'blandad')
     this._cars = []
     this._slots = []
     this._scroll = { s: 0 } // landskapets skrollvariabel (px, växer åt höger)
@@ -530,7 +574,7 @@ export default {
     // längst ned i korgen; skalas ned när det blir trångt. Lasten RITAS (P0 ASSETS).
     const cargo = new Container()
     cargo.eventMode = 'none'
-    const key = LAST_ORD[n] || LAST_ORD[1]
+    const key = lastNyckel(this._tema, n)
     const size = n >= 4 ? 30 : 36
     const spacing = n >= 4 ? 31 : 37
     for (let i = 0; i < n; i++) {
@@ -617,6 +661,20 @@ export default {
         voice.say('Här saknas en vagn!')
       })
     }
+    // Baklänges: säg det en gång, före första frågan, så barnet vet att tåget börjar på högsta talet.
+    if (this._mode === 'bak' && this._placedCount === 0) {
+      ctx.narTyst(() => {
+        if (!gilt()) return
+        voice.say('Nu räknar vi baklänges!')
+        // Synlig cue: högsta talets plats (den närmast loket) pulserar två gånger.
+        const forst = this._slots[0]
+        const pulsa = () => {
+          if (this._alive && forst && !forst.destroyed && forst._ritning && !forst._ritning.destroyed) pop(forst._ritning)
+        }
+        pulsa()
+        ctx.later(0.6, pulsa)
+      })
+    }
     ctx.narTyst(() => {
       if (!gilt()) return
       this._tvekan = 0
@@ -640,16 +698,22 @@ export default {
     this._wheelBob?.timeScale(1)
     this._clearRound()
     this._placedCount = 0
-    this._expected = 1
     this._resolving = false
     this._idle = 0
     this._tvekan = 0
     this._cueN = 0
     this._stegTok++ // gamla köade repliker gäller inte i den nya rundan
-    const N = Math.min(5, 3 + Math.floor(this._level / 2)) // 3 → 4 → 5
+    // Längden växer som förr (3 → 4 → 5, en vagn var 2:a nivå); läget roterar rad → lucka →
+    // baklänges oberoende av den, så varje runda skiljer sig från förra (längd eller läge byts).
+    // Baklänges kräver minst 4 vagnar — med 3 faller den tillbaka på rad (nås inte med dagens
+    // schema, där bak först kommer på nivå 2 med N=4, men skyddar mot ett ändrat schema).
+    const N = Math.min(5, 3 + Math.floor(this._level / 2))
     this._N = N
-    // Lägena turas om: udda nivåer är luck-rundor (1, _, 3), jämna är rad-rundor.
-    this._mode = this._level % 2 === 1 ? 'lucka' : 'rad'
+    const lage = ['rad', 'lucka', 'bak'][this._level % 3]
+    this._mode = lage === 'bak' && N < 4 ? 'rad' : lage
+    this._expected = this._mode === 'bak' ? N : 1 // baklänges börjar på högsta talet
+    // Lasten: första rundan blandad, sedan ett tema ur påsen (aldrig samma två i rad).
+    this._tema = utanFraga ? 'blandad' : this._temaPase.nasta()
 
     gsap.killTweensOf(this._engine)
     this._engineX = this._engineXFor(N) // tågsättet centreras efter hur många vagnar rundan har
@@ -709,7 +773,13 @@ export default {
   // vagnen och två andra som inte passar (slumpade siffror ur 1–5). Fördel: samma vagnar och
   // samma drag, men barnet måste läsa av raden runt luckan i stället för att räkna uppåt.
   _bygLucka(ctx, N, inrullDx) {
-    const gapIdx = 1 + Math.floor(Math.random() * (N - 2)) // aldrig först eller sist
+    // Luckan kan vara vilken vagn som helst utom den första (fragaEfter(0) finns inte, och ett tåg
+    // utan vagn 1 är ingen lucka). Sista platsen räknas med, så N=3 ger två lägen (2 eller 3),
+    // och samma plats två rundor i rad undviks.
+    const alt = []
+    for (let k = 1; k < N; k++) if (k !== this._forraGap) alt.push(k)
+    const gapIdx = alt[Math.floor(Math.random() * alt.length)]
+    this._forraGap = gapIdx
     this._gapIdx = gapIdx
     this._gapN = gapIdx + 1
     this._placedCount = N - 1
@@ -810,12 +880,12 @@ export default {
     ctx.services.audio.sfx('correct')
     // Mjukt tåg-"tut" vid varje koppling; tonhöjden KLÄTTRAR ju fler vagnar som
     // hängts på (kombo-känsla). audio.tone går förbi anti-loop-skyddet med flit.
-    const steg = this._mode === 'lucka' ? this._gapIdx : this._placedCount
-    const base = 220 + steg * 34
+    // Tutet följer vagnens nummer: stiger i rad, FALLER när man räknar baklänges.
+    const base = 220 + (n - 1) * 34
     ctx.services.audio.tone({ freq: base, dur: 0.24, type: 'triangle', vol: 0.18, slideTo: base * 1.18 })
     ctx.services.audio.tone({ freq: base * 1.5, dur: 0.24, type: 'sine', vol: 0.08, slideTo: base * 1.5 * 1.18 })
     // Räkna OCH knyt siffran till antalet last-föremål ("Tre! Tre äpplen!").
-    sagaAntal(ctx.services.voice, n)
+    sagaAntal(ctx.services.voice, n, this._tema)
     sparkle(ctx.fxLayer, target.view.x, target.view.y)
     pop(rec.view)
     this._koppelSnapp(ctx, rec.view)
@@ -837,6 +907,7 @@ export default {
 
     this._placedCount++
     if (this._mode === 'rad') this._expected++
+    else if (this._mode === 'bak') this._expected--
 
     if (this._placedCount >= this._N) this._finishRound(ctx)
     else this._fraga(ctx) // nästa steg: fråga, utan glöd
@@ -1019,7 +1090,7 @@ export default {
       this._idle = 0
       const voice = ctx.services.voice
       if (this._mode === 'lucka') fragaEfter(voice, this._gapN - 1)
-      else if (this._expected > 1 && this._cueN++ % 2 === 1) fragaEfter(voice, this._expected - 1)
+      else if (this._mode === 'rad' && this._expected > 1 && this._cueN++ % 2 === 1) fragaEfter(voice, this._expected - 1)
       else fragaNummer(voice, this._expected)
       if (this._activeCar && !this._activeCar.destroyed) wiggle(this._activeCar)
     }

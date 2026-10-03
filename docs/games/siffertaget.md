@@ -66,7 +66,7 @@ vägg, och glöden tänker åt barnet.**
   vagn lyser från start; rösten frågar per steg ("Vilken vagn är nummer tre?") och glöden
   tänds först efter ~4 s tyst tvekan eller direkt efter en fel vagn.
 - **[Deep] Fler räkne-lägen per runda (rotera).** ✅ ~~(a) fyll luckan~~ (klar 2026-10-01,
-  ett luck-läge `1, _, 3`; en längre variant med flera luckor `1,_,3,_,5` återstår); (b) baklänges-tåg ("5,4,3…" — rösten räknar ner); (c) para-läge:
+  ett luck-läge `1, _, 3`; en längre variant med flera luckor `1,_,3,_,5` återstår); (b) ✅ ~~baklänges-tåg~~ (klar 2026-10-03, se §5); (c) para-läge:
   vagn visar 🍓🍓🍓, slot visar siffran. Samma drag-mekanik, helt ny tanke.
 
 ### Variation & överraskning
@@ -92,7 +92,7 @@ vägg, och glöden tänker åt barnet.**
   se §5.
 
 ### Progression
-- **[Deep] Kurvan planar ut efter N=5.** Två luckor i ett 5-tåg (`1,_,3,_,5`), tåg som börjar på 2 i stället för 1, olika laster per runda (kräver nya klipp för räknefraserna).
+- **[Deep] Kurvan planar ut efter N=5.** Två luckor i ett 5-tåg (`1,_,3,_,5`), tåg som börjar på 2 i stället för 1. ✅ ~~olika laster per runda~~ (klar 2026-10-03: paket, bananer, ballonger, se §5).
 - ✅ ~~**[Quick] Rälsen rullar.**~~ Klar 2026-10-01 (`varld.js`: fyra parallaxlager + sliprar
   och förgrund som skrollar med en enda variabel).
 - ✅ ~~**[Medium] En station som mål.**~~ Klar 2026-10-01: stationen glider in, kanin, Bobo och
@@ -110,6 +110,8 @@ vägg, och glöden tänker åt barnet.**
   (MOSS nere).
 
 ## 5. Status / loggar
+
+- 2026-10-03 · **Baklänges-tåg och växlande last (FYSIKPLAN U3, "innehåll som tar slut").** Premissen höll: `_mode` var `level % 2` (rad/lucka), `N = 3 + floor(level/2)`, och lasten bunden till vagnsnumret (`LAST_ORD`). Nu tre lägen per tåglängd — `['rad','lucka','bak'][level % 3]`, `N = min(5, 3 + floor(level/3))` (tre rundor på 3 vagnar, tre på 4, därefter 5) — så baklängesrundan kommer som runda 3 för en ny profil (sparad `highestLevel` = 2). **Bak:** platserna tar N först, sedan N−1 … 1 (`_expected` börjar på N och minskar; accept-villkoret `data.n === _expected && index === _placedCount` är samma), rösten säger "Nu räknar vi baklänges!" före första frågan (`_fraga`, en gång) och frågar sedan `fragaNummer` som vanligt. Tutet följer vagnens nummer (`220 + (n−1)·34`, identiskt med förut i rad/lucka) och faller alltså baklänges. Idle-cuen "efter"-frågar bara i radläget. **Last:** `LAST_TEMAN` — `blandad` (blomma/fisk/äpple/ankunge/stjärna, som förut) och tre nya teman med n likadana ritade föremål i varje vagn: paket, bananer, ballonger — alla via `drawIcon`, ingen ny emoji-text. Första rundan alltid blandad; därefter en påse (`variation.pase`, aldrig samma två i rad). Temat sätts i `_newRound` och styr både `_makeCar` och räkneorden (`sagaAntal(voice, n, tema)`: 15 nya literala repliker). Ingen ny sparnyckel: nivån (`highestLevel`) och `custom.rundor` är oförändrade, lasttemat slumpas per runda. Vagnarnas fjädring (vippa) orörd. Omätt i webbläsare (byggnatt utan test).
 
 - 2026-10-02 · **Vagnskorgarna gungar på sina hjul (FYSIKPLAN P2, `lib/vippa.js`).** Premissen ("stel tidslinje, `:877`") höll: avfärden är en gsap-tidslinje där vagnarna bara byter x. Varje vagn har nu en `_fjad`-nod (barn till `_inner`, pivot på hjullinjen y 70 så hjulen står kvar på rälsen) som `vippa(…, { axel: 'skev', max: 0.06 })` lutar. Vagnen själv (hitArea, DragController-item, landning), `_inner` (vilo-livets y/rotation, kopplingsryckets x) och `_glow` rörs inte av den. Stötarna: **start** (t 0,1 s i `_finishRound`) lutar korgarna bakåt en vagn i taget, loket först; **inbromsning** vid stationen (t `FARD_TID − 0,15`) skjuter dem framåt i samma ordning; **avfärd** (`UTFART_T`) lutar varje vagn i samma ögonblick som dess tween börjar (samma stafett, `DEPART_STAGGER` orörd); **koppling** (`_onCorrect`) ger den nya vagnen och grannarna en stöt. Vippan skapas först när en vagn får sin första stöt (`_gunga`) och rivs i `_dodaRundTweens` (rundbyte + destroy). Tidslinjens `call`s dör med `_depart.kill()`. Rundor, laster, lägen, repliker och tider är orörda. Omätt i webbläsare (byggnatt utan test).
 

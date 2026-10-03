@@ -96,8 +96,36 @@ Banorna trappar svårighet (rak → vinkel → hörn/studs → vind → hinder) 
   vinstljudet varieras i `AudioService._celebrate`; yt-repliken ersätter den förra vid varje
   byte i stället för att staplas. Ambienten är blockerad: kräver ett nytt klipp, MOSS nere.)*
 
+- [Lätt] När bollen VILAR i en zon släpps `forhandsStopp`, så pricklinjen går rakt ut ur gropen fast kraften drar tillbaka — ett svagt skott kan "ljuga" (kritik D14).
+- [Lätt] Bana 3–4: kullen ligger på y 260/540 och en rak linje på y≈400 har bara 10–20 px marginal — kullen märks bara om man siktar mot den (kritik D14).
+
 ## 5. Status / loggar
 
+- 2026-10-03 · **Kullar och gropar som kraftzoner (F4, D14 kluster B1)** — ej provkört i webbläsare (bara `check` +
+  Node-mätning; orkestreraren testar). ⚠️ **Premissen höll inte:** orderns "backar och gropar … synliga i trädgården
+  från natten" fanns INTE — `tradgard.js` är bara dekor (häck, hus, träd, rabatt) och planen hade inga zoner alls.
+  Byggt i stället (litet, nya filer `zoner.js` + `zonbild.js`, ritade som riktiga föremål ovanifrån: kullen en ljus
+  gräskupol med skuggad kant och blommor, gropen en jordskål med stenar; vilo-andning med egen fas, hopp när bollen
+  kommer in): **kulle** = en mjuk lutning UT från mitten (`a = 0,12 · sin(π·d/r)` px/steg², cosinuskulle, noll i mitten
+  och vid kanten), **grop** = samma form IN mot mitten (A 0,07 — sänkt från 0,10 efter kritiken: på sand höll 0,10 kvar minsta skottet); r = 130 px; kraften verkar per fast fysiksteg i
+  `beforeStep` (`massa · a / STEP2`), BARA medan bollen rullar och inte under hjälp-skottet (det siktar rakt och ska
+  hålla sitt löfte; glid-hem går över allt). Bana 3–4: en kulle; bana 5–6: kulle + grop; bana 7+: 1–2 slumpade
+  (två från bana 10) — alltid fria från start (≥ r+106), mål (≥ målradie+r+40), hinder och väggar. Stämd ton vid
+  inträde (kulle upp G4→C5, grop ner G4→C4) + gnistor; nya tipsrepliker (se rapport).
+  **Förhandsbanan (G3a):** skuggvärlden stegar ingen lutning, så varje zon är också en statisk SENSOR med
+  `forhandsStopp = true` (radie = r − bollens radie, så provkulan nuddar den exakt när bollens MITT kommer in där
+  kraften börjar) och `filter` släpper nu in `'wall' || forhandsStopp`. Pricklinjen SLUTAR alltså vid zonens kant —
+  hellre en kort ärlig bana än en som ljuger. Ligger bollen redan inne i en zon (den kan stanna i en grop) tas flaggan
+  av så länge, annars blev pricklinjen en enda prick; linjen räknar då inte med lutningen de få första stegen.
+  **MÄTT** (Node, `PhysicsWorld` + samma `zonAcc`/`beforeStep` som spelet): bollen mitt i en grop kommer ur den med
+  det minsta skottet (fart 8) i alla 8 riktningar — minsta största avstånd 219 px mot zonradien 130; en boll som
+  rullar in med fart 3 fångas av gropen och vilar nära mitten (rolig, inte stopp); en kulle vänder fart 3–8 och släpper
+  igenom fart 15 (x 872 från start 300, mitt 640); förhandsbanan med fart 25 mot en kulle på (660, 400) slutar på
+  **x 532 = avstånd 127,7** från mitten (zonradie 130), kontrollen utan flaggan går till x 927; 400 slumpade banor 6–15:
+  **0** zoner över start/mål/vägg, inga tomma layouter. Målet är kvar nåbart: på bana 2–12 finns alltid träffbara
+  skott (9–34 av 1 000 provade fart/vinkel-par, med zoner jämförbart med utan: 34 → 34 bana 2–3, 13 → 9 bana 4–5).
+  ⚠️ Probens "träffar" är låga på alla banor inklusive HEAD — maxkraften 26 räcker knappt över planen (~910 px)
+  och sonden provar utan hinder; det är jämförelsen mellan armarna som gäller.
 - 2026-10-02 · **Pricklinjen går genom en skuggvärld (FYSIKPLAN G3a)** — bara förhandsbanan. `skuggvarld: { varld:
   this._phys, kula: this._ballBody, filter: b => b.label === 'wall', vindMinFart: WIND_CUTOFF }`: planens fyra
   väggar och bollens egna tal (yta/studs/luftmotstånd läses live ur bollkroppen, så `_applyMaterials` inte behöver

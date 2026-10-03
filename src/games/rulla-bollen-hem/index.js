@@ -13,6 +13,9 @@
 //    (extra kontroll); friktionen + pricklinjens damp uppdateras alltid i takt.
 //  • BOLLAR — ibland en annan boll: 🏀 studsboll (mer studs) eller 🎳 tung boll (kort,
 //    seg rull). Bollens studsighet speglas i pricklinjens studs så linjen stämmer.
+//  • KULLAR OCH GROPAR (F4, `zoner.js`) — från bana 3 ligger terräng på planen: en kulle putsar bort bollen
+//    (den böjer av och saktar in när den rullar upp), en grop drar in den. En mjuk lutning mot bollens mitt
+//    (aldrig en vägg, det går alltid att komma ur). Pricklinjen SLUTAR där bollen kommer in i en zon.
 //  • VIND — från bana 4 en mjuk bris som böjer bollens väg. Vinden slås PÅ vid skott
 //    och AV när bollen nästan stannat, så den alltid kan vila inför nästa skott.
 //
@@ -43,6 +46,8 @@ import { randomFrom } from '../../lib/swedish.js'
 import { BLEED_X, BLEED_Y } from '../../lib/view.js'
 import { verticalFill, bage } from '../../lib/form.js'
 import { buildGarden } from './tradgard.js'
+import { zonAcc, iZon, sensorRadie, zonerForLevel } from './zoner.js'
+import { byggZon } from './zonbild.js'
 
 // Layout i designkoordinater (1280×720).
 const FIELD = { x: 60, y: 120, w: 1160, h: 560, r: 32 }
@@ -216,6 +221,8 @@ export default {
     this._windOn = false
     this._obstacleBodies = []
     this._obstacleViews = []
+    this._zoner = [] // { typ, x, y, r, body, vy, rec, inne }
+    this._lastZon = -1
     this._previewBounds = { ...PREVIEW_BOUNDS }
     this._home = { x: 1060, y: 400, r: 110 }
     this._level = Math.max(0, ctx.progress.get().highestLevel | 0)
@@ -244,6 +251,8 @@ export default {
     this._phys.link(this._ballBody, this._ball) // synkar bara position (vinkel = 0)
 
     this._unbind = this._phys.onCollision((e) => this._onCollision(ctx, e))
+    // Lutningen från kullar och gropar verkar per FAST fysiksteg (aldrig per bildruta).
+    this._unbindZon = this._phys.beforeStep(() => this._zonSteg())
 
     // Sikt-/skjut-kontroll: dra för riktning + kraft, prickad bana = exakt utrullning.
     // slingshot:false => man drar ÅT det håll bollen ska rulla (knuff, inte slangbella).
@@ -265,8 +274,10 @@ export default {
       // G3a: banan går genom en skuggvärld med planens FYRA VÄGGAR och bollens egna tal (yta, studs,
       // luftmotstånd läses live ur bollkroppen) — ingen `Math.max(ball.rest, WALL_REST)` mot ett nollat
       // väggtal längre. Bara 'wall': hindren är medvetet INTE med i pricklinjen (banans utmaning).
+      // Kullar/gropar (zoner.js) är statiska sensorer med `forhandsStopp`: de tas med och pricklinjen SLUTAR där
+      // bollens mitt kommer in i dem — skuggvärlden stegar ingen lutning, så hellre en kort ärlig bana.
       // Vinden verkar som i spelet: bara medan farten är ≥ WIND_CUTOFF. `bounds`/`previewDamp` = reserven.
-      skuggvarld: { varld: this._phys, kula: this._ballBody, filter: (b) => b.label === 'wall', vindMinFart: WIND_CUTOFF },
+      skuggvarld: { varld: this._phys, kula: this._ballBody, filter: (b) => b.label === 'wall' || !!b.forhandsStopp, vindMinFart: WIND_CUTOFF },
       getOrigin: () => ({ x: this._ball.x, y: this._ball.y }),
       defaultAim: () => ({ x: this._home.x, y: this._home.y }),
       onGrab: () => {
@@ -382,6 +393,12 @@ export default {
     this._sandOverlay.alpha = 0
     this._sandOverlay.eventMode = 'none'
     this._root.addChild(this._sandOverlay)
+
+    // Terräng-lager (kullar + gropar): över ytan, under hinder och boll.
+    this._zonLayer = new Container()
+    this._zonLayer.eventMode = 'none'
+    this._zonLayer.interactiveChildren = false
+    this._root.addChild(this._zonLayer)
 
     // Hinder-lager (klossar + studsdynor) ligger under bollen, över ytan.
     this._obsLayer = new Container()
@@ -572,6 +589,70 @@ export default {
     this._obstacleViews = []
   },
 
+  // ---- Kullar och gropar (zoner.js) ---------------------------------------
+
+  _buildZoner(specs) {
+    specs.forEach((sp, i) => {
+      const vy = byggZon(sp, i)
+      vy.rot.scale.set(0.6)
+      vy.rot.alpha = 0
+      this._zonLayer.addChild(vy.rot)
+      gsap.to(vy.rot.scale, { x: 1, y: 1, duration: 0.35, ease: 'back.out(2)' })
+      gsap.to(vy.rot, { alpha: 1, duration: 0.25 })
+      // En statisk sensor med `forhandsStopp`: pricklinjen slutar där bollens mitt kommer in i zonen.
+      const body = this._phys.circle(sp.x, sp.y, sensorRadie(sp), { isStatic: true, isSensor: true, label: 'zon' })
+      body.forhandsStopp = true
+      this._zoner.push({ ...sp, body, vy, inne: false })
+    })
+  },
+
+  _clearZoner() {
+    for (const z of this._zoner) {
+      if (z.body) this._phys?.removeBody(z.body)
+      z.vy?.stada()
+      if (z.vy?.rot && !z.vy.rot.destroyed) {
+        gsap.killTweensOf(z.vy.rot)
+        gsap.killTweensOf(z.vy.rot.scale)
+        z.vy.rot.destroy({ children: true })
+      }
+    }
+    this._zoner = []
+  },
+
+  // Lutningen: bara medan bollen RULLAR (i siktläge vilar den där den ligger) och inte under hjälp-skottet
+  // (det siktar rakt och ska hålla sitt löfte). Kraft = massa · a / STEP2 (px/steg² → matters kraftenhet).
+  _zonSteg() {
+    if (!this._alive || this._mode !== 'rolling' || this._assisting || !this._zoner.length || !this._ballBody) return
+    const b = this._ballBody
+    const a = this._zonA || (this._zonA = { ax: 0, ay: 0 })
+    for (const z of this._zoner) {
+      zonAcc(z, b.position.x, b.position.y, a)
+      if (a.ax !== 0 || a.ay !== 0) Body.applyForce(b, b.position, { x: (b.mass * a.ax) / STEP2, y: (b.mass * a.ay) / STEP2 })
+    }
+  },
+
+  // Per bildruta: zonens bild reagerar när bollens mitt kommer in (hopp + stämd ton + gnistor), och
+  // en zon som bollen VILAR i släpper sin pricklinje-stopp (annars blev linjen en enda prick).
+  _zonTick(ctx) {
+    const bx = this._ballBody.position.x
+    const by = this._ballBody.position.y
+    for (const z of this._zoner) {
+      const inne = iZon(z, bx, by)
+      if (inne && !z.inne && this._mode === 'rolling') {
+        z.vy.reagera()
+        if (this._t - this._lastZon > 0.35) {
+          this._lastZon = this._t
+          // kullen: stigande ton (upp), gropen: fallande (ner) — C-dur-sexten respektive kvarten
+          if (z.typ === 'kulle') ctx.services.audio.tone({ freq: 392, dur: 0.16, type: 'sine', vol: 0.08, slideTo: 523 })
+          else ctx.services.audio.tone({ freq: 392, dur: 0.18, type: 'sine', vol: 0.08, slideTo: 262 })
+          sparkle(ctx.fxLayer, bx, by, { count: 3 })
+        }
+      }
+      z.inne = inne
+      z.body.forhandsStopp = !(inne && this._mode === 'aim')
+    }
+  },
+
   _loadLevel(ctx, level) {
     if (!this._alive) return
     this._mode = 'aim'
@@ -591,7 +672,12 @@ export default {
 
     // Hinder för banan.
     this._clearObstacles()
-    this._buildObstacles(this._obstaclesForLevel(level, lay.home, lay.start))
+    const hinder = this._obstaclesForLevel(level, lay.home, lay.start)
+    this._buildObstacles(hinder)
+
+    // Terräng: kullar och gropar (fria från start, mål och hinder).
+    this._clearZoner()
+    this._buildZoner(zonerForLevel(level, { home: lay.home, start: lay.start, hinder, plan: WALL }))
 
     // Yta + boll för banan (uppdaterar friktion, studs, pricklinjens damp + studs, emoji).
     this._surfaceIdx = this._surfaceForLevel(level)
@@ -628,6 +714,8 @@ export default {
       else if (this._ballKey === 'heavy') hints.push('En tung boll – ge den en extra knuff!')
       if (this._windPreview !== 0) hints.push('Det blåser lite på banan – sikta så vinden hjälper dig.')
       if (this._obstacleBodies.length) hints.push('Akta hindren och rulla runt dem!')
+      if (this._zoner.some((z) => z.typ === 'kulle')) hints.push('En kulle! Rulla med lite extra fart.')
+      if (this._zoner.some((z) => z.typ === 'grop')) hints.push('En grop! Bollen rullar ner i den.')
       if (hints.length) {
         this._hintTimer?.kill()
         this._hintTimer = ctx.later(0.6, () => {
@@ -732,6 +820,8 @@ export default {
     if (spd > 0.05 && this._ballSkin && !this._ballSkin.destroyed) {
       this._ballSkin.rotation += (b.velocity.x / BALL_R) * (ticker.deltaMS / 16.67)
     }
+
+    this._zonTick(ctx)
 
     // Spårlinje: lägg en punkt medan bollen rullar och låt hela spåret blekna bort.
     this._updateTrail(dt, spd)
@@ -1081,6 +1171,7 @@ export default {
     this._alive = false
     ctx?.ticker?.remove(this._tick)
     this._unbind?.()
+    this._unbindZon?.()
     this._loadTimer?.kill()
     this._glideTween?.kill()
     this._goalTween?.kill()
@@ -1089,6 +1180,7 @@ export default {
     this._garden?.destroy()
 
     this._clearObstacles()
+    this._clearZoner()
 
     if (this._bg && !this._bg.destroyed) this._bg.off('pointertap', this._onBgTap)
     if (this._ball && !this._ball.destroyed) {

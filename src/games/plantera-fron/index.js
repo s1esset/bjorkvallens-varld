@@ -15,7 +15,7 @@
 //              alltid klart.
 // Inga felsteg, ingen timer, ingen poäng. Allt ritas programmatiskt (Pixi) — blomhuvudet
 // också: kronblad med volym, en mitt och ett litet ansikte som blinkar, ser mot kannan och ler.
-import { Container, Graphics, Circle } from 'pixi.js'
+import { Container, Graphics, Circle, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { DragController } from '../../lib/DragController.js'
 import { bounceIn, pop, wiggle, squash, puff, sparkle , kvittera, liv, landa as landaFx } from '../../lib/feedback.js'
@@ -216,6 +216,91 @@ function makeBud(sort, farg, green) {
   return c
 }
 
+// --- Trädgården som minns (U3, D15) ---------------------------------------------
+// Blommorna barnet odlat står kvar i en rabatt på kullarna vid sidorna: 12 platser (6 vid vardera
+// kanten, växer inåt). Spar-nyckeln `custom.tradgard` = { n, rad } — `n` är hur många blommor som
+// någonsin planterats, `rad` en post per plats ({ s: sortens id, j: 1 om jätteblomma }). Den
+// (n + 1):a blomman tar plats n % 12, så de äldsta ersätts på plats och inget skiftar. Den gamla
+// nyckeln `custom.flowers` (ett antal) skrivs fortfarande OFÖRÄNDRAD och läses som reserv: har
+// barnet bara den, fylls rabatten ur den (sorterna i tur och ordning) tills första nya blomman.
+const TRADGARD_PLATSER = 12 // (var 14: de två innersta, x 372 och 908, skymdes av stora plantan vid hål 1 och 3)
+const TRADGARD_SPARADE = 14 // så många poster i `rad` kan finnas sparade från första versionen — skrivs tillbaka orörda
+const TRADGARD_Y = 474 // markens y på kullen (staketet slutar 436, jordkanten ~478)
+const TRADGARD_STJALK = [44, 58, 50, 66, 48, 60, 54] // stjälkhöjd per plats, så raden inte är en kam
+const TRADGARD_SKALA = 0.5 // blomhuvudet i förhållande till den stora blomman
+
+const tradgardX = (plats) => ((plats % 2) ? 1220 - (plats >> 1) * 52 : 60 + (plats >> 1) * 52)
+
+// Kronbladets kontur som punktlista (samma mått som `ritaKronblad`), roterad `a` runt mitten. En
+// hel blomma ritas i ETT Graphics (12 platser × upp till 28 kronblad som egna objekt vore för dyrt).
+function kronbladPunkter(form, rx, L, off, a) {
+  const pts = []
+  if (form === 'spets') {
+    const N = 6
+    for (let i = 0; i <= N; i++) {
+      const t = i / N
+      pts.push([2 * (1 - t) * t * -2 * rx, -off - L * t])
+    }
+    for (let i = N - 1; i >= 1; i--) {
+      const t = i / N
+      pts.push([2 * (1 - t) * t * 2 * rx, -off - L * t])
+    }
+  } else {
+    const w = form === 'hjarta' ? rx * 1.1 : rx
+    for (let i = 0; i < 14; i++) {
+      const v = (i / 14) * Math.PI * 2
+      pts.push([Math.cos(v) * w, -off - L / 2 + Math.sin(v) * (L / 2)])
+    }
+  }
+  const ca = Math.cos(a)
+  const sa = Math.sin(a)
+  const flat = []
+  for (const [x, y] of pts) flat.push(x * ca - y * sa, x * sa + y * ca)
+  return flat
+}
+
+// En liten stående blomma i rabatten. Origo = fotpunkten. `kropp` är det som vajar (barnet).
+function makeTradgardsBlomma(entry, plats) {
+  const sort = SORTER.find((s) => s.id === entry.s) || SORTER[0]
+  const farg = sort.farg[plats % sort.farg.length]
+  const h = TRADGARD_STJALK[plats % TRADGARD_STJALK.length]
+  const dark = shade(COLORS.green, 0.22)
+  const node = new Container()
+  node.eventMode = 'none'
+  node.addChild(new Graphics().ellipse(0, 3, 15, 4).fill({ color: 0x2b5a2a, alpha: 0.28 }))
+  const kropp = new Container()
+  kropp.eventMode = 'none'
+  kropp.rotation = (((plats * 37) % 7) - 3) * 0.012
+  const g = new Graphics()
+  g.roundRect(-3, -h, 6, h + 1, 3).fill(COLORS.green).stroke({ width: 1.5, color: dark })
+  g.ellipse(-9, -h * 0.4, 9, 4.5).fill(COLORS.green).stroke({ width: 1.5, color: dark })
+  g.ellipse(9, -h * 0.62, 9, 4.5).fill(COLORS.green).stroke({ width: 1.5, color: dark })
+  kropp.addChild(g)
+  const head = new Container()
+  head.eventMode = 'none'
+  head.position.set(0, -h)
+  head.scale.set(TRADGARD_SKALA * (entry.j ? JATTE_SKALA : 1))
+  const pg = new Graphics()
+  for (const lag of sort.lager) {
+    const c = lag.ton < 0 ? shade(farg, -lag.ton) : tint(farg, lag.ton)
+    for (let i = 0; i < lag.n; i++) {
+      const a = ((i + (lag.vrid || 0)) / lag.n) * Math.PI * 2
+      pg.poly(kronbladPunkter(lag.form, lag.rx, lag.ry * 2, lag.off, a)).fill(c).stroke({ width: 2, color: shade(c, 0.28), join: 'round' })
+    }
+  }
+  head.addChild(pg)
+  head.addChild(new Graphics().circle(0, 0, sort.R).fill(sort.mitt).stroke({ width: 2.5, color: shade(sort.mitt, 0.32) }))
+  const face = makeFace(sort.R, sort.ink)
+  face.set({ open: 0 })
+  head.addChild(face.root)
+  kropp.addChild(head)
+  node.addChild(kropp)
+  node._kropp = kropp
+  node._fas = (plats * 1.7) % (Math.PI * 2)
+  node._vila = kropp.rotation
+  return node
+}
+
 export default {
   id: 'plantera-fron',
   titleSv: 'Plantera Frön',
@@ -246,6 +331,18 @@ export default {
     ctx.stage.addChild(this._root)
     this._buildDecor(ctx)
 
+    // Trädgården som minns: blommorna från tidigare rundor står kvar i rabatten (bakom rundan).
+    this._gardenLayer = new Container()
+    this._gardenLayer.eventMode = 'passive' // blommorna är 'none'; bara de två sidozonerna tar tryck
+    this._root.addChild(this._gardenLayer)
+    this._gardenNodes = new Array(TRADGARD_PLATSER).fill(null)
+    this._gardenT = 0
+    this._gardenNya = []
+    this._sagtTradgard = false // "Titta, din trädgård växer!" högst en gång per montering
+    this._lasTradgard(ctx)
+    for (let i = 0; i < TRADGARD_PLATSER; i++) if (this._gardenRad[i]) this._sattBlomma(i, false)
+    this._rabattZoner(ctx)
+
     this._round = new Container() // all per-runda-grafik (frön/hål/plantor/kanna/droppar)
     this._root.addChild(this._round)
     this._buildFore(ctx) // gräs i förgrunden, ovanpå rundan (tar inga tryck)
@@ -260,6 +357,109 @@ export default {
 
   mount(ctx) {
     ctx.services.voice.say(this.voiceIntro)
+  },
+
+  // Läser den sparade trädgården (`custom.tradgard`, annars reserv ur det gamla `custom.flowers`).
+  // Skriver ingenting — sparandet sker först när en ny blomma planterats (`_planteraITradgard`).
+  _lasTradgard(ctx) {
+    const c = ctx.progress.get().custom || {}
+    const t = c.tradgard
+    this._gardenRad = new Array(TRADGARD_PLATSER).fill(null)
+    this._gardenExtra = [] // poster ur den första versionens 14 platser som inte längre visas: bevaras
+    if (t && Array.isArray(t.rad)) {
+      this._gardenExtra = t.rad.slice(TRADGARD_PLATSER, TRADGARD_SPARADE)
+      for (let i = 0; i < TRADGARD_PLATSER; i++) {
+        const e = t.rad[i]
+        if (e && typeof e.s === 'string') this._gardenRad[i] = { s: e.s, j: e.j ? 1 : 0 }
+      }
+      this._gardenN = Math.max(0, t.n | 0, this._gardenRad.filter(Boolean).length)
+      return
+    }
+    // Reserv: bara det gamla antalet finns → rabatten fylls med sorterna i tur och ordning.
+    const antal = Math.max(0, Number(c.flowers) | 0)
+    this._gardenN = antal
+    for (let i = 0; i < Math.min(antal, TRADGARD_PLATSER); i++) this._gardenRad[i] = { s: SORTER[i % SORTER.length].id, j: 0 }
+  },
+
+  // Två osynliga träffytor (en per rabattsida, 300×110): ett tryck får sidans blommor att vagga till,
+  // en i taget inifrån och ut, med en mjuk ton. Mäts mot grannarna: hålens snäppcirklar börjar vid
+  // x 310 / slutar 970, plantornas blomhuvuden vid x 338 / 942 och frönas halor vid x 400 / 880 —
+  // zonerna (x 30–330 och 950–1250) överlappar ingen av dem. Ligger bakom rundan, så den vinner.
+  _rabattZoner(ctx) {
+    this._rabattTon = [0, 0]
+    ;[0, 1].forEach((sida) => {
+      const zon = new Container()
+      zon.eventMode = 'static'
+      zon.hitArea = sida === 0 ? new Rectangle(30, 366, 300, 110) : new Rectangle(950, 366, 300, 110)
+      zon.on('pointertap', () => this._vaggaRabatt(ctx, sida))
+      this._gardenLayer.addChild(zon)
+    })
+  },
+
+  _vaggaRabatt(ctx, sida) {
+    if (!this._alive) return
+    this._idle = 0
+    // Vaggningen sker i tickern (`_stepTradgard`): nodens `_kick` avtar av sig själv, inga tweens.
+    this._gardenNodes.forEach((n, plats) => {
+      if (!n || n.destroyed || plats % 2 !== sida) return
+      n._kickVila = (plats >> 1) * 0.06
+      n._kick = 1
+    })
+    const f = PENTA[this._rabattTon[sida]++ % PENTA.length]
+    ctx.services.audio.tone({ freq: f, dur: 0.18, type: 'sine', vol: 0.12, slideTo: f * 1.25 })
+    sparkle(ctx.fxLayer, sida === 0 ? 170 : 1110, TRADGARD_Y - 50, { count: 3 })
+  },
+
+  // Ritar blomman på plats `plats` (ersätter en äldre). `popIn`: studsar in med en ton och glitter.
+  _sattBlomma(plats, popIn, delay = 0) {
+    const old = this._gardenNodes[plats]
+    if (old && !old.destroyed) {
+      gsap.killTweensOf(old.scale)
+      old.destroy({ children: true })
+    }
+    const node = makeTradgardsBlomma(this._gardenRad[plats], plats)
+    node.position.set(tradgardX(plats), TRADGARD_Y)
+    this._gardenLayer.addChild(node)
+    this._gardenNodes[plats] = node
+    if (popIn) bounceIn(node, { delay, duration: 0.55 })
+    return node
+  },
+
+  // Rundan är klar: varje blomma barnet odlat får en plats i rabatten. Sparas direkt (barnet kan
+  // gå ut under de 3 s innan nästa runda) — visningen kommer när nästa runda startar.
+  _planteraITradgard(ctx) {
+    const nya = []
+    for (const p of this._plants) {
+      const plats = this._gardenN % TRADGARD_PLATSER
+      this._gardenRad[plats] = { s: p.sort.id, j: p.jatte ? 1 : 0 }
+      this._gardenN++
+      nya.push(plats)
+    }
+    ctx.progress.setCustom('tradgard', { n: this._gardenN, rad: [...this._gardenRad.map((e) => (e ? { s: e.s, j: e.j } : null)), ...(this._gardenExtra || [])] })
+    this._gardenNya = (this._gardenNya || []).concat(nya)
+  },
+
+  // Nästa runda startar: nyplanterade blommor studsar in i rabatten, en i taget, med varsin ton.
+  _visaNyaBlommor(ctx) {
+    const nya = this._gardenNya || []
+    this._gardenNya = []
+    if (!nya.length) return
+    nya.forEach((plats, i) => {
+      const d = 0.15 + i * 0.28
+      this._sattBlomma(plats, true, d)
+      const node = this._gardenNodes[plats]
+      ctx.later(d + 0.05, () => {
+        if (!this._alive || !node || node.destroyed) return
+        sparkle(ctx.fxLayer, node.x, node.y - 50, { count: 5 })
+        const f = PENTA[(this._gardenN - nya.length + i) % PENTA.length]
+        ctx.services.audio.tone({ freq: f, dur: 0.2, type: 'sine', vol: 0.16, slideTo: f * 1.5 })
+      })
+    })
+    if (this._sagtTradgard) return
+    this._sagtTradgard = true
+    ctx.narTyst(() => {
+      if (this._alive && !ctx.services.voice.talar) ctx.services.voice.say('Titta, din trädgård växer!')
+    })
   },
 
   // Bakgrund: himmel + jordrabatt + sol/moln. Allt dekorativt (fångar ingen tap).
@@ -472,6 +672,7 @@ export default {
       )
       this._landaFro(ctx, seed, i)
     }
+    this._visaNyaBlommor(ctx) // förra rundans blommor flyttar in i rabatten
   },
 
   // Fröet faller in uppifrån och landar på marken (lib/landa.js). Allt rör sig i det INRE barnet
@@ -1224,7 +1425,8 @@ export default {
 
     this._flyButterflies(ctx, 2 + ((Math.random() * 3) | 0))
     ctx.progress.setLevel(this._level + 1)
-    ctx.progress.setCustom('flowers', (ctx.progress.get().custom?.flowers || 0) + this._holeCount)
+    ctx.progress.setCustom('flowers', (ctx.progress.get().custom?.flowers || 0) + this._holeCount) // oförändrat: antalet
+    this._planteraITradgard(ctx) // ny nyckel `tradgard`: vilka blommor, så rabatten kan visa dem
     ctx.progress.complete() // celebrate-ljud + beröm + konfetti + stjärna + klistermärke
     // 3 s: den ritade blomman ska hinna slå ut helt, le och gå att trycka på innan
     // nästa runda river den (1,4 s rev den mitt i utvecklingen — 2026-10-02).
@@ -1318,6 +1520,24 @@ export default {
     }
   },
 
+  // Rabattens blommor vajar mjukt, var och en med egen fas (ticker-drivet — inga tweens att städa).
+  _stepTradgard(dt) {
+    this._gardenT += dt
+    for (const n of this._gardenNodes) {
+      if (!n || n.destroyed) continue
+      let extra = 0
+      if (n._kick > 0) {
+        if (n._kickVila > 0) n._kickVila -= dt // inifrån och ut: varje blomma väntar på sin tur
+        else {
+          extra = Math.sin((1 - n._kick) * 18) * n._kick * 0.32
+          n._kick -= dt * 1.1
+          if (n._kick < 0) n._kick = 0
+        }
+      }
+      n._kropp.rotation = n._vila + Math.sin(this._gardenT * 1.5 + n._fas) * 0.045 + extra
+    }
+  },
+
   // Per-frame: flytta droppar; vattna medan kannan hålls; annars räkna idle → auto-hjälp/recue.
   _update(ctx, ticker) {
     if (!this._alive) return
@@ -1326,6 +1546,7 @@ export default {
     this._stepWorms(dt / 1000)
     this._stegaFro()
     this._stepBlommor(dt / 1000)
+    this._stepTradgard(dt / 1000)
 
     // Tomgången räknas från TYSTNAD: medan en replik talar står klockan still (V21 —
     // annars kapar påminnelsens say() en replik som redan talar).
@@ -1371,6 +1592,9 @@ export default {
     this._drops = []
     this._plants = []
     this._worms = []
+    for (const n of this._gardenNodes || []) if (n && !n.destroyed) gsap.killTweensOf(n.scale)
+    this._gardenNodes = []
+    this._gardenNya = []
     this._ctx = null
     gsap.killTweensOf(this._root)
     this._root?.destroy({ children: true })

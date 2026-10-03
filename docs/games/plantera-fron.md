@@ -107,9 +107,9 @@ berättelsebåge (frö → blomma) som passar 2–4 år. Fjärilarna är "skörd
 - ✅ ~~**Fröna svävade i himlen (FYSIKPLAN P4).**~~ **BYGGD 2026-10-02** — de faller in och landar, se §5.
 
 ### Progression
-- **[Medium] En trädgård som minns.** Visa `custom.flowers` som en faktisk **rabatt** längst ner
-  som fylls med de blommor man odlat över tur (eller på en "min trädgård"-skärm). Ger en
-  samlar-känsla och en anledning att komma tillbaka.
+- ✅ ~~**[Medium] En trädgård som minns.** Visa `custom.flowers` som en faktisk **rabatt** …~~
+  **BYGGD 2026-10-03** (D15 B2) — se §5. En skärm "min trädgård" byggdes inte (rabatten ligger
+  i själva spelet, vid sidorna av spelytan).
 - ✅ ~~**[Quick] Mjuka upp auto-hjälpen.**~~ Redan byggd (`_autoHelp` :830: 9 s, första stöten
   bara kanna + röst, sedan svagare dos, 2026-07-02) — uppdagat 2026-09-23.
 
@@ -129,6 +129,24 @@ berättelsebåge (frö → blomma) som passar 2–4 år. Fjärilarna är "skörd
 - **[Quick] Bakningar vid montering.** Första monteringen bakar ~14 linjära gradienter (cachade per färg). `test:all` var grön, men kör `scripts/_ab.sh` om sviten börjar flaka med `tom-scen`.
 
 ## 5. Status / loggar
+
+- 2026-10-03 🌼 **Trädgården minns (FYSIKPLAN U3, D15 B2).** Premissen höll: `custom.flowers` var
+  bara ett antal som aldrig lästes. Nu står de odlade blommorna kvar i en **rabatt på kullarna**
+  vid spelytans sidor (y 474, x 60–320 och 960–1220): **12 platser** (fixvarv 1: var 14, men de två innersta skymdes av stora plantan vid hål 1 och 3), de växer inåt från kanterna,
+  och blomma nr 15 ersätter den äldsta på plats (inget skiftar). Varje blomma är en liten RITAD
+  blomma i sin egen sort (samma `SORTER`: kronblad-silhuett, mitt, litet leende ansikte, jätteblomman
+  större), en mjuk skugga under, och vajar med egen fas (`_stepTradgard`, ticker, inga tweens).
+  Hela blomman ritas i ETT Graphics via `kronbladPunkter` (poly) — inga gradienter, inga bakningar.
+  När en runda är klar sparas blommorna direkt (`_planteraITradgard`, kan gå ut under de 3 s) och
+  när nästa runda startar studsar de nya in i rabatten en i taget med glitter och en ton ur
+  pentatonen + "Titta, din trädgård växer!" (`_visaNyaBlommor`, `ctx.later`/`ctx.narTyst`).
+  **Sparnycklar:** `custom.flowers` skrivs OFÖRÄNDRAD (antal, +hålen per runda). Ny nyckel
+  `custom.tradgard` = `{ n, rad: [{s: sortid, j: 1|0}|null × 14] }`. Läsning: finns `tradgard` →
+  den; annars (gammal sparning) fylls rabatten ur `flowers` med sorterna i tur och ordning, upp
+  till 14, och först då nästa blomma planteras skrivs `tradgard` (med `n` = det gamla antalet).
+  Inget sparat går förlorat. Gamla poster i `rad` (plats 13–14 från första versionen) bevaras orörda vid sparning (`_gardenExtra`). Blommorna är dekor, men varje sida har en osynlig träffyta (300×110, x 30–330 / 950–1250; överlappar varken hålens snäppcirklar, plantornas huvuden eller frönas halor): ett tryck får sidans blommor att vagga inifrån och ut med en mjuk ton (`_vaggaRabatt`, ticker). "Titta, din trädgård växer!" sägs högst en gång per montering.
+  Grind: `check --game plantera-fron` 0/0 utom repliken ovan som saknas i voice-phrases.json
+  (orkestreraren lägger in den); ej webbläsartestad av byggaren (geometri mätt i Node).
 
 - 2026-10-02 🌰 **Fröna landar (FYSIKPLAN P4, nattkörning B4).** Premissen höll delvis: fröraden låg på
   y 210 i ren himmel (skugga men ingen yta), så det fanns ingen "mark" att landa på. Fröna flyttades

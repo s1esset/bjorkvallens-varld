@@ -15,7 +15,8 @@
 import { Container, Graphics, Circle, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { DragController } from '../../lib/DragController.js'
-import { bounceIn, pop, wiggle, puff, sparkle, floatText, liv } from '../../lib/feedback.js'
+import { bounceIn, pop, wiggle, puff, sparkle, floatText, liv, ripple } from '../../lib/feedback.js'
+import { bage } from '../../lib/form.js'
 import { createScene } from '../../lib/scene.js'
 import { COLORS } from '../../lib/theme.js'
 import { nastaVariant } from '../../lib/variation.js'
@@ -36,10 +37,16 @@ const BLOCKS = {
   tut: { color: COLORS.orange }, // trumpet
   klapp: { color: COLORS.red }, // klappande händer
   rost: { color: COLORS.purple }, // musiknot = djurets egen röst
+  shaker: { color: COLORS.teal }, // maracas: djuret skakar, tre korta tick (nivå 2)
+  eko: { color: COLORS.pink }, // klocka: tonen ekar tillbaka, allt svagare (nivå 3)
 }
-const STAMP_ORDER = ['hopp', 'snurr', 'tut', 'klapp', 'rost']
-// Slot-tap cyklar tomt → hopp → … → röst → tomt.
-const CYCLE = [null, 'hopp', 'snurr', 'tut', 'klapp', 'rost']
+const STAMP_ORDER = ['hopp', 'snurr', 'tut', 'klapp', 'rost', 'shaker', 'eko']
+// Hur många block som är framme vid en viss nivå (highestLevel): 5 → 6 → 7. Slot-tap cyklar
+// tomt → de framme blocken → tomt (se _cykel).
+function blockAntal(level) {
+  return level >= 3 ? 7 : level === 2 ? 6 : 5
+}
+const AVATAR_X = 130
 
 // Stämda instrument per djur (mönster #7): samma pentatoniska skala, olika oktav + klang.
 // Block på olika djur klingar därför ALLTID ihop till harmoni, och en rad block stiger
@@ -110,6 +117,9 @@ export default {
     const level = Math.min(ctx.progress.get().highestLevel || 1, 3)
     this._nAnimals = level >= 3 ? 4 : 3
     this._slots = level >= 3 ? 6 : level === 2 ? 5 : 4
+    // Nivån låser också upp NYA BLOCK (shaker på 2, eko på 3). `blockSett` = hur många block
+    // barnet redan fått se presenterade (sparas) — ett nytt block får sin hälsning EN gång.
+    this._nBlock = blockAntal(ctx.progress.get().highestLevel || 1)
 
     this._root = new Container()
     ctx.stage.addChild(this._root)
@@ -141,6 +151,34 @@ export default {
 
   mount(ctx) {
     ctx.services.voice.say(this.voiceIntro)
+    // Fler block framme än barnet sett presenterade (nivån steg förra gången, eller spelet fick
+    // nya block medan barnet redan var högre upp): visa dem en gång.
+    const sett = ctx.progress.get().custom?.blockSett || 5
+    if (this._nBlock > sett) {
+      ctx.later(0.7, () => this._visaNyaBlock(ctx, sett, this._nBlock))
+    }
+  },
+
+  // Hälsa på nya block: stämpeln vinkar, gnistrar och låter, och rösten säger det en gång.
+  // Sparar hur många block som presenterats så hälsningen aldrig upprepas.
+  _visaNyaBlock(ctx, fran, till) {
+    if (!this._alive) return
+    for (let i = fran; i < till; i++) {
+      const s = this._stamps[i]
+      if (!s || s.destroyed) continue
+      wiggle(s)
+      sparkle(ctx.fxLayer, s.x, s.y)
+      ctx.services.audio.tone({ freq: 880 + (i - fran) * 220, dur: 0.16, type: 'sine', vol: 0.12, delay: (i - fran) * 0.12 })
+    }
+    ctx.narTyst(() => {
+      if (this._alive) ctx.services.voice.say('Titta, ett nytt block!')
+    })
+    ctx.progress.setCustom('blockSett', till)
+  },
+
+  // Blocken som ligger framme just nu, i stämpelordning.
+  _cykel() {
+    return [null, ...STAMP_ORDER.slice(0, this._nBlock)]
   },
 
   // --- bygg scenen ---------------------------------------------------------
@@ -291,35 +329,39 @@ export default {
     // Tempo-knapp (i brickan, till höger).
     this._root.addChild(this._makeTempo(ctx))
 
-    // 5 dra-stämplar (oändlig källa — släpps i en slot men återgår alltid hem).
-    const x0 = 150
-    const gap = 130
-    STAMP_ORDER.forEach((type, i) => {
-      const stamp = this._makeStamp(type)
-      stamp.x = x0 + i * gap
-      stamp.y = 666
-      this._root.addChild(stamp)
-      this._stamps.push(stamp)
-      // Förhandslyssning i lyftet (samma pointerdown som DragController lyfter på).
-      stamp.on('pointerdown', () => {
-        if (this._alive) this._stampLjud(ctx, type)
-      })
-      this._drag.addItem(stamp, { type }, {
-        onCorrect: (rec, target) => {
-          if (!this._alive) return
-          this._idle = 0
-          const sv = target.view
-          this._setSlot(ctx, sv._row, sv._idx, type)
-          this._resetStamp(rec)
-        },
-        onMiss: (rec) => {
-          if (!this._alive) return
-          this._idle = 0
-          puff(ctx.fxLayer, rec.view.x, rec.view.y)
-          ctx.services.audio.sfx('soft')
-        },
-      })
+    // 5–7 dra-stämplar (oändlig källa — släpps i en slot men återgår alltid hem). Antalet
+    // följer nivån (blockAntal); sju stämplar slutar vid x 930, före tempo-knappens träffyta (1090).
+    STAMP_ORDER.slice(0, this._nBlock).forEach((type, i) => this._laggStamp(ctx, type, i))
+  },
+
+  // En stämpel på plats i (x 150 + i·130). Återanvänds när nivån låser upp ett nytt block mitt i
+  // ett pass.
+  _laggStamp(ctx, type, i) {
+    const stamp = this._makeStamp(type)
+    stamp.x = 150 + i * 130
+    stamp.y = 666
+    this._root.addChild(stamp)
+    this._stamps.push(stamp)
+    // Förhandslyssning i lyftet (samma pointerdown som DragController lyfter på).
+    stamp.on('pointerdown', () => {
+      if (this._alive) this._stampLjud(ctx, type)
     })
+    this._drag.addItem(stamp, { type }, {
+      onCorrect: (rec, target) => {
+        if (!this._alive) return
+        this._idle = 0
+        const sv = target.view
+        this._setSlot(ctx, sv._row, sv._idx, type)
+        this._resetStamp(rec)
+      },
+      onMiss: (rec) => {
+        if (!this._alive) return
+        this._idle = 0
+        puff(ctx.fxLayer, rec.view.x, rec.view.y)
+        ctx.services.audio.sfx('soft')
+      },
+    })
+    return stamp
   },
 
   _makeStamp(type) {
@@ -353,6 +395,12 @@ export default {
         audio.tone({ freq: note.freq, dur: 0.1, type: note.type, vol: 0.18 })
         audio.tone({ freq: note.freq, dur: 0.1, type: note.type, vol: 0.14, delay: 0.13 })
         break
+      case 'shaker':
+        ljudShaker(audio, note.freq, 0.9)
+        break
+      case 'eko':
+        ljudEko(audio, note.freq, note.type, 0.9)
+        break
       case 'rost': {
         const n = this._rows.length || 1
         this._rostIdx = ((this._rostIdx ?? -1) + 1) % n
@@ -380,7 +428,7 @@ export default {
       const rad = Array.isArray(sparad[r]) ? sparad[r] : []
       for (let i = 0; i < Math.min(rad.length, this._slots); i++) {
         const type = rad[i]
-        if (!type || !BLOCKS[type]) continue
+        if (!type || !BLOCKS[type] || STAMP_ORDER.indexOf(type) >= this._nBlock) continue
         row.slots[i] = type
         const bv = this._makeBlockView(type)
         row.slotC[i].addChild(bv)
@@ -464,7 +512,8 @@ export default {
   _cycleSlot(ctx, row, i) {
     this._idle = 0
     const cur = row.slots[i]
-    const next = CYCLE[(CYCLE.indexOf(cur) + 1) % CYCLE.length]
+    const cykel = this._cykel()
+    const next = cykel[(cykel.indexOf(cur) + 1) % cykel.length]
     this._setSlot(ctx, row, i, next)
     ctx.services.audio.sfx('pop')
   },
@@ -567,6 +616,17 @@ export default {
     ctx.progress.setLevel(cur + 1)
     const n = ctx.progress.get().custom?.arrangemang || 0
     ctx.progress.setCustom('arrangemang', n + 1)
+    // Nivån steg: ett nytt block kommer fram DIREKT i brickan (rutnätet växer först nästa besök).
+    const nya = blockAntal(cur + 1)
+    if (nya > this._nBlock) {
+      const fran = this._nBlock
+      for (let i = fran; i < nya; i++) {
+        const s = this._laggStamp(ctx, STAMP_ORDER[i], i)
+        bounceIn(s, { delay: 0.3 + (i - fran) * 0.15 })
+      }
+      this._nBlock = nya
+      ctx.later(0.4, () => this._visaNyaBlock(ctx, fran, nya))
+    }
   },
 
   // Tonen för ett djur vid ett slot-index: djurets instrument på pentatonisk skala,
@@ -619,6 +679,44 @@ export default {
           if (!audio.sample('djur_' + row.id)) ctx.services.voice.say(row.cry)
         }
         floatText(ctx.fxLayer, view.x, view.y - 70, '🎵', { fontSize: 48, rise: 70 })
+        break
+      }
+      case 'shaker': {
+        // Skakar sidledes (tre fram-och-tillbaka) medan öronen flaxar i motfas och pärlor flyger.
+        gsap.killTweensOf(view, 'x')
+        view.x = AVATAR_X
+        gsap.to(view, {
+          x: AVATAR_X + 9,
+          duration: 0.045,
+          yoyo: true,
+          repeat: 5,
+          ease: 'sine.inOut',
+          onComplete: () => {
+            if (!view.destroyed) view.x = AVATAR_X
+          },
+        })
+        this._oronStot(row, 0.6)
+        this._later(0.07, () => this._oronStot(row, -0.6))
+        this._later(0.14, () => this._oronStot(row, 0.6))
+        puff(ctx.fxLayer, view.x, view.y - 40, { count: 3, color: COLORS.teal })
+        ljudShaker(audio, note.freq, 1)
+        break
+      }
+      case 'eko': {
+        // Tonen ekar tillbaka tre gånger, allt svagare; en ring och en liten puls per eko.
+        pop(view, { scale: 1.2 })
+        this._oronStot(row, 0.7)
+        // Ekots steg skalas med takten: i snabbaste tempot ska svansen hinna dö ut före nästa slag.
+        const steg = Math.min(EKO_STEG, (this._beatMs / 1000) * 0.28)
+        ljudEko(audio, note.freq, note.type, 1, steg)
+        const rad = COLORS.pink
+        for (let k = 1; k <= 3; k++) {
+          this._later(steg * k, () => {
+            if (view.destroyed) return
+            ripple(ctx.fxLayer, view.x, view.y, { color: rad, maxR: 55 + k * 22, duration: 0.5, width: 5, alpha: 0.6 - k * 0.12 })
+            if (k < 3) pop(view, { scale: 1.1 - k * 0.025 })
+          })
+        }
         break
       }
     }
@@ -692,6 +790,22 @@ export default {
     ctx.services.voice.cancel()
     this._root?.destroy({ children: true })
   },
+}
+
+// Ljud för de nya blocken (stämpelns förhandslyssning och loopens uppspelning delar dem).
+// `vol` skalar volymen. Skakan = tre korta tick på djurets egen ton (oktav upp) så den klingar
+// ihop med resten; ekot = tonen och tre allt svagare upprepningar.
+const EKO_STEG = 0.24 // s mellan ekona
+function ljudShaker(audio, freq, vol) {
+  for (let k = 0; k < 3; k++) {
+    audio.tone({ freq: freq * 2, dur: 0.035, type: 'square', vol: 0.07 * vol, delay: k * 0.07 })
+    audio.tone({ freq: freq * 4, dur: 0.05, type: 'triangle', vol: 0.05 * vol, delay: k * 0.07 + 0.01 })
+  }
+}
+function ljudEko(audio, freq, type, vol, steg = EKO_STEG) {
+  ;[0.2, 0.12, 0.07, 0.035].forEach((v, k) => {
+    audio.tone({ freq, dur: k === 0 ? 0.2 : Math.min(0.14, steg * 0.8), type, vol: v * vol, delay: k * steg })
+  })
 }
 
 // =================== Programmatisk grafik ===================
@@ -805,6 +919,29 @@ function makeBlockArt(type) {
     g.roundRect(21, -29, 10, 21, 5).fill(0xffd7ae).stroke({ width: 2.5, color: 0xcf9a68 })
     for (const [x0, y0, x1, y1] of [[-38, -30, -46, -40], [0, -36, 0, -48], [38, -30, 46, -40]]) {
       g.moveTo(x0, y0).lineTo(x1, y1).stroke({ width: 4, color: COLORS.red, alpha: 0.85, cap: 'round' })
+    }
+  } else if (type === 'shaker') {
+    // Två maracas som lutar isär: handtag, äggformat huvud med band och prickar.
+    for (const [sx, hx, hy, fa, fb] of [[-1, -15, -12, COLORS.teal, 0x2f9a8f], [1, 15, -12, COLORS.orange, 0xc9731f]]) {
+      g.moveTo(hx + sx * 4, hy + 14).lineTo(hx + sx * 15, 30).stroke({ width: 9, color: 0x8a5a3b, cap: 'round' })
+      g.circle(hx + sx * 16, 33, 6.5).fill(0xc08a52).stroke({ width: 2.5, color: 0x8a5a3b })
+      g.ellipse(hx, hy, 18, 22).fill(fa).stroke({ width: 3, color: fb })
+      g.moveTo(hx - 15, hy + 3).quadraticCurveTo(hx, hy + 12, hx + 15, hy + 3).stroke({ width: 3.5, color: COLORS.white, alpha: 0.85, cap: 'round' })
+      for (const [dx, dy] of [[-6, -10], [5, -13], [0, -3]]) g.circle(hx + dx, hy + dy, 2.8).fill({ color: COLORS.white, alpha: 0.9 })
+    }
+  } else if (type === 'eko') {
+    // Klocka som ringer: kupol, kant, kläpp och ringar som ekar ut åt sidorna.
+    const rim = 0xc98a2e
+    g.moveTo(0, -30).lineTo(0, -26).stroke({ width: 5, color: rim, cap: 'round' })
+    g.circle(0, -33, 5).fill(COLORS.yellow).stroke({ width: 2.5, color: rim })
+    g.moveTo(-25, 18).quadraticCurveTo(-29, -24, 0, -26).quadraticCurveTo(29, -24, 25, 18).closePath()
+      .fill(COLORS.yellow).stroke({ width: 3, color: rim })
+    g.roundRect(-31, 14, 62, 11, 5.5).fill(0xffe9a8).stroke({ width: 3, color: rim })
+    g.circle(0, 31, 7).fill(rim)
+    g.moveTo(-12, -14).quadraticCurveTo(-18, -6, -16, 6).stroke({ width: 4, color: COLORS.white, alpha: 0.7, cap: 'round' })
+    for (const [r, a] of [[44, 0.8], [54, 0.45]]) {
+      bage(g, 0, -2, r, Math.PI * 0.78, Math.PI * 1.22).stroke({ width: 4, color: COLORS.pink, alpha: a, cap: 'round' })
+      bage(g, 0, -2, r, -Math.PI * 0.22, Math.PI * 0.22).stroke({ width: 4, color: COLORS.pink, alpha: a, cap: 'round' })
     }
   } else {
     // Musiknot — djurets egen röst.

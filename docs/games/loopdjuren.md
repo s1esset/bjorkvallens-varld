@@ -72,8 +72,8 @@ djuren är utbytbara emoji snarare än ett band med var sin röst.
   Klar 2026-09-23 (v1.251.0): Samma pointerdown som DragController lyfter på spelar blockets
   eget ljud ur `_perform` på en neutral marimba-ton (`_stampLjud` :286). Röst-blocket låter som
   djuren i tur och ordning, via sample och aldrig via berättarrösten.
-- **[Medium] Nya block per nivå.** Lägg till t.ex. ett "studsa"-block, ett shaker/maracas,
-  eller ett "eko"-block på högre nivåer. *(Scenbytet per nivå är byggt 2026-10-02 — se §5.)*
+- ✅ ~~**[Medium] Nya block per nivå.**~~ Klar 2026-10-03: shaker (nivå 2) och eko (nivå 3), se §5.
+  ("Studsa" skippades — det vore ett andra hopp.) *(Scenbytet per nivå är byggt 2026-10-02.)*
 
 ### Juice
 - ✅ ~~**[Quick] Beat-puls på rutnätet.**~~ Redan byggd (kolumnens slots studsar på slaget,
@@ -100,6 +100,8 @@ djuren är utbytbara emoji snarare än ett band med var sin röst.
   diskret så djurens egna ljud hörs.
 
 ## 5. Status / loggar
+
+- 2026-10-03 ✅ **Två nya block: shaker och eko (FYSIKPLAN U3).** Premissen höll: fem fasta block i `BLOCKS`/`STAMP_ORDER`. Nu sju, och nivån (`highestLevel`) bestämmer hur många som ligger framme (`blockAntal`: 5 → 6 → 7). **Shaker** (maracas): djuret skakar sidledes (tre fram-och-tillbaka på avatarens `x`, återställs i onComplete), öronen flaxar i motfas, tre pärl-puffar; ljudet är tre korta tick på djurets egen ton (oktav upp) så de klingar ihop med skalan. **Eko** (klocka med ljudringar): tonen följs av tre allt svagare ekon (`EKO_STEG` 0,24 s, via `audio.tone({delay})`) med en ring (`ripple`) och en mindre puls per eko. Båda är ritade föremål (`makeBlockArt`) och förhandslyssnas som alla block när stämpeln lyfts (`ljudShaker`/`ljudEko` delas av stämpel och loop). **Upplåsning:** i `_celebrate` (nivån steg) läggs det nya blockets stämpel till i brickan direkt (`_laggStamp`, utbruten ur `_buildTray`; bounceIn + gnistor + ton) och rösten säger "Titta, ett nytt block!" en gång. `custom.blockSett` (ny sparnyckel) minns hur många block som presenterats — öppnar barnet spelet på en nivå med fler block än sett hälsas de i `mount`. Slot-tap-cykeln (`_cykel`) och `_aterstallLoop` följer de framme blocken. Sju stämplar slutar vid x 930, före tempo-knappens träffyta (x 1090). Synligt: shaker efter första firandet, eko efter ett andra (firandet är en gång per besök, så ett besök till); en profil med `highestLevel` ≥ 3 ser alla sju direkt. Öronen/`vippa` orörda. Ej webbläsartestad av byggaren.
 
 - 2026-10-02 ✅ **Öronen fjädrar (D3 · FYSIKPLAN P2 · `lib/vippa.js`).** Öronen ritades i samma
   Graphics som huvudet; nu ritas de i egna (`gl`/`gr`), var och en i en `ora`-container med pivån

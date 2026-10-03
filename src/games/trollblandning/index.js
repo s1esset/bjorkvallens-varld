@@ -211,6 +211,22 @@ function drawElement(id) {
       g.circle(12, -14, 3).fill(0x2b2b2b)
     },
   }
+  // D15 (U3): tre nya resultat. Blomman och blixten har egen silhuett.
+  E.blomma = () => {
+    g.moveTo(0, 26).quadraticCurveTo(-3, 12, 0, -2).stroke({ width: 5, color: 0x3f9a4a, cap: 'round' })
+    g.ellipse(-10, 14, 9, 5).fill(0x5bbf6a)
+    g.ellipse(10, 8, 9, 5).fill(0x5bbf6a)
+    for (let i = 0; i < 5; i++) {
+      const a = (i / 5) * Math.PI * 2 - Math.PI / 2
+      g.circle(Math.cos(a) * 12, -14 + Math.sin(a) * 12, 9).fill(0xff8fb8).stroke({ width: 2, color: 0xe0638f })
+    }
+    g.circle(0, -14, 8).fill(0xffd35c).stroke({ width: 2, color: 0xe0a94f })
+  }
+  E.blixt = () => {
+    g.moveTo(6, -28).lineTo(-14, 2).lineTo(-2, 2).lineTo(-10, 28).lineTo(16, -6).lineTo(3, -6).lineTo(12, -28).closePath()
+    g.fill(0xffe45c).stroke({ width: 3, color: 0xe0a94f })
+    g.moveTo(5, -22).lineTo(-6, -2).stroke({ width: 3, color: 0xfff8c4, alpha: 0.9, cap: 'round' })
+  }
   ;(E[id] || E.sten)()
   g.eventMode = 'none'
   return g
@@ -240,6 +256,13 @@ const ELEMENTS = {
   kruka: { emoji: '🏺', color: 0xc77c4a, namn: 'Kruka', varm: 0.5 },
   regnbage: { emoji: '🌈', color: 0xa78bfa, namn: 'Regnbåge', varm: 0.6 },
   enhorning: { emoji: '🦄', color: 0xf7b9e4, namn: 'Enhörning', varm: 0.7 }, // hemligt recept (ej i boken)
+  // D15 (U3): nya att upptäcka (`regn` fanns redan ritat men saknade recept). SIST i
+  // registret — palettindexet (`ELEM_PAL`) är ordningen. Hyllan rymmer 18 P0-platser
+  // (2 rader × 9): 5 baser + 13 resultat = 18, så fler NYA element får inte läggas till
+  // här utan att hyllan får en tredje rad. Nya VÄGAR till redan kända element
+  // (RAW_RECIPES) kostar ingen hyllplats.
+  blomma: { emoji: '🌸', color: 0xff8fb8, namn: 'Blomma', varm: 0.45 },
+  blixt: { emoji: '⚡', color: 0xffe45c, namn: 'Blixt', varm: 0.9 },
 }
 
 // Partikelfärg per element. Indexet ÄR `world.pal[i]`, så listan måste ha en fast
@@ -266,6 +289,16 @@ const RAW_RECIPES = [
   ['moln', 'is', 'sno'],
   ['sol', 'sno', 'vatten'],
   ['sol', 'regnbage', 'enhorning'], // hemligt: står inte i receptboken → "en till!"-jakt
+  // D15 (U3): tre nya element + nya vägar. Nya rader SIST: `recipeFor` tar första träffen.
+  ['moln', 'vatten', 'regn'],
+  ['regn', 'jord', 'blomma'],
+  ['moln', 'eld', 'blixt'],
+  // Nya vägar till kända element — belönas med "En till väg till …!".
+  ['regn', 'sol', 'regnbage'],
+  ['eld', 'sten', 'lava'], // sten smälter
+  ['regn', 'is', 'sno'],
+  ['regn', 'eld', 'anga'],
+  ['blomma', 'regnbage', 'enhorning'], // en andra väg till den hemliga enhörningen
 ]
 const recipeKey = (a, b) => [a, b].sort().join('+')
 const RECIPES = new Map(RAW_RECIPES.map(([a, b, r]) => [recipeKey(a, b), r]))
@@ -276,7 +309,10 @@ const recipeFor = (resId) => {
 }
 
 // Resultat nåbara från baserna (för slumpade nivåer 4+).
-const REACHABLE_GOALS = ['anga', 'lera', 'lava', 'sno', 'moln', 'sol', 'sten', 'kruka', 'regnbage']
+const REACHABLE_GOALS = ['anga', 'lera', 'lava', 'sno', 'moln', 'sol', 'sten', 'kruka', 'regnbage', 'regn', 'blomma', 'blixt']
+// Nivå 4+ lottar 6–7 mål; minst så här många är sådana barnet ÄNNU inte upptäckt
+// (custom.recept), så den som kommer tillbaka alltid har något nytt att hitta.
+const NYA_MAL_MIN = 3
 
 // Nivåer 0–3: tillgängliga baser + mål-recept (= receptbokens rader).
 const LEVELS = [
@@ -732,7 +768,7 @@ export default {
     // Nivå-konfig (0–3 fasta, 4+ slumpade nåbara mål).
     let cfg
     if (this._level <= 3) cfg = LEVELS[this._level]
-    else cfg = { bases: ['eld', 'vatten', 'jord', 'luft', 'is'], goals: shuffle(REACHABLE_GOALS).slice(0, 6 + (this._level % 2)) }
+    else cfg = { bases: ['eld', 'vatten', 'jord', 'luft', 'is'], goals: this._lottaMal(ctx) }
     this._bases = cfg.bases.slice()
     this._goals = cfg.goals.slice()
     this._discovered = new Set()
@@ -765,6 +801,26 @@ export default {
 
     // Bok-rader (❓-platshållare).
     this._buildBook(ctx)
+  },
+
+  // Nivå 4+: 6–7 mål ur de nåbara. Minst NYA_MAL_MIN av dem är sådana barnet inte redan
+  // upptäckt (sparnyckeln `custom.recept` läses här) — fler recept att hitta
+  // i stället för samma nio om och om igen. Är nästan allt redan upptäckt fylls det på
+  // med kända. Ordningen i boken slumpas.
+  _lottaMal(ctx) {
+    const cur = ctx.progress.get().custom || {}
+    const kanda = new Set(Array.isArray(cur.recept) ? cur.recept : [])
+    const antal = 6 + (this._level % 2)
+    const nya = shuffle(REACHABLE_GOALS.filter((id) => !kanda.has(id)))
+    const gamla = shuffle(REACHABLE_GOALS.filter((id) => kanda.has(id)))
+    const tagna = nya.slice(0, Math.max(NYA_MAL_MIN, antal - gamla.length))
+    const rest = shuffle([...nya.slice(tagna.length), ...gamla])
+    // Högst ETT "djupt" mål (tre recept i kedjan, i dag bara blomma) per runda: kedjan är
+    // lång för en 3-åring. Överskott ersätts av nästa i ordningen.
+    let djupa = 0
+    const inte2djupt = (id) => this._buildPlan([id]).length < 3 || ++djupa <= 1
+    const ordnad = [...tagna, ...rest]
+    return shuffle(ordnad.filter(inte2djupt).slice(0, antal))
   },
 
   // Minimal recept-plan: alla recept som behövs för att nå målen, deps först.
@@ -1266,6 +1322,7 @@ export default {
     if (!already) {
       this._shelfElems.add(resId)
       this._discovered.add(resId)
+      this._sparaUpptackt(ctx, resId)
       this._spawnResultDrop(ctx, resId)
     }
 
@@ -1301,6 +1358,15 @@ export default {
 
     this._idle = 0
     this._checkComplete(ctx)
+  },
+
+  // Varje ny upptäckt sparas direkt (barnet kan gå ut mitt i rundan): unionen av det sparade och
+  // det nya, så `custom.recept` aldrig krymper. `_checkComplete` unionerar vid rundans slut också.
+  _sparaUpptackt(ctx, resId) {
+    const cur = ctx.progress.get().custom || {}
+    const prev = Array.isArray(cur.recept) ? cur.recept : []
+    if (prev.includes(resId)) return
+    ctx.progress.setCustom('recept', [...prev, resId])
   },
 
   _onNoRecipe(ctx, pair) {
@@ -1709,9 +1775,65 @@ export default {
         sparkle(fx, CX, BREW_Y, { count: 10 })
         return true
       }
+      case 'regn': {
+        // Regn: ett litet moln och droppar som faller ned i kitteln, plinkande toner nedåt.
+        this._floatElem('moln', CX, BREW_Y - 150, { scale: 1.1, rise: 10, duration: 1.1 })
+        for (let i = 0; i < 6; i++) {
+          this._fxDelay(0.09 * i, () => {
+            this._floatElem('vatten', CX + (i - 2.5) * 22, BREW_Y - 130, { scale: 0.5, rise: -120, duration: 0.55 })
+            ctx.services.audio.tone({ freq: 880 - i * 70, dur: 0.12, type: 'sine', vol: 0.22 })
+          })
+        }
+        puff(fx, CX, BREW_Y, { count: 8, color })
+        return true
+      }
+      case 'blomma': {
+        // Blomma: spirar upp ur brygden, kronblad i rosa och gult, en stigande ackord-arpeggio.
+        burst(fx, CX, BREW_Y, { count: 14, colors: [0xff8fb8, 0xffd35c, 0x7ed06a], power: 0.9 })
+        this._floatElem('blomma', CX, BREW_Y - 10, { scale: 1.9, rise: 140, duration: 1.1 })
+        sparkle(fx, CX, BREW_Y - 40, { count: 10 })
+        ;[523, 659, 784].forEach((f, i) => ctx.services.audio.tone({ freq: f, dur: 0.22, type: 'triangle', vol: 0.3, delay: 0.1 * i }))
+        return true
+      }
+      case 'blixt': {
+        // Blixt: ett vitt skarpt blink, själva blixten ritas över kitteln, sedan mullret.
+        this._blixtBlink(ctx)
+        burst(fx, CX, BREW_Y, { count: 12, colors: [0xffe45c, 0xffffff], power: 1.2 })
+        ctx.services.audio.tone({ freq: 1200, slideTo: 400, dur: 0.14, type: 'triangle', vol: 0.12 })
+        ctx.services.audio.tone({ freq: 90, slideTo: 55, dur: 0.6, type: 'sine', vol: 0.2, delay: 0.1 })
+        return true
+      }
       default:
         return false
     }
+  },
+
+  // En ritad blixt över kitteln som blinkar till och tonar ut. Samma exit-säkra {}-proxy
+  // som frostringen: skapas i fxLayer, förstörs i egen tweens onComplete.
+  _blixtBlink(ctx) {
+    const g = new Graphics()
+    g.eventMode = 'none'
+    const x = CX
+    const y = CY - 250
+    g.moveTo(x + 14, y).lineTo(x - 22, y + 110).lineTo(x + 2, y + 110).lineTo(x - 30, y + 230).lineTo(x + 36, y + 80).lineTo(x + 10, y + 80).lineTo(x + 40, y)
+    g.closePath().fill(0xffe45c).stroke({ width: 5, color: 0xfffbe0 })
+    ctx.fxLayer.addChild(g)
+    const st = { a: 1 }
+    const tw = gsap.to(st, {
+      a: 0,
+      duration: 0.7,
+      ease: 'power3.in',
+      onUpdate: () => {
+        if (g.destroyed) {
+          tw.kill()
+          return
+        }
+        g.alpha = (st.a > 0.6 ? 1 : st.a / 0.6) * (Math.sin(st.a * 40) > -0.4 ? 1 : 0.55)
+      },
+      onComplete: () => {
+        if (!g.destroyed) g.destroy()
+      },
+    })
   },
 
   // Frost-ring runt kittelkanten (blinkar in/ut). Ritad med mitten BAKAD i

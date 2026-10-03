@@ -114,6 +114,25 @@ inte spelar någon roll, och vars hjälp gärna fyller boken åt barnet.**
 
 ## 5. Status / loggar
 
+- 2026-10-03 🧪 **Fler recept att upptäcka (FYSIKPLAN U3, D15 B2).** Premissen höll: `REACHABLE_GOALS`
+  var 9 st, och efter dem fanns inget nytt. Nu **13 nåbara resultat** (+ hemliga enhörningen):
+  **regn** (moln + vatten — ritningen fanns men saknade recept), **blomma** (regn + jord) och
+  **blixt** (moln + eld), båda med egen ritad silhuett (`drawElement`) och egen signatur-show
+  (`_signatureReact`: regnet faller ur ett moln med plinkande toner nedåt; blomman spirar med en
+  C-dur-arpeggio; blixten ritas över kitteln, blinkar och mullrar — `_blixtBlink`, exit-säker
+  {}-proxy). Dessutom **sex nya vägar** till kända element (regn+sol→regnbåge, eld+sten→lava,
+  regn+is→snö, regn+eld→ånga, blomma+regnbåge→enhörning) som ger "En till väg till …!".
+  Nya rader ligger SIST i `RAW_RECIPES` (`recipeFor` tar första träffen → bokens rader och
+  ledtrådar oförändrade). Nivå 4+ lottar mål via `_lottaMal`: minst `NYA_MAL_MIN` = 3 av 6–7 mål är
+  sådana barnet ännu inte upptäckt (läser `custom.recept`), så en återvändare alltid har något nytt.
+  ⚠️ **Hyllan är taket:** 5 baser + 13 resultat = **18** = exakt 2 rader × 9 P0-platser. Ett
+  fjortonde NYTT element kräver en tredje hyllrad (annars bryts P0-avståndet 24 px); nya VÄGAR
+  kostar ingen plats. Sparnycklar: `custom.recept` (läses + skrivs som förut, unionen av upptäckta
+  id:n — gamla sparningar orörda; skrivs nu direkt vid varje upptäckt, inte först när rundan är
+  klar), `custom.rundor`. Inget nytt sparas. Fixvarv efter kritiken: blixtens ljud mjukare (ingen
+  sågtand), högst ett djupt mål (blomma) per runda.
+  Grind: `check --game trollblandning` 0/0; ej webbläsartestad av byggaren.
+
 - 2026-10-02 ✅ **Ringen bort, finalens flaska ritad** (natt F3 · B3 · P0 ASSETS):
   - **Ringen bort:** källdropparnas bakgrund (`_makeDrop`) var en fylld cirkel + en `stroke`-ring
     i elementets färg. Nu bara ett mjukt sken (två avtagande ljusfläckar, ingen kant) — elementet
